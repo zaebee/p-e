@@ -13,7 +13,15 @@ pid=$(pgrep -f 'tunnel-client run --profile p-e-relay' || true)
 [ -n "$pid" ] && { echo "stopping tunnel-client $pid"; kill "$pid"; sleep 3; }
 
 set -a; . ./.env; set +a
-nohup ~/.local/bin/tunnel-client run --profile p-e-relay >/dev/null 2>&1 &
+# The daemon's log is the only place a 502 explains itself: the first
+# outage was diagnosed from `rpc_method: initialize` and
+# `upstream_response_received: false` in exactly this stream. An earlier
+# version of this script sent it to /dev/null, which fixed the staleness
+# check and destroyed the observability that found the bug it was written
+# after.
+log="/tmp/tunnel-client-p-e-relay.log"
+nohup ~/.local/bin/tunnel-client run --profile p-e-relay >>"$log" 2>&1 &
+echo "log: $log"
 for _ in $(seq 1 15); do curl -fsS http://127.0.0.1:8080/readyz >/dev/null 2>&1 && break; sleep 2; done
 
 newest_src=$(find src -name '*.ts' -newermt '-1 day' -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
