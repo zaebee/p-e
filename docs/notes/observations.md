@@ -99,6 +99,112 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-027 · the third instance of one pattern, and this time it was mine
+
+**A commit timestamp is not a witness.** It reached a chat message and not the
+repository, which is the only reason this is a near miss rather than a published
+false claim.
+
+Row B — *temporal precedence, decidable, no key* — looked already satisfied:
+records are pushed to GitHub, and `git log` gives times that read as
+infrastructure. Checked after `ownima-94` refused it:
+
+```
+git log --format='%G?'                    N            not signed
+gh api …/commits/cee59a8  verification    false        reason: unsigned
+git cat-file -p cee59a8   committer       1787937387   epoch seconds written
+                                                       by the local git process
+```
+
+The date is a field **inside the commit object**, written by the depositor's own
+git, settable with `GIT_COMMITTER_DATE`. GitHub then echoes it back as
+`commit.committer.date` — which is what makes it read as authoritative — and in
+the same response says it vouches for nothing.
+
+**And the push receipt is not there either.** `repos/zaebee/p-e/events` returns
+one event: a `CreateEvent` at `2026-08-28T15:44:19Z`, the repository's creation.
+No `PushEvent`. That one timestamp *is* GitHub's clock and attests only that a
+repository was created — nothing about any record.
+
+### The pattern, three times in one day
+
+```
+empty ANTHROPIC_API_KEY outranking federation      credentials
+"finalUrl" in e carrying CONFORMS                  verdicts
+a self-asserted commit date read as witnessed      provenance
+```
+
+Each time an honest value sits one field away from the one the decision reads.
+Nobody lied in any of the three. The first two were found in someone else's
+code; the third I was about to record as a result.
+
+### What would actually witness, in order of what it buys
+
+| | |
+|---|---|
+| GitHub push receipt | genuinely GitHub's clock, but API-queryable rather than portable, retention-bounded — **and not present for this repository** |
+| signed commits | proves the depositor signed. Not *when*. Moves the problem |
+| RFC 3161 TSA / Rekor | a portable signed commitment that a digest existed by T, evaluable offline by anyone holding the authority's key. Positioned observer **and** transferable |
+| a GitHub Actions run | cheapest real option already available: the run's start time is GitHub's, and the workflow can attest the tree it saw |
+
+Row B is satisfiable cheaply. **It is not currently satisfied.**
+
+### What the granularity buys, which was not claimed
+
+The witness covers a commit and a commit covers a tree. That does not weaken a
+presence claim — a record inside an attested tree is exactly the claim. But an
+attested tree pins **the complete set of records that existed at T**, which is an
+**absence proof**: *relay-0049 was not in the store at T* becomes checkable by
+anyone holding the tree.
+
+Presence was asked for. Absence falls out, and absence is what the suppression
+question needs.
+
+### Row A: the criterion is not the number of readers
+
+A reader whose access path the depositor controls is not a second reader. The
+depositor holds a split view for free — serve one tunnel session one store and
+another session another. **The criterion is whether the comparison channel is
+mediated by the depositor**, which is what CT says about gossip.
+
+Git already does most of it: a commit hash commits to the whole tree, so
+equivocation *at a fixed hash* is impossible rather than merely detectable. The
+missing piece is narrow — **two readers exchanging commit hashes over a channel
+this depositor does not mediate.** Not a clone. A hash, out of band.
+
+### Suppression: CT does not solve it either, and there is already a partial answer here
+
+Omission is undetectable from inside a log. CT moves enforcement outside: a
+client refuses a certificate arriving without proof it was logged. The log never
+detects omission; the relying party declines to act on unlogged things.
+
+Two partial answers exist here, one already built:
+
+- **Built.** `KNOWN_MISSING` is an omission detector for *referenced* records —
+  `relay-0026` and `relay-0045` are in that state now. It cannot catch
+  suppression of a **leaf**: a message nothing else points at. That connection
+  had not been made.
+- **Available.** The sender can watch. ChatGPT queries the store over MCP, so
+  `relay-0049`'s absence is visible to the party that knows it sent it —
+  suppression becomes detectable by the victim rather than invisible.
+
+With an attested tree the victim's complaint becomes half-transferable: *I sent X
+at T1, and the attested tree at T2 does not contain X.* The second clause is
+checkable by anyone; the first is still the sender's word. Suppression then has
+the same shape as fidelity — two operands, one out of reach — instead of being
+invisible by construction. **Which makes Row B and the suppression question one
+question.**
+
+### One line added to the test audit
+
+What made `i3` harmful was not that its test pinned a state. It was that **the
+pin and the check were written from the same reading**. A photograph taken by the
+thing it photographs is not evidence. The seven state-pinned assertions are safe
+insofar as each was derived from the corpus independently of the check it covers
+— which is the property to spot-check, rather than what kind of thing they pin.
+
+---
+
 ## OBS-026 · a continuity chain with two authors, and a row that is narrower than it looked
 
 `relay-0053` deposited by `ownima-94`. Store: 13 records, two digest links, both
