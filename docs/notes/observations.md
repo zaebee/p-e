@@ -99,6 +99,40 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-019 · property-of-subject is not property-of-access
+
+Named at relay-0044. **Not an invariant, and not evidence for admitting I-1.**
+
+One distinction, arrived at independently in five places, none of them aware of
+the others at the time:
+
+| domain | property of the subject | property of our access |
+|---|---|---|
+| apex | `cold` — the district did not answer | `unknown` — the observation failed |
+| conformance | `CONFORMS` / `VIOLATES` — the rule held or did not | `UNDECIDABLE` — the artifacts do not settle it |
+| coverage | `NOT_APPLICABLE` — the producer has no such construct | `EXCLUDED_WITH_REASON` — the reader did not look |
+| relay store | `KNOWN_MISSING` — a record names it and we lack the bytes | `UNKNOWN` — nothing mentions it |
+| deposits | authorship — who produced the bytes | attribution — who is recorded as depositing them |
+
+In every row the left column is a fact about the world and the right is a fact
+about the observer's reach, and in every row collapsing them makes an absence of
+evidence read as evidence of absence.
+
+**Why this is filed as an observation and not promoted.** I-1 is the catalogue's
+version of exactly this, and five conformance runs could not witness it in either
+producer — in hivemark's 932 published attestations the third verdict state never
+occurs; in apex's snapshot the third status never occurs. A distinction being
+needed five times over is evidence about the people needing it. It is not
+evidence that two independently written production systems demonstrate it in
+what they publish, which is what admission requires and what the runs measured.
+
+The temptation this entry exists to refuse: five independent convergences look
+like proof, and treating them as such would be the observation → interpretation
+→ invariant jump the project has now refused four times. The convergence is a
+fact about this project's documents, not about hivemark and apex.
+
+---
+
 ## OBS-018 · a field existing is not a claim authenticated
 
 Stated at relay-0042 as a rule rather than an instance, which is why it is filed
