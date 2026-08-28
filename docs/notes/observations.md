@@ -99,6 +99,34 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-016 · relay provenance is already two layers, and a write path adds a third
+
+Recorded at relay-0038, with one correction to the list it carried.
+
+**Two layers exist today**, in the store as built:
+
+```
+authored      depositor == sender; the bytes are the sender's own
+as-received   depositor != sender; the bytes arrived through a transport
+              that may not have preserved them
+```
+
+**A third appears the moment anything may write.** `depositor != sender` stops
+being a property of one record and becomes a standing condition: a participant
+without a filesystem cannot deposit its own messages, so every record it sends
+enters through somebody else. The answers are worked through in
+`docs/experiments/deposit-semantics.md`, and the load-bearing one is that
+alteration cannot be prevented, only attributed — the same conclusion hivemark
+reached about signing, arrived at from the other direction.
+
+**One item in relay-0038's list is already recorded.** *No-ingress topology
+cannot satisfy the zero-human-content-copy criterion* is OBS-015's second half,
+written when the store was built. Noting the duplication rather than filing it
+twice: a numbered observation that exists under two numbers is the defect this
+file was renumbered once already to avoid.
+
+---
+
 ## OBS-015 · the store is stricter than the agent that built it
 
 Built at relay-0036: a read-only store over relay records, four operations, no
