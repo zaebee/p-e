@@ -3,9 +3,9 @@ import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { sha256 } from "../src/manifest.js";
 import { appendRelay, depositLocal } from "../src/relay/deposit.js";
 import { loadStore } from "../src/relay/store.js";
-import { sha256 } from "../src/manifest.js";
 
 function scratch(): string {
   const root = join(mkdtempSync(join(tmpdir(), "p-e-dep-")), "relay");
@@ -136,7 +136,9 @@ describe("the id of a record the store named itself", () => {
   it("leaves the sender's bytes byte-identical", async () => {
     const root = scratch();
     const r = await appendRelay(headerless, undefined, root);
-    expect((await loadStore(root)).get(r.id)?.sha256).toBe(sha256(new TextEncoder().encode(headerless)));
+    expect((await loadStore(root)).get(r.id)?.sha256).toBe(
+      sha256(new TextEncoder().encode(headerless)),
+    );
   });
 
   it("refuses a record whose assigned id disagrees with its filename", async () => {

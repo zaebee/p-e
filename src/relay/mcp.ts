@@ -124,15 +124,13 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
           `nothing appeared in ${r.waitedMs}ms. That is a fact about this window, not about whether anything was sent.`,
         );
       }
-      return text(
-        `${r.appeared.length} record(s) after ${r.waitedMs}ms:\n` +
-          r.appeared
-            .map(
-              (x) =>
-                `${x.id}  ${x.kind ?? "?"}  from ${x.from ?? "?"} to ${x.to ?? "?"}  via ${x.depositedBy} ${x.provenance}`,
-            )
-            .join("\n"),
-      );
+      const lines = r.appeared
+        .map(
+          (x) =>
+            `${x.id}  ${x.kind ?? "?"}  from ${x.from ?? "?"} to ${x.to ?? "?"}  via ${x.depositedBy} ${x.provenance}`,
+        )
+        .join("\n");
+      return text(`${r.appeared.length} record(s) after ${r.waitedMs}ms:\n${lines}`);
     }
     case "append_relay": {
       const bytes = typeof args.bytes === "string" ? args.bytes : "";

@@ -2659,3 +2659,30 @@ Second, `check-continuity` caught both records on the first run after they lande
 — the first time it has found something it was not written from. Its baseline of
 "already accounted for" is what made the new pair visible rather than lost in a
 red wall, which was the argument for the baseline when it was added.
+
+## OBS-056 · the formatter wanted to rewrite the evidence
+
+`biome check .` reported the two frozen Debian artifacts —
+`docs/experiments/debian-rb-bytes/b.json` and `v0-arm64-stride1000.json` — as
+needing formatting. They are producer bytes, pinned by digest in
+`debian-rb-retrieval.md`, with a recorded claim that each record in them occurs
+verbatim in the 167MB source.
+
+`biome check --write .` would have reformatted both. Silently: no error, exit 0,
+a tidy diff. Every digest in the retrieval document would then be wrong, the
+verbatim claim false, and hy3's adapter reading bytes that no longer match what
+the rule produced. The source they were extracted from expires with this session,
+so it would not have been recoverable by re-running the extraction.
+
+`corpus/**` was already ignored for exactly this reason; nobody thought to extend
+it when a second evidence directory appeared four hours ago. Now both are, with
+the reason written in the config rather than in someone's memory.
+
+The near miss is the ordinary kind. A formatter cannot tell source from evidence,
+because that distinction is not in the file — it is in what somebody claimed about
+the file somewhere else. Tooling that acts on everything in a directory acts on
+the evidence too, and the only thing standing between the two is an ignore list
+that has to be updated by hand every time the evidence grows.
+
+Same shape as OBS-050: a tool operating on *what is there* while its author is
+thinking of *what they wrote*.
