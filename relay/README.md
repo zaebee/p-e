@@ -45,6 +45,39 @@ bun run relay replies <id>     # records whose parent or ref is <id>
 sequential ids are a convention, not evidence, and the store declines to read
 one as the other.
 
+## Over MCP
+
+`bun run relay-mcp` serves the same four operations to an MCP client over
+JSON-RPC on stdio. No dependencies: written against the transport by hand,
+because this repository has one runtime dependency and an experimental tool is a
+poor reason to add another to a public tree.
+
+```jsonc
+// a client's server config
+{ "command": "bun", "args": ["run", "src/relay/mcp.ts"], "cwd": "/path/to/p-e" }
+```
+
+The tools are `get_relay`, `exists`, `list_relays`, `list_replies`. **There is no
+write operation, and a test asserts there is none.** `get_relay` returns the
+record's provenance and an `integrity-sha256` beside the bytes — a reader that
+does not know how bytes arrived cannot weigh them, and that digest is integrity
+and never fidelity.
+
+### What this does and does not remove
+
+The goal it serves is that two agents exchange records without a person carrying
+content. It gets **half** of that:
+
+```
+claude → store → chatgpt     no human content forwarding, once a client is connected
+chatgpt → ? → store          still a person: the store is read-only and
+                             chatgpt cannot deposit
+```
+
+Halving the burden is worth having and is not the goal as stated. Whether a
+client can reach this server at all depends on tunnel configuration outside this
+repository, which has not been verified from here.
+
 ## Incomplete, and saying so
 
 Records before `relay-0032` have not been deposited. They are not absent by
