@@ -52,9 +52,10 @@ const RUN_NOTES: Record<string, string> = {
   "01": "First run. No prior run to differ from.",
   "02": `Two verdicts demoted, at relay-0012, after run 01 was read.
 
-**I-2 / hivemark: CONFORMS (INFERRED) → UNDECIDABLE.** Run 01 concluded that an
-11.6-hour spread of timestamps was consistent with occurrence rather than
-publication, and recorded CONFORMS. It is consistent with it, and no arrangement
+**I-2 / hivemark: CONFORMS (INFERRED) → UNDECIDABLE.** Run 01 — quoting it,
+since it is preserved and immutable — concluded that an 11.6-hour spread of
+timestamps was consistent with occurrence rather than publication, and recorded
+CONFORMS. It is consistent with it, and no arrangement
 of timestamps read alone establishes which of the two a field means. The step
 from *consistent with* to *confirmed* is the one this project exists to forbid,
 and run 01 took it — while carrying half of its only admission on it.
@@ -95,6 +96,29 @@ export function renderReport(findings: readonly Finding[], meta: ReportMeta): st
       return `### ${id} · ${TITLES[id] ?? ""} — ${admits(own)}\n\n${lines}`;
     })
     .join("\n\n");
+
+  // The right-hand column is computed from the findings, never restated.
+  //
+  // An earlier version of this table wrote "apex only" and "hivemark only" by
+  // hand. That is the same defect as a report overwriting a previous run, in a
+  // quieter form: a verdict changes and the prose keeps the old answer. Review
+  // check 4 caught it.
+  //
+  // The left-hand column is a constant on purpose. It is the spec's claim from
+  // reading source code, which this reader does not read and cannot check.
+  const witnessTable = invariants
+    .map((id) => {
+      const confirming = [
+        ...new Set(
+          findings
+            .filter((f) => f.invariant === id && f.verdict === "CONFORMS")
+            .map((f) => f.producer),
+        ),
+      ].sort();
+      const witness = confirming.length === 0 ? "no" : `${confirming.join(", ")} only`;
+      return `| ${id} ${TITLES[id] ?? ""} | yes (per spec §3) | ${witness} |`;
+    })
+    .join("\n");
 
   const tally = (v: string) => findings.filter((f) => f.verdict === v).length;
 
@@ -168,18 +192,11 @@ invariant.
 
 | | enforced in source | witnessable from artifacts |
 |---|:-:|:-:|
-| I-1 absence is a named state | yes | no — never exercised |
-| I-2 recorded time is the occurrence | yes | apex only |
-| I-3 observation beside conclusion | yes | apex only |
-| I-4 derived state never stored | yes | hivemark only |
-| I-5 named periods, gaps kept | yes | no — one period, no gaps |
-| I-6 attester is not the subject | yes | hivemark only |
-| I-7 field ownership enforced | yes | no — needs a definition nobody publishes |
-| I-8 record states its own limit | yes | apex only |
-| I-9 failures counted | yes | apex only |
+${witnessTable}
 
-Nine rules are enforced, demonstrably, in source. None of them can be witnessed
-by a stranger holding only the published artifacts of both producers.
+${invariants.length} rules are enforced, demonstrably, in source — a claim taken
+from the spec, not from this run. ${admitted.length === 0 ? "None of them can be" : `${admitted.length} of them can be`}
+witnessed by a stranger holding only the published artifacts of both producers.
 
 Which is this run's actual finding, and it is about p-e rather than about either
 producer: **a protocol extracted only from what producers publish will be very
