@@ -22,6 +22,19 @@ Copied from the spec and from relay-0007. Every task's requirements implicitly i
 - **Falsification rule:** any producer-specific adaptation that changes meaning falsifies the corresponding invariant. Remove the invariant; do not special-case the reader.
 - The corpus `extracted_at` timestamp is recorded **separately** from every occurrence timestamp inside the artifacts and is never confused with one (I-2 applied to this project's own record).
 - The reader introduces no core semantics. It **MUST NOT** infer identity or causality semantics (M1, M2, M4 stay unresolved).
+- **Two axes per finding.** Beside the verdict, every finding records how it was
+  reached: `OBSERVED` (the property was read directly out of the artifact) or
+  `INFERRED` (a proxy consistent with the property, which does not establish it).
+  Set it per check: reading `finalUrl` out of a record is `OBSERVED`; concluding
+  from a timestamp spread is `INFERRED`.
+- **Not added, and why.** relay-0009 proposed `UNDECIDABLE` and `FALSIFIED` as
+  further evidence values. They are already carried by the verdict, and a finding
+  able to say `evidence: UNDECIDABLE, verdict: CONFORMS` would be incoherent. The
+  non-redundant information in that proposal is `OBSERVED` vs `INFERRED`, and
+  that is what is implemented.
+- **Do not self-heal the spec.** On a failed check, record the failure and its
+  cause. Never adjust a test to make a verdict green, and never edit the spec
+  mid-run. A core change requires a new explicit decision.
 - Node/bun target: bun ≥ 1.1. TypeScript `strict: true`.
 
 ---
@@ -37,7 +50,7 @@ The verdict type is the reader's own application of I-1: a two-valued result wou
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: `type Verdict = "CONFORMS" | "VIOLATES" | "NOT_APPLICABLE" | "UNDECIDABLE"`; `interface Finding { invariant: string; producer: string; verdict: Verdict; reason: string }`; `function admits(findings: readonly Finding[]): "ADMITTED" | "DEMOTED"`
+- Produces: `type Verdict = "CONFORMS" | "VIOLATES" | "NOT_APPLICABLE" | "UNDECIDABLE"`; `type Evidence = "OBSERVED" | "INFERRED"`; `interface Finding { invariant: string; producer: string; verdict: Verdict; evidence: Evidence; reason: string }`; `function admits(findings: readonly Finding[]): "ADMITTED" | "DEMOTED"`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -47,7 +60,7 @@ import { describe, expect, it } from "vitest";
 import { admits, type Finding } from "../src/verdict.js";
 
 const f = (producer: string, verdict: Finding["verdict"]): Finding =>
-  ({ invariant: "I-x", producer, verdict, reason: "" });
+  ({ invariant: "I-x", producer, verdict, evidence: "OBSERVED", reason: "" });
 
 describe("admits", () => {
   it("admits an invariant two distinct producers confirm", () => {
@@ -148,10 +161,25 @@ export default defineConfig({ test: { include: ["tests/**/*.test.ts"] } });
  */
 export type Verdict = "CONFORMS" | "VIOLATES" | "NOT_APPLICABLE" | "UNDECIDABLE";
 
+/**
+ * How a verdict was reached, which is a different question from what it was.
+ *
+ * OBSERVED: the property was read directly out of the artifact.
+ * INFERRED: a proxy consistent with the property was used, which does not
+ * establish it — I-2 at the artifact level is the clearest case.
+ *
+ * relay-0009 also proposed UNDECIDABLE and FALSIFIED here. Both are already
+ * carried by the verdict, and a finding reading `evidence: UNDECIDABLE,
+ * verdict: CONFORMS` would be incoherent, so only the non-redundant half of
+ * that proposal is implemented.
+ */
+export type Evidence = "OBSERVED" | "INFERRED";
+
 export interface Finding {
   readonly invariant: string;
   readonly producer: string;
   readonly verdict: Verdict;
+  readonly evidence: Evidence;
   /** Why, in a sentence a reader of the report can check against the corpus. */
   readonly reason: string;
 }
