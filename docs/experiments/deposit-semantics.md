@@ -33,8 +33,24 @@ is the whole reason `as-received` exists.
 The shape is already solved in the conformance corpus. hivemark signs with a
 publisher's key and never with the reviewer's, because *reviewers hold no keys by
 construction* — and an attestation names both roles rather than collapsing them.
-The same applies here: **authorisation is not what protects fidelity.
-Attribution is.**
+
+**Corrected at relay-0040.** An earlier version of this paragraph read
+*authorisation is not what protects fidelity; attribution is*. That is a
+collapse and it is wrong. Attribution protects nothing about fidelity. It names
+whom to distrust when fidelity fails, which is a different and much smaller
+thing. Fidelity stays undecidable whether or not a depositor is named. Five
+concepts have to be held apart:
+
+| | question |
+|---|---|
+| **authorization** | who is permitted to deposit? |
+| **attribution** | who deposited these bytes? |
+| **authorship** | who originally produced them? |
+| **integrity** | were deposited bytes altered after deposit? |
+| **fidelity** | are received bytes identical to what the sender emitted? |
+
+Without sender-side evidence, **authorship and fidelity are both UNDECIDABLE**,
+and no arrangement of the other three makes either decidable.
 
 ### 2. What does a deposit attest?
 
@@ -134,6 +150,60 @@ never received something; it can say nothing about whether it was sent.
   to be recorded, never an overwrite. Two depositors disagreeing about what a
   sender said is exactly the data OBS-013 says the exchange currently loses.
 - Nothing here promotes a relay to a p-e event. That boundary is unchanged.
+
+## The claim/role matrix
+
+Required at relay-0040. Each row is a thing the design has been treating as
+available; the columns ask on what basis.
+
+| | asserted by | observable by | verifiable by | evidence required | store can infer |
+|---|---|---|---|---|:-:|
+| **sender** | the depositor, via the `from:` line inside the bytes | nobody — a reader sees a claim, not an observation | a receiver holding sender-side evidence | a signature by a sender-held key over canonical bytes, or an independent channel | **no.** It can echo the claim, and echoing must not render as fact |
+| **depositor** | the store, in the deposit header | anyone reading the record | **nobody, currently** | an authenticated deposit channel | it records rather than infers — see below |
+| **receiver** | nobody. Reading leaves no trace | nobody | — | a read log, if it ever matters | no |
+| **transport** | the depositor, implicitly, by choosing `as-received` | nobody | nobody | a transport-side attestation, which cannot exist while the transport is a person | **no.** `as-received` says a transport existed, not which, nor what it did |
+| **source bytes** | nobody. They are not in the store | the sender, at emission, and then nobody | nobody afterwards unless the sender retained and signed them | sender-side retention plus a digest | **no** |
+| **received bytes** | the depositor | anyone reading the store | **anyone**, against a recorded digest | a digest taken at deposit | **yes** |
+
+### What the matrix makes visible
+
+**One row of six is verifiable, and it answers the question nobody asked.**
+Received bytes can be checked against a digest — that is integrity, and integrity
+was never in doubt. Every row that bears on authorship or fidelity is empty in
+the *verifiable by* column, and empty for the same reason: **the source bytes row
+is empty everywhere.** Fidelity is undecidable not because the store is weak but
+because one of its two operands does not exist in reach.
+
+**Attribution is not established either, which goes further than the
+correction.** The deposit header reads `deposited-by: claude` because the process
+that wrote the file wrote that line. Deposits are local file writes; nothing
+authenticates them. So attribution is currently a *third* unverified claim
+sitting beside authorship and fidelity, and calling a record `authored` on that
+basis asserts more than the store can support.
+
+The store can check one thing about `authored` and should: that the named
+depositor matches the `from:` participant. That is a consistency check between
+two claims, not evidence for either.
+
+## Revisited, given the matrix
+
+**Deposit identity.** A deposit needs an identity of its own, distinct from the
+relay id, as soon as two deposits can exist under one id: `(relay_id, depositor,
+digest)`. That is a **fourth** identity concept beside M1's `record_id`,
+`content_id` and `transport_id`, and it is named here so a later discussion
+cannot merge it into one of them by default.
+
+**Conflict identity.** Two deposits, one relay id, different digests. The
+conflict is identified by the *set* of digests and is **not resolvable by the
+store**: it holds two accounts of what a sender said and no basis for preferring
+either. Recording both is the whole of what it can do, and is more than the
+current exchange does — where a second account simply replaces the first in
+somebody's context.
+
+**Id semantics.** If a depositor chooses the relay id, then the id is a depositor
+claim exactly like `from:` — not sender-provenanced, not verifiable, and
+collidable. This is new: the identity questions in M1 were about events, and this
+one is about whether an identifier belongs to the sender at all.
 
 ## What this document does not settle
 
