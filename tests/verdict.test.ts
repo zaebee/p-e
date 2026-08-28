@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { admits, type Finding } from "../src/verdict.js";
+import { type Finding, admits } from "../src/verdict.js";
 
 const f = (producer: string, verdict: Finding["verdict"]): Finding => ({
   invariant: "I-x",
@@ -23,9 +23,9 @@ describe("admits", () => {
   });
 
   it("demotes on any violation, even with two confirmations", () => {
-    expect(
-      admits([f("hivemark", "CONFORMS"), f("apex", "CONFORMS"), f("other", "VIOLATES")]),
-    ).toBe("DEMOTED");
+    expect(admits([f("hivemark", "CONFORMS"), f("apex", "CONFORMS"), f("other", "VIOLATES")])).toBe(
+      "DEMOTED",
+    );
   });
 
   it("counts producers, not findings", () => {

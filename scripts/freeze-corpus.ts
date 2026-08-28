@@ -1,16 +1,41 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { sha256, type CorpusEntry } from "../src/manifest.js";
+import { type CorpusEntry, sha256 } from "../src/manifest.js";
 
 const PROJECTS = "/home/zaebee/projects";
 
 const SOURCES: ReadonlyArray<{ from: string; to: string; producer: string; repo: string }> = [
-  { from: "hivemark/dist/attestations.json", to: "hivemark/attestations.json", producer: "hivemark", repo: "hivemark" },
-  { from: "hivemark/dist/provenance.json", to: "hivemark/provenance.json", producer: "hivemark", repo: "hivemark" },
-  { from: "hivemark/anchors.json", to: "hivemark/anchors.json", producer: "hivemark", repo: "hivemark" },
-  { from: "hivemark/births.json", to: "hivemark/births.json", producer: "hivemark", repo: "hivemark" },
-  { from: "hivemark/corpus.json", to: "hivemark/corpus.json", producer: "hivemark", repo: "hivemark" },
+  {
+    from: "hivemark/dist/attestations.json",
+    to: "hivemark/attestations.json",
+    producer: "hivemark",
+    repo: "hivemark",
+  },
+  {
+    from: "hivemark/dist/provenance.json",
+    to: "hivemark/provenance.json",
+    producer: "hivemark",
+    repo: "hivemark",
+  },
+  {
+    from: "hivemark/anchors.json",
+    to: "hivemark/anchors.json",
+    producer: "hivemark",
+    repo: "hivemark",
+  },
+  {
+    from: "hivemark/births.json",
+    to: "hivemark/births.json",
+    producer: "hivemark",
+    repo: "hivemark",
+  },
+  {
+    from: "hivemark/corpus.json",
+    to: "hivemark/corpus.json",
+    producer: "hivemark",
+    repo: "hivemark",
+  },
   { from: "apex/data/health.json", to: "apex/health.json", producer: "apex", repo: "apex" },
   { from: "apex/data/history.json", to: "apex/history.json", producer: "apex", repo: "apex" },
 ];
@@ -18,7 +43,9 @@ const SOURCES: ReadonlyArray<{ from: string; to: string; producer: string; repo:
 const LOG_DIR = "apex/src/content/log";
 
 const rev = (repo: string): string =>
-  execFileSync("git", ["-C", join(PROJECTS, repo), "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  execFileSync("git", ["-C", join(PROJECTS, repo), "rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim();
 
 /** Whether the producer tracks this file, or it is build output with no commit. */
 function isTracked(repo: string, relative: string): boolean {
@@ -57,7 +84,9 @@ function freeze(from: string, to: string, producer: string, repo: string): void 
 
 for (const s of SOURCES) freeze(s.from, s.to, s.producer, s.repo);
 
-for (const name of readdirSync(join(PROJECTS, LOG_DIR)).filter((n) => n.endsWith(".md")).sort()) {
+for (const name of readdirSync(join(PROJECTS, LOG_DIR))
+  .filter((n) => n.endsWith(".md"))
+  .sort()) {
   freeze(`${LOG_DIR}/${name}`, `apex/log/${name}`, "apex", "apex");
 }
 

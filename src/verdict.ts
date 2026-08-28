@@ -40,6 +40,8 @@ export interface Finding {
  */
 export function admits(findings: readonly Finding[]): "ADMITTED" | "DEMOTED" {
   if (findings.some((f) => f.verdict === "VIOLATES")) return "DEMOTED";
-  const confirming = new Set(findings.filter((f) => f.verdict === "CONFORMS").map((f) => f.producer));
+  const confirming = new Set(
+    findings.filter((f) => f.verdict === "CONFORMS").map((f) => f.producer),
+  );
   return confirming.size >= 2 ? "ADMITTED" : "DEMOTED";
 }

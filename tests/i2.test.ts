@@ -1,9 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { checkI2 } from "../src/checks/i2.js";
-import { loadCorpus, type Manifest } from "../src/manifest.js";
+import { type Manifest, loadCorpus } from "../src/manifest.js";
 
-const meta = async (): Promise<Manifest> => JSON.parse(await readFile("corpus/manifest.json", "utf8"));
+const meta = async (): Promise<Manifest> =>
+  JSON.parse(await readFile("corpus/manifest.json", "utf8"));
 
 describe("I-2", () => {
   it("holds every occurrence time before the extraction time", async () => {

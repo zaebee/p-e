@@ -38,6 +38,8 @@ describe("loadCorpus", () => {
   });
 
   it("refuses an artifact that moved under the manifest", async () => {
-    await expect(loadCorpus(fixture('{"moved":1}', SHA_EMPTY_OBJ))).rejects.toThrow(/digest mismatch/);
+    await expect(loadCorpus(fixture('{"moved":1}', SHA_EMPTY_OBJ))).rejects.toThrow(
+      /digest mismatch/,
+    );
   });
 });

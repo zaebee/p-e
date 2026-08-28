@@ -71,7 +71,8 @@ export function checkI4(files: Map<string, Uint8Array>): Finding[] {
     producer: "apex",
     verdict: stores ? "VIOLATES" : "UNDECIDABLE",
     evidence: "OBSERVED",
-    reason: `no entry stores a derived status, but the rendered page is not in the corpus, so agreement between the derivation and what is published cannot be observed`,
+    reason:
+      "no entry stores a derived status, but the rendered page is not in the corpus, so agreement between the derivation and what is published cannot be observed",
   });
 
   return findings;

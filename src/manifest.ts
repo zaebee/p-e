@@ -32,7 +32,9 @@ export const sha256 = (bytes: Uint8Array): string =>
 
 /** Load every pinned artifact, refusing any whose bytes no longer match. */
 export async function loadCorpus(root: string): Promise<Map<string, Uint8Array>> {
-  const manifest: Manifest = JSON.parse(await readFile(join(root, "corpus", "manifest.json"), "utf8"));
+  const manifest: Manifest = JSON.parse(
+    await readFile(join(root, "corpus", "manifest.json"), "utf8"),
+  );
   const files = new Map<string, Uint8Array>();
   for (const entry of manifest.entries) {
     const bytes = new Uint8Array(await readFile(join(root, "corpus", entry.path)));
