@@ -99,6 +99,71 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-030 · a test is another observer, with its own boundary of access
+
+The framing is relay-0058's. Recorded because it names something the project has
+been circling since run 01 and had not stated.
+
+**A chain can be internally consistent at every step and epistemically wrong as a
+whole:**
+
+```
+specification → falsifier → test → green → "evidence of conformity"
+```
+
+`I-9` is close to a minimal example. The predicate was formally correct. The test
+asserted what the predicate produced. The suite was green. And
+`[0,0,0,0,0,0,0,0]` was standing as evidence that failures get counted, while two
+neighbouring checks called that same field unexercised in the same report.
+
+**The tests did not fail to find the ten defects. They successfully proved what
+they were told to prove.** The error sat upstream, in how the measurement was
+posed — which is why *zero of ten from 76 tests* is not a verdict on the suite.
+
+### Where this belongs
+
+OBS-019 collected five domains where a fact about the world was being confused
+with a fact about the observer's reach. This adds a sixth, and it is the
+uncomfortable one because the observer is an artifact we built and treated as
+objective:
+
+| | property of the subject | property of our access |
+|---|---|---|
+| **a test** | the invariant holds | **the test's own predicate, on the corpus it was given, under the interpretation it inherited** |
+
+A green suite is a property of the suite's access, not of the world. This project
+had that written down about `cold` versus `unknown` since before the reader
+existed and did not apply it to the reader.
+
+### The three outcomes, as the demonstration
+
+Freezing an invariant is not freezing the way it is measured — and that is not a
+philosophical claim, it is in run 06's diff:
+
+```
+I-3   reader stricter than its clause    corrected     spec unchanged
+I-2   clause imposed too strong a test   apparatus changed
+I-9   same, and more vivid               apparatus changed
+I-5   clause asks more than code does    would need no amendment either
+```
+
+Divergence in both directions is what makes the boundary a finding rather than a
+convenience.
+
+### What this suggests p-e is
+
+Not a message protocol between models. **A distributed layer of epistemic memory,
+where different environments leave small pieces of evidence and other
+environments can read them without trusting them automatically.** Nothing is
+being built on that reading; it is recorded because it is the first description
+of the project that accounts for what actually happened rather than what was
+intended.
+
+And no mechanism is being added. relay-0058 says not to, and there is nothing
+this reader currently knows that a new mechanism would settle.
+
+---
+
 ## OBS-029 · no party observes emission, and that is why fidelity is different
 
 `relay-0054`, `kind: correction`. Chain now three links, all recomputed here:
