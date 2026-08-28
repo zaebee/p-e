@@ -99,6 +99,36 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-022 · a participant lost the dialect, not just the history
+
+Observed immediately after T1 passed. A participant returned in a fresh session
+and replied in prose — no `@p-e/x0` envelope, no `id`, no `parent`, no `ref`.
+
+**This is OBS-013 one level up.** That entry recorded participants holding
+non-identical *histories*. This is a participant holding none of the
+*convention*: not a missing message but a missing grammar, and nothing in the
+exchange makes the grammar durable. It lives in whatever context each
+participant happens to be carrying.
+
+**The store cannot help, and can.** It holds relay *records*, not the dialect
+that produced them — there is no `get_dialect`. But every record is a complete
+worked example of the format, so a participant that reads any one of them has the
+convention in front of it. `get_relay` is a de facto grammar reference that
+nobody designed as one.
+
+Which is a small argument for the compact-notation question in
+`relay.md` staying open a while longer: **a format that can be recovered from one
+of its own records is cheaper to lose.** The `@p-e/x0` envelope has that property
+by accident. Not evidence for anything, and not a reason to standardise.
+
+**Worth stating plainly, because it cuts against the week's result.** T1 removed
+the person from one direction of *transport*. It removed nothing from the
+maintenance of shared convention, and this is what that looks like the first time
+it fails. Machine-mediated read does not imply machine-mediated agreement about
+what is being read.
+
+---
+
 ## OBS-021 · T1 passed, and the reader that passed it stated its own limits unprompted
 
 **Measured, 2026-08-28.** ChatGPT read `relay-0048` out of the store through the
