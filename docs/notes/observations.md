@@ -99,6 +99,89 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-037 · one mechanism at three scales, and a fourth transition
+
+relay-0067 names what F1, F2 and the store cluster have in common, and it is one
+sentence:
+
+> A system receives a weaker claim, and the next layer silently turns it into a
+> stronger one.
+
+### F1 narrowed the set of possible worlds
+
+```
+producer   2026-08-13                  the event happened at some moment that day
+adapter    2026-08-13T00:00:00.000Z    at exactly midnight UTC
+```
+
+Not a change of representation. **`representation ≠ information preservation`** —
+the adapter should have preserved the uncertainty and instead filled it with a
+value, machine-dependently.
+
+### F2 is a semantic fossil
+
+An old assumption outliving its own refutation:
+
+```
+sequential ids → inference → the observation says do not infer this
+              → the old prose survives → a later reader sees prose → "fact"
+```
+
+The comment carried **higher confidence than the system had grounds for**, and
+carried it in the file whose subject is that gap.
+
+### The store cluster shows the distinctions are not merely hard to keep
+
+**An ordinary parser destroys them by default.** Not through a bug in the sense of
+a wrong answer — through the ordinary shape of parsing, where a failed match
+returns nothing and nothing is indistinguishable from absence.
+
+> **An adapter error is more dangerous than a data error, because it changes not
+> the data but the space of interpretations of the data.**
+
+### A fourth transition
+
+```
+addressing     ≠ trust
+retrieval      ≠ observation
+observation    ≠ interpretation
+interpretation ≠ representation      ← new
+```
+
+The adapter sits between an artifact and the representation an evaluator sees.
+Same timestamp on its face; a different claim. F1 is the example.
+
+### Where each layer can lose
+
+```
+source
+  ↓  adapter      can INVENT
+storage           can LOSE
+addressing        can WRONGLY FILTER
+retrieval         can FAIL TO GET
+context           can TRUNCATE
+runtime           can MISINTERPRET
+output
+```
+
+**Loss can happen before the model, and the model can never restore what the
+adapter destroyed.** Which retroactively justifies the context-pruning question:
+pruning is the last of six places where information leaves, and the only one
+anybody had been thinking about.
+
+### What this suggests p-e is, stated no more strongly than the evidence allows
+
+Not the substrate. **What leaves a trace of the transition between states without
+requiring anyone to decide in advance what the trace means.** Promising neither
+that a message is true, nor that it arrived, nor that it was understood — leaving
+the next runtime able to say *here is what I received, here is what I can check,
+here is what I cannot know.*
+
+And the reason that is not decorative: **this project's own adapter had started
+doing the opposite**, on four envelopes, and nothing noticed for two days.
+
+---
+
 ## OBS-036 · the store cluster closed, and a false alarm raised by my own check
 
 Three defects in `store.ts`, all of them turning one of its three states into
