@@ -36,7 +36,13 @@ export async function loadCorpus(root: string): Promise<Map<string, Uint8Array>>
     await readFile(join(root, "corpus", "manifest.json"), "utf8"),
   );
   const files = new Map<string, Uint8Array>();
+  // Two entries under one path used to collapse silently when their digests
+  // agreed, leaving `entries.length` disagreeing with `files.size` and nothing
+  // saying so. A manifest that names an artifact twice is malformed.
+  const seen = new Set<string>();
   for (const entry of manifest.entries) {
+    if (seen.has(entry.path)) throw new Error(`manifest names ${entry.path} more than once`);
+    seen.add(entry.path);
     const bytes = new Uint8Array(await readFile(join(root, "corpus", entry.path)));
     const got = sha256(bytes);
     if (got !== entry.sha256) {

@@ -278,9 +278,13 @@ export function renderReport(findings: readonly Finding[], meta: ReportMeta): st
     if (!meta.coverage) return "_Not measured: this run was made without coverage recording._";
     const rows = coverageOf(meta.coverage.manifest, new Set(), meta.coverage.byInvariant).map(
       (c) => {
+        // Says how much of a class was opened. EXAMINED used to mean some
+        // check touched one file of it, so reading one log entry marked all
+        // four examined.
+        const scope = c.filesRead === c.files ? "" : ` (${c.filesRead} of ${c.files} opened)`;
         const disposition =
           c.disposition === "EXAMINED"
-            ? `examined by ${c.invariants.join(", ")}`
+            ? `examined by ${c.invariants.join(", ")}${scope}`
             : "**EXCLUDED_WITH_REASON**";
         return `| \`${c.cls}\` | ${c.files} | ${disposition} |`;
       },

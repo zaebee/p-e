@@ -10,7 +10,18 @@ import type { Verdict } from "./verdict.js";
  * wrapper watches the reads instead, so the matrix below is a measurement.
  */
 export class RecordingCorpus extends Map<string, Uint8Array> {
+  /** Paths whose bytes were actually taken. */
   readonly reads = new Set<string>();
+  /**
+   * Paths a check asked about without taking the bytes.
+   *
+   * Kept apart from `reads` because a probe is not a reading. I-3 asks whether
+   * five `martian-*.jsonl` inputs are present — they are not in the corpus at
+   * all — and counting those as reads would have said a check examined an
+   * artifact it established the absence of. The same distinction the rest of
+   * this project keeps: looking is not seeing.
+   */
+  readonly probes = new Set<string>();
 
   override get(key: string): Uint8Array | undefined {
     this.reads.add(key);
@@ -18,7 +29,7 @@ export class RecordingCorpus extends Map<string, Uint8Array> {
   }
 
   override has(key: string): boolean {
-    this.reads.add(key);
+    this.probes.add(key);
     return super.has(key);
   }
 }
@@ -31,7 +42,14 @@ export function classOf(path: string): string {
 export interface ClassCoverage {
   readonly cls: string;
   readonly files: number;
-  readonly read: boolean;
+  /**
+   * How many files of the class a check actually opened.
+   *
+   * `EXAMINED` used to mean *some check touched one file of this class*, so
+   * reading one of the four log entries marked all four examined. A class is
+   * examined in part or in whole, and the matrix now says which.
+   */
+  readonly filesRead: number;
   readonly invariants: readonly string[];
   readonly disposition: Verdict | "EXAMINED";
   readonly reason: string;
@@ -67,7 +85,9 @@ export function coverageOf(
   return [...classes.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([cls, files]) => {
-      const read = [...reads].some((r) => classOf(r) === cls);
+      const filesRead = new Set(
+        [...byInvariant.values()].flatMap((paths) => [...paths].filter((p) => classOf(p) === cls)),
+      ).size;
       const invariants = [...byInvariant.entries()]
         .filter(([, paths]) => [...paths].some((p) => classOf(p) === cls))
         .map(([id]) => id)
@@ -76,7 +96,7 @@ export function coverageOf(
       return {
         cls,
         files,
-        read,
+        filesRead,
         invariants,
         disposition:
           invariants.length > 0 ? ("EXAMINED" as const) : ("EXCLUDED_WITH_REASON" as const),
