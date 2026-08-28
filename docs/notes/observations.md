@@ -99,6 +99,88 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-035 · the adapter audit, and a false claim in the file about false claims
+
+A `fable` review of the adapter layer: **two firing, nine latent**, each
+demonstrated against real or mutated corpus data. Both firing findings reproduced
+here before either was touched. **No verdict moved** — the tally is identical to
+run 06 — so no run is emitted.
+
+### F1 · the adapter invented a precision no producer supplies
+
+```
+apex publishes    date: 2026-08-13          a day. no time, no zone.
+adapter emitted   2026-08-13T00:00:00.000Z  an instant.
+```
+
+Four log envelopes carried it. **This is OBS-004's defect on the adjacent field
+of the same envelopes** — `Envelope.occurred_at` is required, apex publishes no
+instant for a log entry, so the adapter supplied one — and OBS-004 recorded the
+invented `subject` and not the invented time.
+
+It was also machine-dependent: a zone-less datetime would have resolved against
+whatever `TZ` the reader ran under, so the same corpus could have produced
+different envelopes on different machines.
+
+Fixed by passing the date through. A day is already valid ISO-8601, and the
+envelope now carries the producer's precision rather than the reader's.
+
+### F2 · the comment in `store.ts` made a false claim about the distinction that file exists for
+
+It cited `relay-0029` through `relay-0031` as the live exercise of
+`KNOWN_MISSING`. Measured:
+
+```
+exists(relay-0029)  UNKNOWN
+exists(relay-0030)  UNKNOWN
+exists(relay-0031)  UNKNOWN
+actual knownMissing relay-0026, relay-0045
+```
+
+Those three appear **only in prose**, inside `relay-0033`'s body, and
+`knownMissing` derives solely from `parent:` and `ref:` headers.
+
+**The comment was written in the same commit that recorded OBS-015** — the entry
+about the store catching its author inferring those very ids from sequential
+numbering. The correction went into the observation and not into the comment,
+which then stood for five hours asserting the inference the observation had just
+refused.
+
+Corrected, with the history left in the comment rather than tidied out.
+
+### Nine latent, recorded and unfixed
+
+Each demonstrated by mutation, each confirmed not to fire on this corpus.
+
+| | |
+|---|---|
+| **coercions that fail open** | `Number(message.time)` accepts `"0x2"`, `"1e9"`, `""` and produces valid-looking instants; `"1e12"` would flip I-2/hivemark to **VIOLATES** on a malformed string. `String(envelope_version)` turns an absent field into the string `"undefined"` |
+| **the store's own header parsing** | `header()` scans the **whole body**, so a record quoting another's header block can adopt its values — and `relay-0047`, `-0050` and `-0060` already quote header-like lines at column 0. Protected today only by first-match-wins and the convention that headers come first |
+| **malformed reads as absent** | a multi-token `parent:` parses as `null`, so two explicitly named, not-held ids become `UNKNOWN` instead of `KNOWN_MISSING` — the store's central distinction, lost to a regex |
+| **absence reads as a claim** | a meta block with no `provenance:` line parses as `as-received`, turning *the depositor did not say* into *these bytes came through a transport and may differ from what the sender emitted* |
+| **frontmatter** | the regex captures to the first line end, so a YAML folded scalar returns `">"` — defined, usable-looking, and silently dropping the text |
+| **coverage** | `EXAMINED` means a check called `get()` or `has()` on **one file** of a class; `has()` records a miss as a read. I-3's read-set contains five `martian-*.jsonl` paths that are not in the corpus at all |
+| **manifest** | duplicate `path` entries collapse in the Map, silently, when digests agree |
+
+**The store cluster is the interesting one.** Three of the nine are in
+`store.ts`, and all three turn one of its three states into another: malformed
+into absent, absent into a positive claim, and someone else's header into this
+record's. The file that separates *present*, *named-and-missing* and *never
+mentioned* has three ways to lose the separation, none of them firing.
+
+Not fixed. relay-0065 ruled that not building may be the right next experiment,
+and the store cluster is a decision about the store rather than a repair.
+
+### What the review says about where defects live
+
+Two reviews, twenty findings, and **zero of them from 76 tests**. The first
+review found the checks confirming on absence; this one found the adapters
+inventing what the artifacts do not contain. Both layers fail in the same
+direction — toward saying more than the evidence carries — and the tests sit
+downstream of both, enforcing what they were handed.
+
+---
+
 ## OBS-034 · a prediction registered before the adapter audit returns
 
 Written now because this project registers predictions in advance — §9 of the

@@ -118,7 +118,16 @@ export function readApex(files: Map<string, Uint8Array>): Envelope[] {
   apexLog(files).forEach((entry, index) => {
     envelopes.push({
       subject: entry.file,
-      occurred_at: new Date(entry.date).toISOString(),
+      // Passed through, not parsed. apex publishes `date: 2026-08-13` — a day,
+      // with no time and no zone — and `new Date(...).toISOString()` turned that
+      // into `2026-08-13T00:00:00.000Z`, an instant with a precision no producer
+      // supplied. It was also machine-dependent: a zone-less datetime would have
+      // resolved against whatever TZ the reader ran under.
+      //
+      // Same defect as `subject` two lines up, on the adjacent field of the same
+      // envelopes, and unrecorded until a review found it. A day is already
+      // valid ISO-8601; the envelope carries the producer's precision.
+      occurred_at: entry.date,
       payload: entry,
       origin: { file: entry.file, index },
     });
