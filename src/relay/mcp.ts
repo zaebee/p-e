@@ -6,15 +6,30 @@
  * is used, and an experimental tool is a poor reason to add a second to a public
  * tree.
  *
- * It exposes relay retrieval and nothing else. It does not parse a payload, does
- * not know what a p-e event is, cannot promote anything, and has no write path.
- * A retrieval mechanism must not define what an event is.
+ * It exposes relay retrieval and one append. It does not parse a payload, does
+ * not know what a p-e event is, and cannot promote anything. A retrieval
+ * mechanism must not define what an event is, and the append does not either:
+ * it stores bytes under an id and records how they arrived.
  */
+import { appendRelay } from "./deposit.js";
 import { exists, getRelay, listRelays, listReplies, loadStore } from "./store.js";
 
 const PROTOCOL = "2024-11-05";
 
 const TOOLS = [
+  {
+    name: "append_relay",
+    description:
+      "Append one record. Never overwrites: a proposed id already held is refused. Stored as provenance: as-received and deposited-by: mcp, because this path cannot observe emission and cannot authenticate its caller — those are facts about the channel, not claims about who wrote the bytes. Omit id and the store assigns the next free one.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        bytes: { type: "string", description: "the record, beginning @p-e/x0" },
+        id: { type: "string", description: "optional; e.g. relay-0076. Refused if already held" },
+      },
+      required: ["bytes"],
+    },
+  },
   {
     name: "get_relay",
     description:
@@ -81,6 +96,15 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
       const { present, missing } = listRelays(store, after);
       return text(
         `present (${present.length}): ${present.join(" ") || "—"}\nknown missing (${missing.length}): ${missing.join(" ") || "—"}`,
+      );
+    }
+    case "append_relay": {
+      const bytes = typeof args.bytes === "string" ? args.bytes : "";
+      if (bytes.trim() === "") return text("refused: bytes is empty");
+      const proposed = typeof args.id === "string" ? args.id : undefined;
+      const r = await appendRelay(bytes, proposed);
+      return text(
+        `stored ${r.id}\nid chosen by: ${r.idSource}\nprovenance: as-received\ndeposited-by: mcp\nintegrity-sha256: ${r.sha256}\n\nThis store recorded that a call arrived over this transport carrying these bytes. It did not observe who sent them, and does not assert it.`,
       );
     }
     case "list_replies": {

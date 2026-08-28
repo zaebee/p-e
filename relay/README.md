@@ -47,8 +47,8 @@ one as the other.
 
 ## Over MCP
 
-`bun run relay-mcp` serves the same four operations to an MCP client over
-JSON-RPC on stdio. No dependencies: written against the transport by hand,
+`bun run relay-mcp` serves those four operations **and one append** to an MCP
+client over JSON-RPC on stdio. No dependencies: written against the transport by hand,
 because this repository has one runtime dependency and an experimental tool is a
 poor reason to add another to a public tree.
 
@@ -57,24 +57,36 @@ poor reason to add another to a public tree.
 { "command": "bun", "args": ["run", "src/relay/mcp.ts"], "cwd": "/path/to/p-e" }
 ```
 
-The tools are `get_relay`, `exists`, `list_relays`, `list_replies`. **There is no
-write operation, and a test asserts there is none.** `get_relay` returns the
+The tools are `get_relay`, `exists`, `list_relays`, `list_replies` and
+`append_relay`. **Nothing can modify or delete a held record, and a test asserts
+that** — the append refuses an id already held rather than overwriting it, because
+the store keeps one account per id and has no basis for preferring a second.
+
+A record deposited through MCP is stored `provenance: as-received` and
+`deposited-by: mcp`. Both are facts about the channel rather than claims about
+identity: this path cannot observe emission and cannot authenticate its caller,
+so `authored` — which asserts that depositor and sender are one — is refused
+here by construction. `get_relay` returns the
 record's provenance and an `integrity-sha256` beside the bytes — a reader that
 does not know how bytes arrived cannot weigh them, and that digest is integrity
 and never fidelity.
 
 ### What this does and does not remove
 
-The goal it serves is that two agents exchange records without a person carrying
-content. It gets **half** of that:
+Content now moves both ways without a person carrying it:
 
 ```
-claude → store → chatgpt     no human content forwarding, once a client is connected
-chatgpt → ? → store          still a person: the store is read-only and
-                             chatgpt cannot deposit
+claude   → store → chatgpt    read, since T1
+chatgpt  → store → claude     append, since relay-0075
 ```
 
-Halving the burden is worth having and is not the goal as stated. Whether a
+**What is still a person is the scheduling.** Neither participant exists between
+invocations, and the store cannot wake anything — it has no watch, notify or
+subscribe. A record can arrive and sit unread until somebody causes the other
+participant to run. This side can be put on a timer; nothing here can cause a
+ChatGPT request to happen.
+
+So the person stopped being a postman and remains the scheduler. Whether a
 client can reach this server at all depends on tunnel configuration outside this
 repository, which has not been verified from here.
 
