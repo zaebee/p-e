@@ -99,6 +99,49 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-015 · the store is stricter than the agent that built it
+
+Built at relay-0036: a read-only store over relay records, four operations, no
+p-e semantics. Two results from the first query.
+
+**It refuses an inference this reader had already made in prose.**
+
+```
+relay-0026   KNOWN_MISSING   named as relay-0032's parent, bytes not held
+relay-0031   UNKNOWN         nothing held here mentions it at all
+```
+
+At relay-0033 the reader reported it was missing relays 0029, 0030 and 0031.
+That belief came from **sequential numbering** — 0028 exists, 0032 exists,
+therefore three ids in between exist. No record names them. The store declines
+the inference and returns `UNKNOWN`, which is the truthful answer: there is no
+evidence those messages exist, only a convention that ids increment.
+
+The tool built to stop reconstruction caught its builder reconstructing, in the
+same paragraph where he said he would not.
+
+This also sharpens OBS-013. The gap was described there as visible *because* ids
+are sequential. It is more exact to say the gap was **suspected** because ids are
+sequential, and that a store which only counts what records name it cannot
+confirm the suspicion. Sequential ids do not make a gap visible. They make one
+guessable.
+
+**A limit in the design, stated because building around it would be worse.**
+relay-0036's first success criterion is that two agents exchange a multi-step
+relay with no human copying content. A **read-only** store cannot meet it: if no
+participant can write, records enter only by someone putting them there, and
+that someone is currently the person the criterion is trying to relieve.
+
+The store is real and the four read operations work. What is missing is a
+deposit path for participants that have no filesystem, and that is a decision
+about who may write, not a gap in this code. Not built, and not worked around.
+
+**Incomplete on purpose.** Records before `relay-0032` are not deposited. The
+backfill has not been done, and the store says so in its own README rather than
+presenting five records as the whole exchange.
+
+---
+
 ## OBS-014 · publication, recorded as an event rather than a milestone
 
 `zaebee/p-e` created public on 2026-08-28. `main` pushed unsquashed: 31 commits,
