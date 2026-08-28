@@ -2570,3 +2570,51 @@ The residue is the sharpest part. ChatGPT alone holds the original bytes —
 never committed, absent from dangling blobs, no request bodies in the tunnel log.
 If it re-deposits them they will be the first record here attested by exactly one
 party and checkable by nobody, and the store has no state for that either.
+
+## OBS-054 · one sentence, two standards, indistinguishable until the third producer
+
+Run 01 gave hivemark UNDECIDABLE on I-3 with this reason:
+
+> provenance.json pins 5 derivation inputs by digest; 0 of them are in the
+> published corpus, so the conclusion cannot be recomputed from what is published
+> — the observation is pinned but not presented
+
+That sentence states two standards and treats them as one:
+
+  (a) the input is in the corpus
+  (b) the conclusion can be recomputed from what is published
+
+For hivemark they coincide — its inputs are in neither. For apex they coincide.
+They come apart for the first time on Debian reproducible builds, whose
+observation is **not in the corpus** and **is published**: `has_diffoscope` is a
+boolean and no pinned field holds a handle to the diff, while
+`/arm64/api/v0/builds/132177/diffoscope` returns 2,573,853 bytes of real
+diffoscope output to anyone who asks. Under (a) the verdict is UNDECIDABLE; under
+(b) it is CONFORMS.
+
+The frozen falsifier reads "a producer publishes a conclusion whose input is not
+in the corpus", favouring (a). The `watch:` note reads "may not itself be
+published", favouring (b). The catalogue does not decide, because it never had to.
+
+The argument for (b) is not a preference. For a producer with no checkout, "the
+corpus" is whatever somebody chose to pin — so under (a) the verdict is a fact
+about the curator rather than about the producer. That is not hypothetical: it
+produced the first I-1 UNDECIDABLE for debian-rb, and the repair was to pin more
+bytes rather than to accept the verdict. Under (b) hivemark still fails, so no
+existing verdict moves and the difference between producers stays real.
+
+What (b) costs, so it is not smuggled: `build_id` is an integer, not a digest, and
+nothing binds the diff retrieved today to the diff the conclusion was drawn from.
+debian-rb is retrievable-but-unbound; hivemark is pinned-but-unpublished. Neither
+dominates — bytes you cannot verify are the right ones, against a digest for bytes
+you cannot get.
+
+Same shape as OBS-049. A word that was unambiguous across two producers becomes
+two words on the third, and both original sources satisfied the assumption so
+nobody wrote it down.
+
+Recorded also because of how it propagated. relay-0119 — mine — says 14,825 BAD
+records "carry a diffoscope diff". They declare that one exists. hy3's adapter
+inherited the claim from that sentence rather than from the bytes, which is
+exactly what handing over my prose alongside my corpus was meant to prevent.
+Raised in relay-0140; the verdict is not disputed, only the standard it applied.
