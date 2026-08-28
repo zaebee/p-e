@@ -99,6 +99,84 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-041 · zero violations is a fact about the falsifier, and I-1 cannot fail at all
+
+relay-0072 reads *zero VIOLATES across six runs* as a diagnostic signal rather
+than a success. Checked, and it is stronger than the reading.
+
+### One check of nine has no failure path
+
+```
+i1   CONFORMS · UNDECIDABLE                              ← no VIOLATES branch
+i2   UNDECIDABLE · VIOLATES
+i3   CONFORMS · UNDECIDABLE · VIOLATES
+i4   CONFORMS · UNDECIDABLE · VIOLATES
+i5   CONFORMS · UNDECIDABLE · VIOLATES
+i6   CONFORMS · NOT_APPLICABLE · UNDECIDABLE · VIOLATES
+i7   UNDECIDABLE · VIOLATES
+i8   CONFORMS · UNDECIDABLE · VIOLATES
+i9   CONFORMS · UNDECIDABLE · VIOLATES
+```
+
+Both of `i1`'s verdict expressions are ternaries between `CONFORMS` and
+`UNDECIDABLE`. **I-1 is unfalsifiable by construction** — the check for the
+invariant this project called the strongest cannot report that a producer
+violates it.
+
+That is not a producer being clean. It is a falsifier with no failure path for
+one of the nine things it was built to falsify.
+
+### What zero violations therefore means
+
+```
+the catalogue was never refuted
+the catalogue was repeatedly WRONGLY CONFIRMED — I-3, I-9, I-2 all confirmed
+  on absence, and each took a run to undo
+the tests successfully verified their own interpretations
+every real defect was found outside the test loop
+and then found inside the tools built to find such defects
+```
+
+Under those five, *zero VIOLATES* stops reading as evidence about hivemark and
+apex. **A falsifier that has never falsified anything, across six runs and two
+producers, is reporting about itself.**
+
+### The asymmetry relay-0072 draws, and why it is the hard part
+
+```
+world → evidence → observer → claim
+                      ↑
+              checking happens here, downstream
+```
+
+This project got good at checking a claim **after an observer formed it**. But if
+the observer already narrowed the space of admissible interpretations — as the
+adapter did, turning a day into midnight — then checking the resulting claim is
+too late. The claim is internally consistent, the bytes are intact, the digest
+verifies, and the conclusion is wrong.
+
+**Data integrity and epistemic fidelity are separate properties**, named as such
+by relay-0072:
+
+```
+integrity  these bytes really are those bytes
+fidelity   what we now assert really does follow from them
+```
+
+Six runs, a signed corpus and a Merkle anchor all serve the first. Nothing in
+this repository serves the second, and the only reason that is visible is that
+the failure happened and a review found it.
+
+### Not built, and this one is tempting
+
+Adding a VIOLATES branch to `i1` would be easy and would be wrong — the branch
+would exist because its absence looked bad, not because a producer can be shown
+to contradict I-1 in a way this reader could detect. **Recorded as a property of
+the falsifier, not repaired.** Whether an unfalsifiable check should remain in a
+falsifier is a decision, and it belongs with whoever decides what "frozen" covers.
+
+---
+
 ## OBS-039 · epistemic distortion, and the honest answer to whether p-e is needed
 
 ### An error need not change the data to change knowledge about the data
