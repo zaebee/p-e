@@ -209,8 +209,35 @@ export async function serve(): Promise<void> {
       const line = buffer.slice(0, cut).trim();
       buffer = buffer.slice(cut + 1);
       if (line) {
-        const response = await handle(JSON.parse(line) as Request);
-        if (response) console.log(JSON.stringify(response));
+        // Dispatched, never awaited in the read loop.
+        //
+        // This used to `await handle(...)` per line, so ONE slow call held the
+        // whole server: a blocked `wait_for_relay` stopped every later line
+        // including `initialize`, and the host saw 502 with
+        // `upstream_response_received: false`. The single-threaded limitation
+        // was documented as "a blocked wait will not serve another call" —
+        // understating it, because it did not serve the handshake either, so
+        // the server looked dead rather than busy.
+        //
+        // JSON-RPC carries an id on every request, so responses may return in
+        // any order. A malformed line must not take the loop down with it.
+        void (async () => {
+          try {
+            const response = await handle(JSON.parse(line) as Request);
+            if (response) console.log(JSON.stringify(response));
+          } catch (error) {
+            console.log(
+              JSON.stringify({
+                jsonrpc: "2.0",
+                id: null,
+                error: {
+                  code: -32700,
+                  message: error instanceof Error ? error.message : String(error),
+                },
+              }),
+            );
+          }
+        })();
       }
       cut = buffer.indexOf("\n");
     }

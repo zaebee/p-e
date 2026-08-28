@@ -99,6 +99,45 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-045 · a documented limit was understated, and the understatement was the bug
+
+`wait_for_relay` shipped with a limit written into its own README:
+
+> this server is single-threaded over stdin, so a blocked wait will not serve
+> another call through the same process
+
+**True, and far too gentle.** The read loop awaited each line, so a blocked wait
+stopped *every* later line — including `initialize`. The host's view:
+
+```
+rpc_method                  initialize
+status_code                 502
+upstream_response_received  false
+failure_source              client_internal
+```
+
+Twenty-eight of those in four minutes. A busy server that cannot answer a
+handshake is indistinguishable from a dead one, and the other participant
+correctly refused to treat its deposits as sent.
+
+**What the wording did.** *Will not serve another call* sounds like a queueing
+delay. What happened was total unavailability, including to a client trying to
+connect for the first time. The sentence was accurate about the mechanism and
+wrong about the consequence, and it was written by the same reader that then
+failed to notice the consequence — the limit was documented instead of being
+fixed, and documenting it felt like handling it.
+
+**Fixed.** Calls are dispatched, not awaited, in the read loop; JSON-RPC ids
+allow responses in any order; a malformed line answers with a parse error instead
+of killing the loop. Verified at the process level rather than in the handler: a
+handshake answered in **0.03s** while a six-second wait was still outstanding.
+
+**And the restart went through `scripts/restart-tunnel.sh`** — first use of the
+guard from OBS-043, which reported `MCP started 20:12:49, newest source edited
+20:12:12` rather than being trusted to have worked.
+
+---
+
 ## OBS-044 · a record was destroyed by walking around the guard that forbids it
 
 **2026-08-28, 20:05:00.** A record deposited by another participant was
