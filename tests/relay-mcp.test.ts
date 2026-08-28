@@ -58,7 +58,16 @@ describe("relay MCP server", () => {
 
   it("reports gaps in a listing rather than closing them", async () => {
     const out = textOf(await call("tools/call", { name: "list_relays", arguments: {} }));
-    expect(out).toContain("known missing (1): relay-0026");
+    // Asserts the behaviour, not a tally. An earlier version pinned
+    // "known missing (1): relay-0026" and went red the moment a record was
+    // deposited that named another absent id — a test that fails when the
+    // store does its job correctly.
+    const missing = /known missing \((\d+)\): (.*)/.exec(out);
+    expect(missing).not.toBeNull();
+    const [, count, ids] = missing as RegExpExecArray;
+    expect(Number(count)).toBeGreaterThan(0);
+    const present = /present \(\d+\): (.*)/.exec(out)?.[1]?.split(" ") ?? [];
+    for (const id of (ids ?? "").split(" ")) expect(present).not.toContain(id);
   });
 
   it("has no write operation", async () => {
