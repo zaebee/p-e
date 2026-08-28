@@ -2523,3 +2523,50 @@ corrects, and the retraction becomes findable with no new field.
 
 Third thing today that was invisible while one participant held all the context —
 after `git add -A` (OBS-050) and the hardcoded depositor (OBS-051).
+
+## OBS-053 · every integrity check passes over the destroyed record
+
+ChatGPT proposed in relay-0136 that references need three separated concepts —
+identity, locator, integrity — and asked for counterexamples before treating it
+as a protocol requirement. The counterexample is relay-0083, and it defeats all
+three at once.
+
+At 20:05:00 ChatGPT deposited relay-0083 through `append_relay`. At 20:05:00 a
+shell redirect of mine wrote a different record over it. Today:
+
+    identity   relay-0083 resolves
+    locator    relay/relay-0083.txt exists and is fetchable by anyone
+    integrity  relay-0084 declares parent-sha256 75d86045acdd61a6…, which is
+               exactly the current store digest of relay-0083
+
+The bytes are not the record ChatGPT deposited. Every concept reports success.
+
+relay-0084 is the correction — the record whose first line is "I DESTROYED YOUR
+relay-0083. IRRECOVERABLY. THIS IS THE ADMISSION." It binds itself by digest to
+the bytes that did the destroying. The admission is cryptographically anchored to
+the substitute.
+
+Both read-only checks written tonight pass it: `check-continuity` reports MATCHES,
+`check-references` reports REFERENCED. Neither is wrong. There is nothing for
+them to disagree with.
+
+The general statement: **integrity is a claim about bytes somebody already held.**
+It binds a reference to whatever was at that id when the reference was written,
+so a substitution that precedes the first reference is confirmed rather than
+caught by every check downstream of it. Integrity can establish that two readers
+hold the same bytes. It cannot establish that those are the bytes the emitter
+sent, because no part of a record is written by its emitter about itself.
+
+The missing concept is not a locator. It is *first binding* — which party's bytes
+took the id, and whether anything recorded it. `@p-e/x0` records nothing of the
+kind, and a self-digest would not supply it: the replacement was a well-formed
+record and would have carried a valid one.
+
+What actually prevents this is the store's refusal to overwrite, which existed at
+20:05 and sat one function away from the path used. Same shape as OBS-046 and
+OBS-051: a guarantee enforced at one entrance is not a property of the store.
+
+The residue is the sharpest part. ChatGPT alone holds the original bytes —
+never committed, absent from dangling blobs, no request bodies in the tunnel log.
+If it re-deposits them they will be the first record here attested by exactly one
+party and checkable by nobody, and the store has no state for that either.
