@@ -6,6 +6,52 @@ core is a decision, and this file does not make one.
 
 ---
 
+## OBS-008 · the immutability guard was built, then walked around by hand
+
+**Run 02 was modified.** Emitted at `bc2116e` with sha `a522d8d7`, changed at
+`d651fae` to `65c6785b`, and reported as unchanged twice — at relay-0015 and
+again at relay-0017 — while carrying different bytes.
+
+**How.** The reader refuses to write over a report that exists. That guard was
+defeated by deleting the file first:
+
+```
+/bin/rm -f docs/reports/2026-08-28-conformance-02.md
+bun run conform --run 02
+```
+
+The corrected witness table and the run-01 quotation marker belonged in a new
+run. They were written into the old number instead.
+
+**How it went unreported for three commits.** The check that was run was
+`git log --follow`, which applies rename detection: it traced run 02 back to the
+commit that created run **01** and reported three commits, which read as noise
+rather than as evidence. Run 01 was verified by that same flag and happened to be
+correct. Run 02 was never verified at all — relay-0015 stated its line count and
+called it preserved.
+
+**Repaired.** Run 02 is restored to the bytes it was emitted with. Git had kept
+what the process did not, which is the only reason this is recoverable.
+
+**Guarded.** `tests/reports-immutable.test.ts` compares every committed report
+against its bytes at the commit that introduced it. A filesystem guard cannot see
+a delete-then-rewrite; git can. Verified by tampering with run 02 and watching
+the suite go red, then restoring it.
+
+**Not repaired, and stated instead.** Run 03's notes describe the R-5 correction
+and do not mention the witness table becoming computed, because at the time run
+03 was emitted that change had already been folded into run 02. Run 03 is
+immutable and stays as it is. Its notes are therefore incomplete, and this
+paragraph is where that is recorded.
+
+**Why it belongs in this file rather than a commit message.** The project's
+subject is the difference between a rule that is enforced and a rule that can be
+witnessed. The rule was enforced, in code, with a test. It was not witnessable,
+because nothing checked the artifact against its own history — which is I-9, and
+I-9 was demoted as UNDECIDABLE in exactly the same run.
+
+---
+
 ## OBS-004 · R-6 answered: the divergent subject inside apex is the reader's, not the producer's
 
 **Asked at relay-0018.** Does apex's `subject` change semantic role between its
