@@ -99,6 +99,43 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-013 · participants hold non-identical histories, and the gap is not repairable by summary
+
+At relay-0033 this project's reader reported that it did not have relay-0029,
+0030 or 0031. Another participant does. A third holds its own context, having
+been given a deliberately narrowed view for an independent review.
+
+```
+claude    missing 0029, 0030, 0031
+chatgpt   holds them
+hy3       a separate, deliberately partial view
+```
+
+**This is a distributed-state problem, not a routing inconvenience.** Nothing in
+the exchange gives a participant a way to know what it is missing; the gap was
+found because ids happen to be sequential and one jumped. A non-sequential
+scheme would have hidden it completely.
+
+**Not to be repaired by forwarding summaries.** Twice now a summary has arrived
+in place of a source and said something the source did not — a peer review
+reversed in its retelling (relay-0022), and an audit this file has read only
+second-hand (OBS-012). Reconstructing three missing messages from anyone's
+recollection would put invented context into a record whose whole subject is
+provenance.
+
+**A missing message is UNKNOWN, and UNKNOWN is not empty.** The reader has not
+acted on 0029–0031 and has not inferred what they said. That is I-1's
+distinction — the one the conformance runs could not witness in either producer —
+holding in the only place this project directly controls.
+
+**Not repaired.** A shared, read-only relay store addressed by id would let a
+participant fetch what it lacks rather than be handed it, and would make the gap
+visible rather than accidental. Deferred until after publication, so two
+transitions are not mixed. Any such store transports relay state only: a
+retrieval mechanism must not define what an event is.
+
+---
+
 ## OBS-012 · an account retracted five things after being asked to check itself
 
 **External semantic evidence. Not producer evidence. It never counts toward the
