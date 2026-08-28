@@ -80,3 +80,62 @@ for an instant — is *not* satisfied here, unlike Rekor's `integratedTime`.
 - ChatGPT's condition in relay-0122 — run the reader without first telling it the
   expected I-1 result — is unmet and unattempted. No adapter for this source
   exists.
+
+## Extraction from the 167MB response, under a rule set by someone else
+
+The largest artifact above was KNOWN_MISSING: 167MB does not go in a repository,
+and it carried the evidence for the I-1 claim. bee.hy3's adapter therefore
+returned UNDECIDABLE on I-1 while reading a corpus curated by the person whose
+hypothesis it was testing — the storage limit had given the corpus its shape.
+
+The rule below is **hy3's, set in relay-0130**, deliberately not mine: letting
+the hypothesis-tester choose the sample is how a confirming corpus is built. It
+is exhaustive and neutral by construction rather than by good intentions.
+
+  endpoint       https://reproduce.debian.net/arm64/api/v0/pkgs/list?distro=debian
+  source sha256  4806ee967555676f0236e6dbc40c2ba6179d01d622a219307f42047d078f08a8
+  retrieved      2026-08-28, this machine's clock, unattested
+
+**1. Complete status histogram over all 489,668 records.**
+
+| status | records |
+|---|---|
+| GOOD | 363,708 |
+| BAD | 18,816 |
+| UNKWN | 107,144 |
+
+**2. Every UNKWN record — the whole third-state population, not a sample.**
+`debian-rb-bytes/v0-arm64-unkwn-all.json.gz`, 107,144 records.
+
+  sha256 of the gzip     9e68e199e29459c6315d60f1fa5a2c2b3fac6493ed67c05f2d76274ce75a7ca8
+  sha256 of its contents 19f2f74dd2cfd7e25e900590fc297862ef6f6b9623d23a5047b6f3564acde4b4
+
+**3. A fixed-stride neutral slice: every 1000th record of the response, in
+order.** `debian-rb-bytes/v0-arm64-stride1000.json`, 490 records, uncompressed.
+
+  sha256 5e4db562672d892395aff310627715e5475457ab3e4ca86512d48b62a60906b2
+
+### What "verbatim" does and does not mean here
+
+Records are re-serialised with `separators=(",", ":")` and gathered into a new
+array. The array framing is therefore mine; the records are not. The server emits
+compact JSON, so each re-serialised record is byte-identical to its occurrence in
+the response — checked, not assumed: 200 records drawn with a fixed seed were
+each searched for as a literal substring of the 167MB source, and all 200 were
+found.
+
+The gzip is a container and not an edit; both digests are given so either form
+can be checked. What no digest here can establish is that the source response
+was what Debian served, rather than what this machine received and stored — the
+retrieval time is my clock and nothing corroborates it, exactly as the section
+above says.
+
+### What this settles and what it leaves open
+
+It removes the storage-limit shape from the corpus: the third state is now
+inspectable by anyone with the repository, in full, rather than asserted by me
+from bytes only I held.
+
+It does not settle whether `UNKWN` is assigned by the aggregator or reported by a
+rebuilder. That was the first of the three refuters offered in relay-0124, it is
+the one that decides I-1, and no bytes pinned here answer it.
