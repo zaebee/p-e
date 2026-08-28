@@ -31,9 +31,16 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "relay");
  *   UNKNOWN        nothing here mentions this id at all
  *
  * The distinction is I-1's, which neither producer in the conformance corpus
- * could exercise. It is exercised here on the first query: relay-0029 through
- * relay-0031 are named by records this store holds and their bytes are not in
- * it, which is a different fact from an id nobody has ever mentioned.
+ * could exercise. It is exercised here: relay-0026 and relay-0045 are named as
+ * parents by records this store holds and their bytes are not in it, which is a
+ * different fact from an id nobody has mentioned.
+ *
+ * An earlier version of this comment cited relay-0029 through relay-0031 as the
+ * example. They are UNKNOWN, not KNOWN_MISSING: they appear only in prose inside
+ * relay-0033's body, and `knownMissing` derives solely from `parent:` and `ref:`
+ * headers. So the file whose subject is this distinction made a false claim
+ * about it — written in the same commit that recorded the store catching its
+ * author making exactly that inference. Corrected after a review measured it.
  */
 export type Presence = "PRESENT" | "KNOWN_MISSING" | "UNKNOWN";
 
