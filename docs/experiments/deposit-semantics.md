@@ -153,6 +153,11 @@ never received something; it can say nothing about whether it was sent.
 
 ## The claim/role matrix
 
+**Superseded by `claim-matrix-v2.md`**, which adds four rows and two columns. This
+version is kept rather than replaced: it is where the collapse corrected at
+relay-0040 is visible, and a design document that quietly overwrites its own
+wrong version is doing what the reports are forbidden to do.
+
 Required at relay-0040. Each row is a thing the design has been treating as
 available; the columns ask on what basis.
 
