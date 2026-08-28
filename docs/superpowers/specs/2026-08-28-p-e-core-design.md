@@ -21,6 +21,17 @@ conformance corpus without any producer being modified. An invariant the reader
 cannot honour without changing a producer is not an invariant — it is this
 document's opinion, and it is removed.
 
+**What "frozen" covers, ruled at relay-0056.** The normative catalogue is
+frozen: the invariant statements I-1 through I-9, §4, M1 through M4, and U-1/U-2.
+The **falsification apparatus is not** — the `reader:` clauses below, the
+predicates that implement them, and the extraction logic are methodology, and
+correcting a demonstrated error in them is not a change to what is being claimed.
+
+A normative invariant and the apparatus used to falsify it are **different
+epistemic objects**. Freezing them together would make this document capable of
+freezing its own measurement error, which it had already done twice before anyone
+noticed — see §11.
+
 **The status ladder.** Nothing in this document is admitted by being written
 here. Every core item carries a status, and the only transition that admits it is
 running the reader:
@@ -156,7 +167,12 @@ sources:    H yes · A yes · P yes (declared)
 falsifier:  a producer's time field is interpretable only as write time
 reader:     assert every occurrence time precedes the corpus extraction
             timestamp; assert A's since <= checkedAt; assert H's message.time
-            values are not clustered into one publication window
+            values are not clustered into one publication window.
+            NEITHER PRODUCER CAN CONFORM ON ORDERING ALONE. Ordering is not
+            occurrence: identical timestamps satisfy since <= checkedAt and
+            establish nothing about what those timestamps mean. VIOLATES stays
+            reachable; CONFORMS does not. Amended relay-0056, applying to A the
+            demotion H took at relay-0012
 limit:      distinguishing occurrence from write time from artifacts alone is
             weak evidence. the strong evidence is in the source, which the
             reader does not read
@@ -377,7 +393,9 @@ I-9  data read back is validated, failures counted
 status:     PREDICTED
 sources:    A yes · H yes (at runtime) · P no
 falsifier:  unreadable input is dropped with no count anywhere in the record
-reader:     A — history carries gaps per host
+reader:     A — a gaps count is present AND at least one is non-zero. Presence
+                alone confirms nothing: [0,0,0,0,0,0,0,0] shows that `uncounted`
+                was empty, not that failures are counted. Amended relay-0056
             H — supersede's undecodable count is computed but not published
 expect:     likely UNDECIDABLE for H, same reason as I-8
 ```
@@ -832,6 +850,15 @@ of other systems' mistakes that hides its own would be the joke telling itself:
 | M3 | stated as an H↔P conflict | P specifies no signature at all; the Ed25519 expectation comes from `aura`, which is not a source in §2 |
 | corpus size | "12 hosts" | 8 hosts; 12 districts, four of which have no host to probe |
 | independence | "2 of 3 independent" | decomposed into implementation and authorship axes; only the first holds |
+| I-9's `reader:` clause | "history carries gaps per host" — a presence test | presence **and** at least one non-zero. It prescribed the defect: eight zeroes confirmed that failures are counted, while I-1 and I-5 called the same field unexercised in the same report |
+| I-2's `reader:` clause | "assert A's since <= checkedAt" — an ordering test | ordering cannot confirm. It let apex confirm occurrence semantics from two distinct instants, thirty lines below the branch demoted at relay-0012 for taking that step over 932 timestamps |
+
+**Both of those were errors in the apparatus, not in the catalogue**, and the
+distinction is the reason they could be corrected at all. Neither was found by
+the 74 tests: the tests faithfully enforced the interpretation the falsifier
+encoded upstream of them. §9's prediction — that a permissive reader, not a
+correct catalogue, was the thing to fear — came true, and the permission was
+written here.
 
 ## 12. Planned repository layout
 
