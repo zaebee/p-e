@@ -61,6 +61,20 @@ message: `relay-0005a` answered `relay-0004`, and `relay-0012` answered
 was not a line, and a field that only ever meant "the previous one" would have
 lost that.
 
+## Field rulings, at relay-0020
+
+Both stay experimental. Neither is promoted, and neither is removed.
+
+| field | evidence after 19 messages | ruling |
+|---|---|---|
+| `status` | `provisional` every time; never varied | **no demonstrated information.** Nineteen identical values are evidence of no shown utility, not proof there is none. Kept, unpromoted |
+| `parent` | twice not the preceding message (`0005a`→`0004`, `0012`→`0010`) | **demonstrated contextual value.** Means *referenced context*, not position. Kept, unpromoted |
+| `from` `to` `kind` `ref` | used throughout, and independently observed in the METR swarm | candidates. Not promoted |
+| direct vs broadcast | operational pressure observed at three participants (OBS-005) | candidate for the next experiment. Not designed |
+
+Nothing here is a p-e/core field, and nothing becomes one by being useful in a
+chat.
+
 ## Candidate notation — experimental only
 
 ```
