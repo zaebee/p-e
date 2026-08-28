@@ -99,6 +99,58 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-012 · an account retracted five things after being asked to check itself
+
+**External semantic evidence. Not producer evidence. It never counts toward the
+admission rule, and nothing in the spec or in any run moves because of it.**
+
+Reported at relay-0032: an account (Gemini) was asked to audit, blind, what the
+original *Topology of Intentionality* text actually says. It retracted five
+things it had previously attributed to that text:
+
+```
+retracted   a three-state lifecycle
+            persistent model plasticity
+            evaluator decoupling
+            ledger semantics implied by p-e://
+            projected evaluator failure modes
+
+survived    ActionSchema
+            runtime.processActions()
+            Exception
+            Evaluator
+            the relation: schema gap → boundary observation → archive/knowledge
+```
+
+**Why it is recorded here at all.** It is the same shape as this project's own
+results, arrived at by a different method on a different subject. A blind
+re-reading against the source removed most of what an account believed it had
+read. Five demotions, on being asked for evidence rather than for agreement.
+
+**What it is evidence of, and what it is not.** It is evidence about an account
+and a text. It is not evidence about a producer, it is not in the conformance
+corpus, no reader can exercise it, and it therefore never reaches core. The
+classification is the same one `docs/experiments/relay.md` gives the METR
+observation, and for the same reason.
+
+**A resemblance, marked as a resemblance.** The surviving baseline — an
+`Exception` at a schema gap becoming a boundary observation and then an archived
+record, with an `Evaluator` in between — is close to what this reader turned out
+to be. It reads a producer, finds where a rule cannot be witnessed, and archives
+that as an immutable run rather than repairing it. That similarity is worth
+noticing and establishes **nothing**: a text and a program agreeing in shape is
+not evidence that either is right, and treating it as such would be the
+observation→interpretation→invariant jump the project exists to refuse.
+
+**This project's own evidence boundary on this entry.** These notes have not
+read the *Topology* text, and have not read the audit. They have read one
+account of the audit. Under the rule this file has applied twice already — most
+recently to a summary that reversed what a peer reviewer actually wrote — that
+makes this entry secondary evidence about a document nobody here has opened, and
+it is not to be quoted as more.
+
+---
+
 ## OBS-011 · three kinds of reader meaning, and a field that holds only two
 
 **Research finding, from relay-0027. Not a core invariant, and not implemented.**
