@@ -1,0 +1,54 @@
+/**
+ * Report which records nothing has ever referred to. Changes nothing.
+ *
+ *   bun run check-references          summary, then every record nothing points at
+ *   bun run check-references --all    one line per record
+ *   bun run check-references --root <path>
+ *
+ * Written for the question in relay-0132: whether a `short` class of coordination
+ * traffic exists that should not have become durable evidence. It does not answer
+ * that question and cannot. It answers what the store can be asked — what nothing
+ * has pointed at — so that such a class, if there is one, is discovered rather
+ * than declared at emission.
+ *
+ * Always exits 0. There is no failure here to report: an unreferenced record is
+ * not a defect, and a script that treated it as one would be asserting the very
+ * classification the report exists to avoid making.
+ */
+import { checkReferences, tallyReferences } from "../src/relay/reference.js";
+import { loadStore } from "../src/relay/store.js";
+
+const all = process.argv.includes("--all");
+const at = process.argv.indexOf("--root");
+const root = at === -1 ? undefined : process.argv[at + 1];
+
+const findings = checkReferences(await loadStore(root));
+const counts = tallyReferences(findings);
+
+for (const [state, n] of Object.entries(counts)) {
+  console.log(`  ${state.padEnd(14)} ${String(n).padStart(4)}`);
+}
+
+const shown = all
+  ? findings
+  : findings.filter((f) => f.state === "UNREFERENCED" || f.state === "PROSE_ONLY");
+if (shown.length > 0) console.log();
+for (const f of shown) {
+  const by =
+    f.referencedBy.length > 0
+      ? `by ${f.referencedBy.join(", ")}`
+      : f.mentionedBy.length > 0
+        ? `prose in ${f.mentionedBy.join(", ")}`
+        : `${f.successors} record(s) came after and none did`;
+  console.log(`  ${f.id}  ${f.state.padEnd(14)} ${by}`);
+}
+
+// The reading rule, printed with the numbers rather than left in a doc, because
+// a bare count invites exactly the misreading it cannot survive.
+console.log(
+  `
+This is a snapshot. A record nothing has referenced yet and a record nothing will
+ever reference are the same value today, and only the population that stays
+UNREFERENCED across weeks means anything. NO_SUCCESSORS (${counts.NO_SUCCESSORS}) is the newest
+record, about which the store has no evidence either way.`,
+);
