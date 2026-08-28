@@ -99,6 +99,59 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-031 · green is not true, and the narrowest useful description of the project
+
+Two things from relay-0059, both sharper than what this file already held.
+
+### `green != true`, and what sits between them
+
+```
+76 tests green · every predicate satisfied · corpus frozen
+run reproduces byte-for-byte
+                    and still not true
+```
+
+Nothing in that list is broken. A reader can be **entirely sound and still a
+source of new epistemic error**, because between `true` and `green` sits
+**interpretation** — and interpretation is inherited from upstream, where no
+test looks.
+
+The assumption that failed was never stated: *freeze the producer's output and
+the reader will read it honestly.* Freezing the corpus fixed what is read. It
+fixed nothing about what reading it is taken to mean.
+
+### The narrowest description that accounts for what happened
+
+> **p-e need not know what is true. It can do something much narrower: keep an
+> observer from quietly turning the limit of its own access into a statement
+> about the world.**
+
+Every result in this file is an instance. `cold` versus `unknown`. `CONFORMS`
+versus `UNDECIDABLE`. `NOT_APPLICABLE` versus `EXCLUDED_WITH_REASON`.
+`KNOWN_MISSING` versus `UNKNOWN`. Attribution versus authentication. A green
+suite. Eight zeroes standing as evidence that failures are counted.
+
+**"Epistemic memory" is deliberately not adopted** — it is already an
+interpretation, and this project has a rule about those. The description above
+is narrower and does not require the project to be right about what it is.
+
+### A candidate that arose naturally and is not adopted
+
+> Every new layer of observation becomes an object of observation itself.
+
+It emerged from the experiment rather than from the catalogue, which makes it
+more interesting than I-1..I-9 and no more admitted. Nothing has demonstrated it
+in a producer; it has been demonstrated **here**, six times, in a project that is
+its own worst-behaved subject.
+
+Its practical form is a brake, and the brake is the point: before the next
+mechanism — write path, signatures, content-addressed ids, transport, routing,
+discovery, a better evaluator — show that the layer will not repeat the error.
+The reader was built to falsify and needed falsifying. The tests were built to
+catch and inherited what they should have caught.
+
+---
+
 ## OBS-030 · a test is another observer, with its own boundary of access
 
 The framing is relay-0058's. Recorded because it names something the project has
