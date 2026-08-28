@@ -11,6 +11,20 @@ import {
 const store = await loadStore();
 
 describe("relay store", () => {
+  it("works from any working directory, because the tunnel picks one", async () => {
+    const cwd = process.cwd();
+    try {
+      process.chdir("/tmp");
+      expect((await loadStore()).size).toBeGreaterThan(0);
+    } finally {
+      process.chdir(cwd);
+    }
+  });
+
+  it("refuses to report a missing store as an empty one", async () => {
+    await expect(loadStore("/nonexistent/relay")).rejects.toThrow(/not readable/);
+  });
+
   it("returns exact bytes, never a summary", async () => {
     const r = getRelay(store, "relay-0033");
     expect(r?.bytes).toContain("I DO NOT HAVE relay-0029, 0030, 0031");

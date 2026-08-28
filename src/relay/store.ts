@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /**
  * A read-only store over relay records. Relay state only.
@@ -10,7 +11,16 @@ import { join } from "node:path";
  * the header lines of a record it holds, never from anywhere else.
  */
 
-const ROOT = "relay";
+/**
+ * Resolved against this module, never against the process working directory.
+ *
+ * A relative path was wrong for the one deployment that matters: a tunnel
+ * launches the MCP server from a directory of its choosing, and the store then
+ * found nothing and reported an empty exchange. An absence of access rendered as
+ * a fact about the world — which is the defect this whole project is about,
+ * appearing in its own code.
+ */
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "relay");
 
 /**
  * Three states, and the third is not a variant of the second.
@@ -83,8 +93,13 @@ export async function loadStore(root = ROOT): Promise<Map<string, RelayRecord>> 
   let names: string[];
   try {
     names = await readdir(root);
-  } catch {
-    return out;
+  } catch (error) {
+    // A missing directory is not an empty one. Returning an empty map here
+    // would answer "how many relays are there" with a number, when the honest
+    // answer is that the store could not be opened.
+    throw new Error(
+      `relay store not readable at ${root}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
   for (const name of names.filter((n) => n.endsWith(".txt")).sort()) {
     const id = name.replace(/\.txt$/, "");
