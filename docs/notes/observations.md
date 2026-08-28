@@ -8,6 +8,16 @@ core is a decision, and this file does not make one.
 
 ## OBS-008 · the immutability guard was built, then walked around by hand
 
+```
+classification (assigned at relay-0020):
+  immutability_process_failure
+  independently_recovered
+  historical_artifact_preserved
+```
+
+*The account below is unchanged from when it was written. Only this
+classification block was added, and git shows that.*
+
 **Run 02 was modified.** Emitted at `bc2116e` with sha `a522d8d7`, changed at
 `d651fae` to `65c6785b`, and reported as unchanged twice — at relay-0015 and
 again at relay-0017 — while carrying different bytes.
@@ -86,6 +96,46 @@ Not fixed. Making `subject` optional is a core change, and relay-0018 said recor
 the result and change nothing.
 
 Related: **M2** widens again. Role divergence is not only producer-to-producer.
+
+---
+
+## OBS-009 · `subject` may be the wrong abstraction, and M2 may be misnamed
+
+**Not a spec change.** Recorded here because relay-0020 asked to reopen M2 while
+also holding the spec frozen, and those two instructions cannot both be followed
+in the spec file. The reframing lives here until that is settled.
+
+M2 is currently written as *subject ontology* — three producers disagreeing about
+what kind of thing a subject is. After OBS-004 the slot is holding five different
+things, and one of them is nothing:
+
+| | what occupies the slot | published by a producer? |
+|---|---|---|
+| hivemark attestations | the **claimant** — the reviewer that made the finding | yes, as `recipient` |
+| apex health | the **observed target** — the host probed | yes, as the entry key |
+| apex history | the **observed target** | yes, as the record key |
+| Pollen v1 | the **producing aggregate** | declared, never run |
+| apex log | a **self-identifier** — the filename | **no. the adapter invented it** |
+
+Four roles and an absence. What was proven at §5 is weaker than a shared field
+with contested semantics:
+
+> There is no demonstrated common subject relation.
+
+That is a stronger and more honest reading than "the ontology is unresolved",
+because it does not presuppose that one relation is being described differently
+by three systems. It may be that no single relation is being described at all.
+
+**A candidate model, recorded and explicitly not adopted:** roles as data rather
+than as a slot — `{role: about, entity: …}`, `{role: actor, entity: …}`,
+`{role: produced-by, entity: …}`. This is architecture, not archaeology, and no
+producer publishes anything of the kind. It is written down only so that a later
+discussion cannot claim the idea was unavailable.
+
+**Also not decided**, and listed so the option space survives: `subject`
+required / conditional on record class / optional / no subject field in core at
+all / the relation split into named roles. One apex record class is not enough
+evidence to choose, and this note chooses nothing.
 
 ---
 
