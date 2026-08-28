@@ -1,3 +1,10 @@
 node_modules/
 dist/
 .DS_Store
+
+# Credentials. This repository is public and every commit here has been
+# made with `git add -A`; an unignored .env would have gone out with the
+# next one.
+.env
+.env.*
+!.env.example
