@@ -35,6 +35,9 @@ export function checkI1(files: Map<string, Uint8Array>): Finding[] {
     reason: keepsAbsenceApart
       ? `${raw.length} attestations carry verdicts {${named.join(", ")}}; unresolved is present and distinct from the judged values, so an absence of judgement is not published as a judgement`
       : `${raw.length} attestations carry verdicts {${named.join(", ")}}; the third state is not exercised in this corpus, so the separation cannot be observed`,
+    projections: [
+      "verdict code 0 means `unresolved`. The producer publishes a uint8; that 0 is the absent-judgement code is read off hivemark's source, which this reader does not read",
+    ],
   });
 
   // apex. Two separate mechanisms: the snapshot can say the check itself failed,
@@ -57,6 +60,9 @@ export function checkI1(files: Map<string, Uint8Array>): Finding[] {
     reason: exercised
       ? `the not-observed state occurs: states {${[...states].sort().join(", ")}}, ${records.filter((h) => h.gaps > 0).length} hosts with gaps, snapshot ok:${health.ok}`
       : `the mechanism exists but is never exercised: observed states {${[...states].sort().join(", ")}} with no unknown, all ${records.length} hosts at gaps:0, snapshot ok:${health.ok}. A reader could distinguish not-observed from cold if it occurred; in this corpus it does not`,
+    projections: [
+      "`unknown` is a possible state. The artifact shows alive and cold; that a third state exists in apex's vocabulary is not visible in it. The gaps counter and the snapshot ok flag, which carry the rest of this finding, are native",
+    ],
   });
 
   return findings;

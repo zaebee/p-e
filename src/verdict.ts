@@ -20,6 +20,21 @@ export type Verdict =
   | "EXCLUDED_WITH_REASON";
 
 /**
+ * `NOT_APPLICABLE` and `EXCLUDED_WITH_REASON` are not variants of each other,
+ * and relay-0025 asks that the difference stay explicit.
+ *
+ *   NOT_APPLICABLE        the reader LOOKED. the producer has no such
+ *                         construct, so the invariant cannot be exercised.
+ *                         a statement about the producer.
+ *
+ *   EXCLUDED_WITH_REASON  the reader DID NOT LOOK, and says why.
+ *                         a statement about the reader.
+ *
+ * Collapsing them would let unexamined ground read as cleared ground, which is
+ * the defect OBS-010 records — and neither counts as support.
+ */
+
+/**
  * How a verdict was reached, which is a different question from what it was.
  *
  * OBSERVED: the property was read directly out of the artifact.
@@ -40,6 +55,19 @@ export interface Finding {
   readonly evidence: Evidence;
   /** Why, in a sentence a reader of the report can check against the corpus. */
   readonly reason: string;
+  /**
+   * Meaning this finding supplied that no producer publishes.
+   *
+   * Required at relay-0025: every semantic projection explicitly marked, and no
+   * adapter-derived meaning counted as producer evidence. An empty array is a
+   * claim — that the finding rests on published bytes alone — and it is a claim
+   * the self-audit checks rather than trusts.
+   *
+   * A finding may still CONFORM while listing projections, provided the
+   * conforming half is native. Where a projection carries the verdict, the
+   * verdict is not CONFORMS.
+   */
+  readonly projections: readonly string[];
 }
 
 /**

@@ -12,6 +12,7 @@ export function checkI9(files: Map<string, Uint8Array>): Finding[] {
       verdict: uncounted.length > 0 ? "VIOLATES" : "CONFORMS",
       evidence: "OBSERVED",
       reason: `all ${records.length} host records publish a gaps count, so runs that could not observe are visible in the artifact rather than folded into the checks total`,
+      projections: [],
     },
   ];
 
@@ -22,8 +23,8 @@ export function checkI9(files: Map<string, Uint8Array>): Finding[] {
     producer: "hivemark",
     verdict: carries ? "CONFORMS" : "UNDECIDABLE",
     evidence: "OBSERVED",
-    reason:
-      "supersede computes an undecodable count and reports it to its caller; no published artifact carries it, so the corpus cannot show whether unreadable input was counted or dropped",
+    reason: `none of the ${raw.length} published envelopes carries an undecodable count, checked one by one. Whether unreadable input was counted or silently dropped is therefore not decidable from the artifacts; that it is counted somewhere is a claim about source this reader does not read`,
+    projections: [],
   });
 
   return findings;

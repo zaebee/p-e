@@ -37,6 +37,9 @@ export function checkI7(files: Map<string, Uint8Array>): Finding[] {
     verdict: "UNDECIDABLE",
     evidence: "OBSERVED",
     reason: `${values.length} values across the two machine-written files, ${proseByHeuristic.length} of which a whitespace heuristic would call prose — but that heuristic is wrong in both directions and is the reader's own invention, so the corpus cannot show whether ownership was enforced, only that its result looks consistent`,
+    projections: [
+      "prose is a string containing whitespace. Entirely the reader's definition, wrong in both directions, and the reason this finding is UNDECIDABLE",
+    ],
   });
 
   // hivemark: Judge is derived from the genome and must never be a stored input.
@@ -51,6 +54,7 @@ export function checkI7(files: Map<string, Uint8Array>): Finding[] {
     evidence: "OBSERVED",
     reason:
       "no published attestation carries a genome or a judge field, so the derived-not-stored separation has nothing in this corpus to be observed against",
+    projections: [],
   });
 
   return findings;

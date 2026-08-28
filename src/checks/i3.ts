@@ -25,6 +25,7 @@ export function checkI3(files: Map<string, Uint8Array>): Finding[] {
     verdict: present.length === provenance.files.length ? "CONFORMS" : "UNDECIDABLE",
     evidence: "OBSERVED",
     reason: `provenance.json pins ${provenance.files.length} derivation inputs by digest; ${present.length} of them are in the published corpus, so the conclusion cannot be recomputed from what is published — the observation is pinned but not presented`,
+    projections: [],
   });
 
   const health = apexHealth(files);
@@ -38,6 +39,7 @@ export function checkI3(files: Map<string, Uint8Array>): Finding[] {
     verdict: missing.length > 0 ? "VIOLATES" : carriesRecord ? "CONFORMS" : "UNDECIDABLE",
     evidence: "OBSERVED",
     reason: `all ${entries.length} entries pair the offSite conclusion with the finalUrl it was drawn from, and the pairing is exercised ${entries.length} times — but every conclusion in this corpus is negative (${concluded.length} positive, ${missing.length} of those without evidence), so the case where the evidence would matter most is not among them`,
+    projections: [],
   });
 
   return findings;

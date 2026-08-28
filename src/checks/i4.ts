@@ -60,6 +60,9 @@ export function checkI4(files: Map<string, Uint8Array>): Finding[] {
     verdict: asserts ? "VIOLATES" : summary.undecodable > 0 ? "UNDECIDABLE" : "CONFORMS",
     evidence: "OBSERVED",
     reason: `${summary.superseded.size} superseded attestations recomputed across ${summary.groups} review groups (${summary.repeated} repeated) from the ${summary.total} published envelopes alone, with ${summary.undecodable} undecodable; no envelope stores the answer`,
+    projections: [
+      "the grouping key. Treating identityId+repo+pr+commitSha as one review, and the newest time as the survivor, is this reader's rule; a different rule gives a different count. The conforming half — that no published envelope stores the answer — is native and does not depend on it",
+    ],
   });
 
   // apex derives status at render time and publishes no status field. Whether
@@ -71,8 +74,8 @@ export function checkI4(files: Map<string, Uint8Array>): Finding[] {
     producer: "apex",
     verdict: stores ? "VIOLATES" : "UNDECIDABLE",
     evidence: "OBSERVED",
-    reason:
-      "no entry stores a derived status, but the rendered page is not in the corpus, so agreement between the derivation and what is published cannot be observed",
+    reason: `none of the ${Object.keys(health.entries).length} entries carries a status field, checked key by key; but the rendered page is not in the corpus, so whether a derivation and a publication agree cannot be observed from what is here`,
+    projections: [],
   });
 
   return findings;
