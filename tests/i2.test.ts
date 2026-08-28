@@ -16,4 +16,11 @@ describe("I-2", () => {
     const findings = checkI2(await loadCorpus("."), (await meta()).extracted_at);
     expect(findings.every((f) => f.reason.includes("occurrence"))).toBe(true);
   });
+
+  it("will not conclude occurrence semantics from a timestamp spread", async () => {
+    const h = checkI2(await loadCorpus("."), (await meta()).extracted_at).find(
+      (f) => f.producer === "hivemark",
+    );
+    expect(h?.verdict).toBe("UNDECIDABLE");
+  });
 });

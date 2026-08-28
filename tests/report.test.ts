@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { loadCorpus } from "../src/manifest.js";
 import { renderReport, runAll } from "../src/report.js";
 
-const META = { extracted_at: "2026-08-28T00:00:00.000Z", artifacts: 11 };
+const META = { extracted_at: "2026-08-28T00:00:00.000Z", artifacts: 11, runId: "02" };
 
 describe("report", () => {
   it("produces a finding for every invariant and producer", async () => {

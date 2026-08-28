@@ -7,7 +7,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "freeze": "bun run scripts/freeze-corpus.ts",
-    "conform": "bun run src/cli.ts"
+    "conform": "bun run src/cli.ts --"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

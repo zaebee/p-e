@@ -17,15 +17,25 @@ export function checkI2(files: Map<string, Uint8Array>, extractedAt: string): Fi
     if (t > max) max = t;
   }
   const spanHours = (max - min) / HOUR;
-  // A publication timestamp would put every attestation inside one run's window.
-  // A wider spread is consistent with an occurrence time and does not establish
-  // it — the strong evidence is in the source, which this reader does not read.
+  // Demoted at relay-0012, and the demotion is the point.
+  //
+  // A publication timestamp would put every attestation inside one run's
+  // window, so a wider spread is *compatible with* an occurrence time. It does
+  // not establish one, and this project exists to forbid exactly that step —
+  // from "consistent with" to "confirmed". An earlier version of this check
+  // returned CONFORMS on an 11.6h spread and carried half of the report's only
+  // admission on it.
+  //
+  // A time after extraction would still be a contradiction, so VIOLATES is
+  // reachable. Conformance is not: no arrangement of timestamps, read alone,
+  // distinguishes when something happened from when it was written down. That
+  // evidence is in the producer's source, which this reader does not read.
   findings.push({
     invariant: "I-2",
     producer: "hivemark",
-    verdict: future > 0 ? "VIOLATES" : spanHours > 1 ? "CONFORMS" : "UNDECIDABLE",
-    evidence: "INFERRED",
-    reason: `${times.length} occurrence times spread over ${spanHours.toFixed(1)}h, ${future} of them after extraction; a spread wider than one pipeline run is consistent with occurrence rather than publication, and does not prove it`,
+    verdict: future > 0 ? "VIOLATES" : "UNDECIDABLE",
+    evidence: "OBSERVED",
+    reason: `${times.length} occurrence times spread over ${spanHours.toFixed(1)}h, ${future} of them after extraction — compatible with occurrence rather than publication, and no arrangement of timestamps read alone can establish which of the two a field means`,
   });
 
   const health = apexHealth(files);
