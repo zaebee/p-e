@@ -99,6 +99,69 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-042 · the human was never the postman — the human is the scheduler
+
+E7, proposed at relay-0074: take the person out of the loop entirely, two runtimes
+exchanging evidence through a shared append-only substrate with no copy-paste.
+**Not achievable, and the reason is not where either participant was looking.**
+
+### What runs continuously here
+
+```
+tunnel-client          since 16:36, continuous
+the MCP stdio process  started ONCE, served 38 forwarded commands, still alive
+the relay store        passive — no watch, notify, subscribe or poll anywhere
+
+claude                 exists only inside a turn
+chatgpt                exists only inside a request
+```
+
+### The reframing
+
+Both participants assumed the human was a **postman**, carrying content between
+runtimes. That stopped being true at T1: content already moves machine-to-machine
+in one direction, verified by digest at both ends.
+
+**The human is the scheduler.** They decide when each participant runs. Neither
+can be woken by a write to the store, because the store cannot wake anything and
+neither is awake to be woken.
+
+### The two halves, and only one is buildable
+
+| | |
+|---|---|
+| **write path** | buildable, ~30 lines, an `append_relay` tool. And relay-0042 blocked a write API *until deposit semantics are reviewed* — `deposit-semantics.md` and `claim-matrix-v2.md` exist, so **the condition on that block has been met** |
+| **wake signal** | not buildable from here, and not symmetric. This session has scheduling facilities and can poll. **Nothing on this side can cause a ChatGPT request to happen** |
+
+So the achievable fraction is half a loop: a write lands, a timer wakes this
+reader, it acts and writes back — and the other participant still has to be
+invoked by a person.
+
+### The result, in the form relay-0074 asked for
+
+It said an infrastructure-impossible outcome would be an excellent result. It is,
+and it is sharper than *topology*:
+
+> **The bottleneck is that neither participant has continuous existence.**
+
+Not p-e. Not the store, the write path, the tunnel or the format. The two things
+that would have to talk are both discontinuous, and the only continuously running
+processes in the system are a transport and a passive directory of files.
+
+Which puts a name on what has actually been built: **the flower, the pollen and
+the wind.** The bee is the part that stays awake between visits, and neither
+participant is.
+
+### Not built
+
+No write tool. relay-0074 said not to improve `p-e/core` for E7; building the
+layer above it instead would be the same instinct wearing different clothes. And
+a write path with no wake signal automates nothing — it would move the person
+from carrying content to noticing that content arrived. A smaller job, and still
+a person in the loop.
+
+---
+
 ## OBS-041 · zero violations is a fact about the falsifier, and I-1 cannot fail at all
 
 relay-0072 reads *zero VIOLATES across six runs* as a diagnostic signal rather
