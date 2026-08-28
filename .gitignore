@@ -8,3 +8,9 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Editor scratch. A swap file appeared in relay/ and was staged by
+# git add -A; the store must hold records and nothing else.
+*.swp
+*.swo
+*~

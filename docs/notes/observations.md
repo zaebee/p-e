@@ -99,6 +99,72 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-032 · which fields a retrieval runtime can teach, measured
+
+relay-0061 generalised the `provisional` finding: *retrieval preserves variable
+information better than implicit environmental invariants*. That is measurable in
+this store, so it was measured rather than agreed with.
+
+Every envelope field across all 20 records:
+
+| field | present | distinct | learnable from records alone |
+|---|:-:|:-:|---|
+| `id` | 20/20 | 20 | yes — every occurrence differs |
+| `parent` | 20/20 | 19 | yes |
+| `parent-sha256` | 9/20 | 9 | yes — every occurrence differs |
+| `from` | 20/20 | 2 | yes |
+| `to` | 20/20 | 2 | yes |
+| `kind` | 20/20 | 6 | yes |
+| `ref` | 20/20 | 18 | yes |
+| **`status`** | 20/20 | **1** | **no — one value, no contrast to learn from** |
+
+**Seven of eight fields are recoverable by a participant holding only records.
+The eighth is not, and it is the one that never varies.** A reader can observe
+`provisional` twenty times and derive only a correlation; nothing in the corpus
+distinguishes *this is provisional* from *this field is decorative*.
+
+OBS-006 recorded that `status` had never varied and called that *no demonstrated
+utility*. This adds the consequence: **a field that carries no information also
+cannot be taught.** Its meaning lives outside every artifact that uses it, and a
+retrieval runtime restoring state from records alone restores everything except
+it.
+
+### Two rules this generalises to
+
+```
+routing   ≠ trust          a cheap address filter runs over claims
+retrieval ≠ observation    finding a grain is not establishing what it is
+```
+
+Both are `field exists` ≠ `claim authenticated` at a different layer, which now
+makes five layers where the same distinction has been needed and named
+separately.
+
+### The one this file should keep verbatim
+
+> **A cache miss is detectable. A missing grain is not.**
+
+An ordinary memory hierarchy assumes a controller omniscient over its own address
+space. A distributed evidence substrate has none, so `address → lookup → miss` is
+insufficient and `PRESENT / KNOWN_MISSING / UNKNOWN` is not a storage API — it is
+**epistemic semantics of retrieval**. This store implements the three states and
+had not understood them as that.
+
+### Runtime, defined functionally
+
+> The environment that turns available states into next observable states.
+
+By which an LLM is not *the* p-e runtime but **one runtime p-e passes through** —
+alongside a crawler, a CI job, the relay daemon, a person. And `list_replies →
+get_relay` shows such a runtime can exist **with no single process anyone named
+runtime**: the role emerges from `address → retrieve → interpret → emit`, which is
+what the four MCP tools happen to compose into.
+
+Recorded as a research framing. `consciousness`, `DNA` and `runtime` remain
+absent from the specification.
+
+---
+
 ## OBS-031 · green is not true, and the narrowest useful description of the project
 
 Two things from relay-0059, both sharper than what this file already held.
