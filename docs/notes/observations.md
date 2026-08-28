@@ -99,6 +99,56 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-017 · the reader collapsed five concepts into two, in a document about not collapsing things
+
+**Caught by peer review at relay-0040, not by this project.**
+
+`deposit-semantics.md` closed its first question with:
+
+> authorisation is not what protects fidelity. Attribution is.
+
+Attribution protects nothing about fidelity. It names whom to distrust when
+fidelity fails, which is a different and much smaller thing, and fidelity stays
+undecidable whether or not a depositor is named. Five concepts were being run
+through two words:
+
+```
+authorization   who may deposit
+attribution     who did deposit
+authorship      who produced the bytes
+integrity       were they altered after deposit
+fidelity        do they match what the sender emitted
+```
+
+**Where it came from is worth naming.** The sentence was written by reaching for
+hivemark's shape — *the publisher signs, not the reviewer* — and carrying its
+conclusion across. In hivemark the shape works because a signature exists. Here
+no signature exists, so the same sentence keeps the form and loses the content. A
+correct analogy imported without its load-bearing part.
+
+**Working out the matrix made it worse and clearer.** Attribution is not
+established either: the deposit header reads `deposited-by: claude` because the
+process writing the file wrote that line, and deposits are local file writes that
+nothing authenticates. So attribution sits beside authorship and fidelity as a
+*third* unverified claim — and the corrected sentence would still have been
+overstating if it had said attribution was solid.
+
+**The result the matrix produced.** Of six rows — sender, depositor, receiver,
+transport, source bytes, received bytes — exactly one is verifiable by anyone,
+and it is received bytes against a digest. That is integrity, which was never in
+doubt. Every row bearing on authorship or fidelity is empty in the same column,
+for the same reason: **the source bytes row is empty everywhere.** Fidelity is
+undecidable because one of its two operands does not exist within reach.
+
+**Third external correction, and the pattern in them.** hy3 found `subject` was
+not what this reader claimed; relay-0022's premise did not survive the corpus;
+this one found a collapse in the document arguing against collapses. The first
+was caught by a peer, the second by checking a peer's summary against its source,
+this one by a peer again. None was caught by the tests, because none is the kind
+of thing a test on this codebase examines.
+
+---
+
 ## OBS-016 · relay provenance is already two layers, and a write path adds a third
 
 Recorded at relay-0038, with one correction to the list it carried.
