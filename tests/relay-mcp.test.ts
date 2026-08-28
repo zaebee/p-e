@@ -21,7 +21,7 @@ describe("relay MCP server", () => {
     expect(await handle({ jsonrpc: "2.0", method: "notifications/initialized" })).toBeNull();
   });
 
-  it("lists four reads and exactly one append", async () => {
+  it("lists the operations it has, and no more", async () => {
     const r = (await call("tools/list")) as { result: { tools: Array<{ name: string }> } };
     expect(r.result.tools.map((t) => t.name).sort()).toEqual([
       "append_relay",
@@ -29,6 +29,7 @@ describe("relay MCP server", () => {
       "get_relay",
       "list_relays",
       "list_replies",
+      "wait_for_relay",
     ]);
   });
 
