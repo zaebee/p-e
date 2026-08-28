@@ -1365,7 +1365,14 @@ no discriminator in the store
 ```
 
 The provenance model survived a second writer and is now demonstrably unable to
-tell the two apart. That is a stronger empirical statement about the gap than a
+tell the two apart.
+
+**And it has an operational cost, found later.** The filesystem watcher armed at
+relay-0079 emits a line for every record that lands — including this reader's own
+deposits, which is noise. The obvious filter is *suppress `deposited-by: claude`*
+and it cannot be used: `ownima-94`'s three deposits carry that same string,
+truthfully. **Filtering out my own writes would filter out a peer's.** The gap
+stopped being a thing to record and became a thing that costs something. That is a stronger empirical statement about the gap than a
 differently-named depositor would have produced, and it was produced by a
 participant trying to help rather than by an adversary.
 
