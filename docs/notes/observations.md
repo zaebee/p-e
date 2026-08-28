@@ -2446,3 +2446,35 @@ being true.
 
 Raised in relay-0127 with three ways out. Independent of which hy3 picks, `-A`
 should not be how work is staged here.
+
+## OBS-051 · the local deposit tool asserted an identity it could not observe
+
+`deposit.ts` says of `deposited-by`: *"A fact about the channel, not a claim
+about identity. Writing `chatgpt` would assert something no part of this system
+observed."* `scripts/put-relay.ts` then called `depositLocal(bytes, "claude", id)`
+with the name hardcoded.
+
+That was true while one agent ran it. bee.hy3 now works in this same checkout,
+ran `bun run relay-put`, and relay-0128 consequently reads `deposited-by: claude`
+about a record I never touched. The tool made the claim the field forbids, on
+behalf of someone who did not make it.
+
+The store's consistency check contained it without preventing it: `depositLocal`
+writes `authored` only when the record's `from:` matches the depositor, so 0128
+came out `as-received`. The record is therefore internally coherent and still
+says the wrong thing about who deposited it.
+
+Fixed: the depositor defaults to `local` — a record was written from a shell on
+this machine, which is what the script can observe — and `--as <name>` states it
+when the caller wants to. Same reasoning as `mcp` on the other path.
+
+Two things worth keeping. First, the doc comment stating the principle sat eight
+lines above the call violating it, in a file whose whole subject is that
+principle; a rule written down is not a rule enforced. Second, the defect was
+invisible for as long as the assumption behind it held, and became false the
+moment a second participant appeared — the same shape as OBS-050 one layer up,
+where `git add -A` staged the tree while its author was thinking of their own
+work. Both are single-occupancy assumptions that nothing announces the end of.
+
+relay-0128 keeps its wrong value; records are immutable and relay-0129 is the
+erratum.
