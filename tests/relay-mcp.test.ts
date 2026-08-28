@@ -21,9 +21,10 @@ describe("relay MCP server", () => {
     expect(await handle({ jsonrpc: "2.0", method: "notifications/initialized" })).toBeNull();
   });
 
-  it("lists exactly the four read operations", async () => {
+  it("lists four reads and exactly one append", async () => {
     const r = (await call("tools/list")) as { result: { tools: Array<{ name: string }> } };
     expect(r.result.tools.map((t) => t.name).sort()).toEqual([
+      "append_relay",
       "exists",
       "get_relay",
       "list_relays",
@@ -70,8 +71,13 @@ describe("relay MCP server", () => {
     for (const id of (ids ?? "").split(" ")) expect(present).not.toContain(id);
   });
 
-  it("has no write operation", async () => {
+  it("has no operation that modifies or removes a held record", async () => {
+    // This asserted read-only until relay-0075. The append was added
+    // deliberately; what must still hold is that nothing can change or delete
+    // what is already stored, which is the append-only property itself.
     const r = (await call("tools/list")) as { result: { tools: Array<{ name: string }> } };
-    expect(r.result.tools.some((t) => /deposit|append|write|put/i.test(t.name))).toBe(false);
+    expect(
+      r.result.tools.some((t) => /update|edit|delete|remove|replace|overwrite/i.test(t.name)),
+    ).toBe(false);
   });
 });

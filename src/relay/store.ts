@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
  * a fact about the world — which is the defect this whole project is about,
  * appearing in its own code.
  */
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "relay");
+export const STORE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "relay");
 
 /**
  * Three states, and the third is not a variant of the second.
@@ -143,7 +143,7 @@ function parse(id: string, raw: string): RelayRecord {
   };
 }
 
-export async function loadStore(root = ROOT): Promise<Map<string, RelayRecord>> {
+export async function loadStore(root = STORE_ROOT): Promise<Map<string, RelayRecord>> {
   const out = new Map<string, RelayRecord>();
   let names: string[];
   try {
