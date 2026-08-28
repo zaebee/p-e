@@ -82,3 +82,14 @@ describe("relay MCP server", () => {
     ).toBe(false);
   });
 });
+
+describe("a slow call must not hold the server", () => {
+  it("answers initialize while a wait is outstanding", async () => {
+    // The 502 at 20:07 was this: one awaited wait_for_relay stopped every
+    // later line, including the handshake, so the host saw no response at all.
+    const slow = call("tools/call", { name: "wait_for_relay", arguments: { timeout_ms: 2_000 } });
+    const handshake = (await call("initialize")) as { result: { serverInfo: { name: string } } };
+    expect(handshake.result.serverInfo.name).toBe("p-e-relay");
+    await slow;
+  });
+});

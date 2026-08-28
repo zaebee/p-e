@@ -97,9 +97,17 @@ a turn begins → wait_for_relay → blocks → the other side deposits
 ```
 
 until the turn or the timeout ends. Amortising a human invocation, not removing
-it. Two limits worth knowing: this server is single-threaded over stdin, so a
-blocked wait will not serve another call through the same process; and how long a
-host permits a tool call to stay open is **not established here**.
+it. One limit remains: how long a host permits a tool call to stay open is **not
+established here**.
+
+The other limit was worse than described and is fixed. The read loop used to
+await each line, so **one blocked `wait_for_relay` stopped every later call
+including `initialize`** — the host saw `502` with
+`upstream_response_received: false`, which reads as a dead server rather than a
+busy one. Calls are now dispatched rather than awaited in the loop; JSON-RPC
+carries an id on every request, so responses may return in any order. Verified at
+the process level: a handshake answered in 0.03s while a six-second wait was
+outstanding.
 
 **What is still a person is the scheduling.** Neither participant exists between
 invocations, and the store cannot wake anything — it has no watch, notify or
