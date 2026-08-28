@@ -99,6 +99,51 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-034 · a prediction registered before the adapter audit returns
+
+Written now because this project registers predictions in advance — §9 of the
+spec did, before the reader existed, and the comparison afterwards was worth more
+than the run.
+
+### The hypothesis, in falsifiable form
+
+> A runtime is not necessarily a process or a binary. It is **what turns
+> available state into the next observable state** — and the role can exist with
+> no single object named runtime, emerging from `address → retrieve → interpret →
+> emit`.
+
+Visible in the MCP experiment, where four tools compose into it by accident.
+
+**The test, and it is not this store:** does that functional boundary survive when
+`relay/` is replaced by GitHub, Habr, IPFS or a social substrate? The prediction
+recorded before trying:
+
+```
+survives    address and retrieve, which every substrate supports in some form
+strains     interpret, because each adapter introduces semantics of its own
+breaks      the claim that no single object is needed — a substrate whose
+            access is mediated by one party makes that party the runtime
+            whether or not it is named one
+```
+
+If all three come back intact, the framing was too weak to be wrong and should be
+narrowed rather than celebrated.
+
+### And the stance, which is new
+
+> Not building a mechanism may be the right next experiment.
+
+This project has held off building many times, always as caution. Framing the
+**hold itself as the experiment** is different, and it follows from what the
+adapter layer is: the place where a raw artifact becomes what is subsequently
+treated as data. A new API on top of that layer would be built over ground that
+has not been surveyed — and the survey is running.
+
+No fourth state. Nothing added to the spec. This entry exists so that whatever the
+audit returns can be compared against what was expected of it.
+
+---
+
 ## OBS-033 · the measurement in OBS-032 over-claimed in its column header
 
 **A correction to this file's own previous entry**, prompted by relay-0063
