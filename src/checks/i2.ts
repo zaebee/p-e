@@ -42,13 +42,32 @@ export function checkI2(files: Map<string, Uint8Array>, extractedAt: string): Fi
   const health = apexHealth(files);
   const history = apexHistory(files);
   const checkedAt = Date.parse(health.checkedAt);
+  // Every comparison against NaN is false, so an unparseable timestamp counted
+  // as neither future nor out of order and the branch landed on CONFORMS.
+  // Malformed input must not be able to produce a conformance: the failure
+  // direction was the wrong one. Latent on this corpus, where all timestamps
+  // parse.
+  const unparseable = [
+    ...(Number.isNaN(checkedAt) ? [`checkedAt=${health.checkedAt}`] : []),
+    ...Object.entries(history.hosts)
+      .filter(([, r]) => Number.isNaN(Date.parse(r.since)))
+      .map(([host, r]) => `${host}.since=${r.since}`),
+  ];
   const badSince = Object.entries(history.hosts).filter(([, r]) => Date.parse(r.since) > checkedAt);
   findings.push({
     invariant: "I-2",
     producer: "apex",
-    verdict: checkedAt > cutoff || badSince.length > 0 ? "VIOLATES" : "CONFORMS",
+    verdict:
+      unparseable.length > 0
+        ? "UNDECIDABLE"
+        : checkedAt > cutoff || badSince.length > 0
+          ? "VIOLATES"
+          : "CONFORMS",
     evidence: "OBSERVED",
-    reason: `the snapshot's occurrence ${health.checkedAt} precedes extraction, and every host's since precedes that snapshot (${badSince.length} exceptions); updatedAt is a write time and is not used as one`,
+    reason:
+      unparseable.length > 0
+        ? `${unparseable.length} timestamp(s) do not parse (${unparseable.join(", ")}); an unreadable time settles nothing, and must not be counted as ordered correctly`
+        : `the snapshot's occurrence ${health.checkedAt} precedes extraction, and every host's since precedes that snapshot (${badSince.length} exceptions); updatedAt is a write time and is not used as one`,
     projections: [],
   });
 

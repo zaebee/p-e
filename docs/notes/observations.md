@@ -99,6 +99,89 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-025 · a CONFORMS carried by key presence, standing in five published runs
+
+**Found by a peer session reading the code, not by 72 tests.** Verified here
+against the corpus before anything was changed.
+
+`checks/i3.ts`, apex branch, as published in runs 01 through 05:
+
+```ts
+const carriesRecord = entries.every((e) => "finalUrl" in e && "offSite" in e);
+verdict: missing.length > 0 ? "VIOLATES" : carriesRecord ? "CONFORMS" : "UNDECIDABLE"
+```
+
+Against the frozen corpus: `offSite === true` occurs **zero** times, so nothing
+was ever concluded; `finalUrl` is **null in all eight** entries. Both keys are
+present, so `carriesRecord` is true, so the verdict was CONFORMS.
+
+**A CONFORMS carried entirely by two keys existing over empty values** — under a
+heading this project wrote for itself: `field exists` ≠ `claim authenticated`.
+
+**What makes it a defect rather than a judgement call: the codebase had already
+ruled.** On the same producer, on the same data:
+
+| | | |
+|---|---|---|
+| `i1`/apex | `exercised ? CONFORMS : UNDECIDABLE` | demands the state occur |
+| `i5`/apex | `anyGap ? CONFORMS : UNDECIDABLE` | same standard |
+| `i3`/apex | `carriesRecord ? CONFORMS : …` | **key presence** |
+
+And `i1.ts` carries a comment about having been corrected for precisely this:
+
+> An earlier draft of this check accepted a present-but-zero mechanism here while
+> demanding an occurring value there, which is exactly the producer-specific
+> leniency the falsification rule forbids.
+
+`i3` was that uncorrected draft, and it survived a self-audit whose criterion 4
+was *no adapter-derived meaning counted as producer evidence* — because the
+audit asked about invented meaning and this is invented *sufficiency*.
+
+**The honest reason was already in the report, in the wrong field.** Run 05's
+prose for this finding says *every conclusion in this corpus is negative … so the
+case where the evidence would matter most is not among them*. The verdict said
+CONFORMS. A consumer reading verdicts never reaches the paragraph that retracts
+it — which is the peer's own precedence trap, stated in credentials and found
+here in verdicts: **the honest information exists, just not where the decision is
+made.**
+
+**And the test asserted the defect.** `tests/i3.test.ts` read
+`expect(apex?.verdict).toBe("CONFORMS")` for five runs. A test can lock in the
+thing it exists to catch.
+
+### Two further defects, latent, verified as not firing
+
+Reported by the same session, and checked rather than taken on report.
+
+- **`adapters/apex.ts`, `field()` returned `m?.[1] ?? ""`.** An absent field and
+  a present-but-empty one produced the same value — I-1's distinction lost inside
+  the adapter that feeds the checks testing for it. Every log field is present
+  and non-empty on this corpus, so it never fired; it would have, silently, the
+  first time an entry omitted `attested:`. Now throws.
+- **`checks/i2.ts` compared against `Date.parse` results without a NaN guard.**
+  Every comparison against NaN is false, so an unparseable timestamp counted as
+  neither future nor out of order and the branch landed on **CONFORMS**. Malformed
+  input able to produce a conformance, which is the wrong failure direction. All
+  timestamps parse on this corpus. Now UNDECIDABLE, with the offending values
+  named.
+
+### Fixed in code, not yet in a run
+
+All three corrected, 74 tests. **No run emitted:** relay-0027 said no further
+conformance run for now, and a run number is identity-bearing. What run 06 would
+say, if authorised:
+
+```
+I-3  apex CONFORMS -> UNDECIDABLE     the only verdict change
+ADMITTED 0 of 9 -> 0 of 9
+CONFORMS 6 -> 4 · UNDECIDABLE 11 -> 13
+```
+
+Until then the code and the newest published report disagree, deliberately, and
+this paragraph is where that is recorded rather than left for a reader to find.
+
+---
+
 ## OBS-024 · a second depositor arrived, and the store cannot tell it from the first
 
 **Measured, 2026-08-28.** A peer Claude session (`ownima-94`, a different process,
