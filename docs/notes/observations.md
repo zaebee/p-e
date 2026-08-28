@@ -99,6 +99,82 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-033 · the measurement in OBS-032 over-claimed in its column header
+
+**A correction to this file's own previous entry**, prompted by relay-0063
+distinguishing two kinds of unknown.
+
+OBS-032's table has a column headed *learnable from records alone* and marks
+seven of eight fields **yes**. What it actually measured was **contrast** —
+whether a field takes more than one value. Contrast is **necessary** for learning
+a meaning and **not sufficient**.
+
+Checked: **no record in the store defines any `kind` value.** Six values occur —
+`ack`, `correction`, `decision`, `decision-request`, `observation`, `report` — and
+a reader holding every record can learn which participant emits which, and cannot
+learn what any of them means.
+
+```
+status   no contrast    not even a partition
+kind     contrast       a partition, and still no definitions
+```
+
+So the honest column header is *has contrast*, and the finding underneath it
+survives in a narrower form: `status` is worse off than the other seven, not
+uniquely unrecoverable among them.
+
+### Two independent unknowns, and this store represents one
+
+```
+UNKNOWN OBJECT      I do not know whether the grain exists
+UNKNOWN SEMANTICS   I hold the grain and do not know what its field means
+```
+
+`exists()` returns `PRESENT` / `KNOWN_MISSING` / `UNKNOWN` — three object-level
+states, carefully separated. **The API has no way to say a field is
+uninterpretable.** Having every byte does not guarantee recovering the protocol,
+and the store's own epistemic vocabulary stops at the object boundary.
+
+Not built. Naming a fourth state would be the same over-claiming as the column
+header, one layer up.
+
+### Two kinds of memory
+
+```
+data memory           what can be reconstructed from observation
+environmental memory  what the interpreting environment must already know
+```
+
+Which supplies a counterexample to something this project had been assuming:
+*store enough grains and a participant reconstructs the state.* **Not
+necessarily.** A meaning that never appears in differing observations is not
+recoverable state, however complete the record.
+
+### Where the real boundary sits
+
+```
+the test corpus does not know about a human habit of `git add -A`
+the relay does not know what `status` means
+the reader did not know that `recipient` is not `subject`
+MCP does not know whether a lost relay existed
+git does not know `.env` holds a secret unless told
+```
+
+Five failures today, and in every one the tests could have been green. **The real
+boundary of a system is often not where it was formally modelled** — which is the
+same sentence as OBS-030's, arrived at from the outside instead of from a test.
+
+### The method, stated
+
+> Do not ask a system what it knows. Check which part of that knowledge is
+> actually contained in the evidence available to it.
+
+That is what every run, every observation and both peer reviews have been doing.
+It is a method rather than an architecture, and it is the first description that
+applies to the reader, the tests, the store and this file equally.
+
+---
+
 ## OBS-032 · which fields a retrieval runtime can teach, measured
 
 relay-0061 generalised the `provisional` finding: *retrieval preserves variable
