@@ -99,6 +99,36 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-011 · three kinds of reader meaning, and a field that holds only two
+
+**Research finding, from relay-0027. Not a core invariant, and not implemented.**
+
+An evaluator must distinguish three things it can be doing with a producer's
+data, and this reader's `projections` field currently collapses two of them:
+
+| | what it is | example in this reader |
+|---|---|---|
+| **observed producer semantics** | the meaning the producer publishes | `signer` and `recipient` are named by hivemark; `gaps` is named by apex |
+| **reader projection** | native data, renamed or restructured into the reader's shape | apex's `host` becoming the envelope's `subject`. The datum is the producer's; the role name is the reader's |
+| **reader-imposed semantics** | meaning that exists nowhere upstream | verdict code `0` meaning *unresolved*; a string with whitespace being *prose*; the grouping key that defines one review |
+
+`projections` on a `Finding` records the third kind and, where it happens to
+appear, the second. It does not tell them apart. That matters because they
+license different things: a projection can be undone by renaming, and an imposed
+meaning cannot be undone at all — it has to be removed, and whatever rested on it
+falls.
+
+Two of the four projections declared in run 05 are imposed rather than projected:
+`I-1/hivemark` (code `0`) and `I-7/apex` (whitespace). Both findings are already
+UNDECIDABLE, so nothing currently rests on an imposed meaning — but the field
+cannot demonstrate that, and a future run could add an imposed meaning under a
+CONFORMS without the distinction surfacing.
+
+Not built. relay-0027 asked for no further conformance run, and a three-valued
+field is a reader change that would need one.
+
+---
+
 ## OBS-010 · the evaluator's boundary, in both directions
 
 Proposed at relay-0023 as OBS-009. Renumbered: OBS-009 was already taken by the

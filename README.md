@@ -45,18 +45,45 @@ identity semantics, subject ontology, cryptographic family, and causal linkage.
 Runs are immutable. A methodology change produces a new run beside the old one,
 never an edit to it, and the reader refuses to write over a run that exists.
 
-- [`conformance-01`](docs/reports/2026-08-28-conformance-01.md) — the first run.
-  Admitted one invariant, and was wrong in two places.
-- [`conformance-02`](docs/reports/2026-08-28-conformance-02.md) — the same corpus
-  under corrected methodology. Admits none. Says what it corrected and why.
+| run | what changed | admitted |
+|---|---|:-:|
+| [01](docs/reports/2026-08-28-conformance-01.md) | the first run | 1 of 9 |
+| [02](docs/reports/2026-08-28-conformance-02.md) | I-2 and I-7 demoted; "consistent with" is not "confirmed" | 0 of 9 |
+| [03](docs/reports/2026-08-28-conformance-03.md) | a wording correction; run 02 overstated its own result | 0 of 9 |
+| [04](docs/reports/2026-08-28-conformance-04.md) | I-6 demoted on corrected grounds; coverage becomes measured | 0 of 9 |
+| [05](docs/reports/2026-08-28-conformance-05.md) | the reader audited against itself; every finding declares its projections | 0 of 9 |
 
-01 is kept because it is where those two errors are visible, and it is the
-provenance of 02.
+Every run is kept, including the ones that were wrong. Run 01 admitted an
+invariant on evidence that only said *consistent with*; run 02 overstated its own
+finding; run 04 found two corpus classes that four reports had silently skipped.
+Each is the provenance of the next.
 
-The finding both runs share: **nine rules are enforced, demonstrably, in the
-producers' source; none of them can be witnessed by a stranger holding only the
-producers' published artifacts.** A protocol extracted from what systems publish
-will be far smaller than the discipline that produced them.
+`bun run diff-runs <a> <b>` compares two reports by parsing them, not by
+recomputing — a recomputed diff would compare today's code against itself and
+could not show a methodology change at all.
+
+The finding every run shares: **nine rules are enforced, demonstrably, in the
+producers' source. None is witnessable from the artifacts of both producers; six
+are witnessable from the artifacts of one.** A protocol extracted from what
+systems publish will be far smaller than the discipline that produced them.
+
+## Reproducing a run
+
+```sh
+bun install
+bun run conform --run 06     # any unused two-digit run id
+bun run diff-runs docs/reports/2026-08-28-conformance-05.md \
+                  docs/reports/2026-08-28-conformance-06.md
+```
+
+The corpus is committed and pinned by digest, so this needs no access to either
+producer's repository. Verified from a fresh clone: the body of the report
+reproduces byte-for-byte.
+
+Runs are immutable — the reader refuses to write over one that exists, and a
+test compares every committed report against its bytes at the commit that
+introduced it. `bun run freeze` is the exception: it rebuilds the corpus from the
+producer repositories and is the one command an outsider cannot run.
 
 ## Read this first
 
