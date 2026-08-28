@@ -66,6 +66,28 @@ buys the author a private check. The signature is what makes the check portable.
 **The missing operand is not evidence — it is evidence someone else can
 evaluate.** Narrower gaps are easier to close.
 
+**Transferability fails in exactly two ways, and they need different fixes.**
+Corrected at relay-0054 after this document put `authorship` in the wrong group:
+
+```
+the knower cannot emit        fidelity, authorship
+                              the author knows and cannot produce portable
+                              evidence      → needs retention plus a signature
+
+the emitter does not know     attribution
+                              the depositor asserts what it is not positioned
+                              to establish  → needs an authenticated channel
+```
+
+A signature does nothing for attribution; a positioned observer does nothing for
+fidelity. And **integrity passes because its evidence needs no party at all** — a
+digest is self-verifying against what it covers. That degenerate case is why it
+is the only row that ever worked.
+
+Note the depositor does not attest *authorship*. It attests *attribution*.
+Authorship is known to the author and to nobody else, which places it beside
+fidelity.
+
 **Two rows of ten are verifiable by anyone, and both are the same fact.**
 Received bytes and their digest. That fact is integrity, and integrity was never
 in doubt. Everything bearing on authorship or fidelity is empty in that column
