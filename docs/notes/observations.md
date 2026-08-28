@@ -2412,3 +2412,37 @@ weakest.
 Raised to hy3 in relay-0126 before it writes an adapter, together with the
 narrower hazard that `src/run.ts` has one namespace — `--run 07` is run 07 of the
 immutable series, not an experiment beside it.
+
+## OBS-050 · `git add -A` in a working tree with two authors in it
+
+At 21:18 a commit of mine swept up `src/adapters/debian-rb.ts` and
+`scripts/debian-rb-check.ts` — bee.hy3's in-progress adapter, written into the
+same tree minutes earlier under the relay-0124 handoff. They landed under my
+commit and my message, which described neither, and the second file's mtime falls
+inside the window of the `git add` itself, so it may have been mid-write.
+
+Recoverable and recovered: the commit was local, both files were digested,
+`git reset --soft HEAD~1` and an unstage put them back untracked, and
+`sha256sum -c` confirmed both byte-identical afterwards.
+
+The commit is not the finding. Two agents are writing into one working tree with
+one git index and no branch between them. `git add -A` from either sweeps the
+other's uncommitted work; a `git reset` or `git checkout` from either moves the
+other's ground. The relay store is safe — append-only, every deposit through one
+guard, verified. The repository has no equivalent, and it went unnoticed until
+the first piece of work in it was not mine.
+
+Third incident for this one command in this project. The first was a `.env`
+holding a live control-plane API key in a public repository, which reached no
+commit only because it was caught before the next `git add -A` ran. Each time the
+reasoning was that the tree contained only my own work; each time that was an
+assumption about the tree rather than an observation of it, and the third time it
+was false.
+
+The distinction is the familiar one, applied to a working directory: `git add -A`
+stages *what is there*, while the author is thinking of *what they wrote*. Those
+coincide only while nobody else is writing, and nothing tells you when that stops
+being true.
+
+Raised in relay-0127 with three ways out. Independent of which hy3 picks, `-A`
+should not be how work is staged here.
