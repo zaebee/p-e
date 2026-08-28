@@ -1,9 +1,32 @@
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { type CorpusEntry, sha256 } from "../src/manifest.js";
 
-const PROJECTS = "/home/zaebee/projects";
+/**
+ * Where the producer repositories live. This is the one local-only assumption in
+ * the tree, and re-freezing is the one thing an outsider cannot do: `hivemark`
+ * and `apex` are not vendored here, and one of the artifacts is build output
+ * that is gitignored in its own repository.
+ *
+ * The corpus is committed, so nothing in the published reader needs this script.
+ * It exists to record how the corpus was made, and it fails legibly rather than
+ * with ENOENT when the repositories are not where it expects.
+ */
+const PROJECTS = process.env.P_E_PRODUCERS ?? "/home/zaebee/projects";
+
+if (!existsSync(join(PROJECTS, "hivemark")) || !existsSync(join(PROJECTS, "apex"))) {
+  throw new Error(
+    `producer repositories not found under ${PROJECTS}. Set P_E_PRODUCERS to the directory holding hivemark/ and apex/. Re-freezing is not needed to reproduce a run: corpus/ is committed, and \`bun run conform --run NN\` reads it directly.`,
+  );
+}
 
 const SOURCES: ReadonlyArray<{ from: string; to: string; producer: string; repo: string }> = [
   {
