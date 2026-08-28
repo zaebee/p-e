@@ -1,0 +1,22 @@
+{
+  "name": "p-e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "freeze": "bun run scripts/freeze-corpus.ts",
+    "conform": "bun run src/cli.ts --",
+    "diff-runs": "bun run scripts/diff-runs.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^26.4.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  }
+}

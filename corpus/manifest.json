@@ -1,0 +1,106 @@
+{
+  "extracted_at": "2026-08-28T14:18:43.751Z",
+  "entries": [
+    {
+      "path": "hivemark/attestations.json",
+      "sha256": "74cf4ebc787232eb54f58027f2b085513893665b81cd4136e41c99a4152bc736",
+      "bytes": 3556935,
+      "producer": "hivemark",
+      "sourceRepo": "hivemark",
+      "sourceRev": null,
+      "tracked": false,
+      "reason": "artifact_not_versioned"
+    },
+    {
+      "path": "hivemark/provenance.json",
+      "sha256": "1953eae4a78371ace59dfa9aebad5221499f8cab68bd5c4f5cdcb964adb90b04",
+      "bytes": 1140,
+      "producer": "hivemark",
+      "sourceRepo": "hivemark",
+      "sourceRev": null,
+      "tracked": false,
+      "reason": "artifact_not_versioned"
+    },
+    {
+      "path": "hivemark/anchors.json",
+      "sha256": "5a73249ce2a191aa6ba599c65b0e79ccaa22b1220bea3f8bf39714fc42629dc8",
+      "bytes": 142047,
+      "producer": "hivemark",
+      "sourceRepo": "hivemark",
+      "sourceRev": "bfa75d7d96be0433a935fb8a9261cba5fbd92c9b",
+      "tracked": true
+    },
+    {
+      "path": "hivemark/births.json",
+      "sha256": "1bd0262fec66105cf845b17d6ead4f12e2415bc0db0f9e8788eae332211224fd",
+      "bytes": 1242,
+      "producer": "hivemark",
+      "sourceRepo": "hivemark",
+      "sourceRev": "bfa75d7d96be0433a935fb8a9261cba5fbd92c9b",
+      "tracked": true
+    },
+    {
+      "path": "hivemark/corpus.json",
+      "sha256": "edfbd2cf413a8f6e5376a736bac1a0c525dfe94f03164f74d7034fc9431bb22a",
+      "bytes": 1603,
+      "producer": "hivemark",
+      "sourceRepo": "hivemark",
+      "sourceRev": "bfa75d7d96be0433a935fb8a9261cba5fbd92c9b",
+      "tracked": true
+    },
+    {
+      "path": "apex/health.json",
+      "sha256": "777aa3a816d3b7e2f46d14e53eaa6d17c7ca99436d836e2c0100d5c7bb10e9ae",
+      "bytes": 1301,
+      "producer": "apex",
+      "sourceRepo": "apex",
+      "sourceRev": "afb3a3c3ef73b4347d75b7c606bae65172e2fbad",
+      "tracked": true
+    },
+    {
+      "path": "apex/history.json",
+      "sha256": "51b37bcfc73a1896a3a86fc72fe855181d76ce206f1e0f41a72afe2c9e0b4eb4",
+      "bytes": 1126,
+      "producer": "apex",
+      "sourceRepo": "apex",
+      "sourceRev": "afb3a3c3ef73b4347d75b7c606bae65172e2fbad",
+      "tracked": true
+    },
+    {
+      "path": "apex/log/asking-for-citations-produced-citations.md",
+      "sha256": "93c56fe13f0c2a598b6de2556889cfd95f74b8e6b032810bb6edafd1b07afd46",
+      "bytes": 5793,
+      "producer": "apex",
+      "sourceRepo": "apex",
+      "sourceRev": "afb3a3c3ef73b4347d75b7c606bae65172e2fbad",
+      "tracked": true
+    },
+    {
+      "path": "apex/log/correcting-a-claim-added-two.md",
+      "sha256": "995ed6e1a441ceee377bf6edb70a84b35a403439e7526a555bf94264870cd5d1",
+      "bytes": 2782,
+      "producer": "apex",
+      "sourceRepo": "apex",
+      "sourceRev": "afb3a3c3ef73b4347d75b7c606bae65172e2fbad",
+      "tracked": true
+    },
+    {
+      "path": "apex/log/the-defects-were-in-the-lines-they-praised.md",
+      "sha256": "7f124744925fe8085808e98d39260285692c458333bc3cfce34ad3478fd7ebf9",
+      "bytes": 7155,
+      "producer": "apex",
+      "sourceRepo": "apex",
+      "sourceRev": "afb3a3c3ef73b4347d75b7c606bae65172e2fbad",
+      "tracked": true
+    },
+    {
+      "path": "apex/log/witnesses-who-had-not-looked.md",
+      "sha256": "460115bf11d16dbf0ffe6e6283e01b2e70adfb1e436d91d1f01653e492c1338d",
+      "bytes": 2998,
+      "producer": "apex",
+      "sourceRepo": "apex",
+      "sourceRev": "afb3a3c3ef73b4347d75b7c606bae65172e2fbad",
+      "tracked": true
+    }
+  ]
+}

@@ -1,0 +1,117 @@
+import type { Envelope } from "../envelope.js";
+
+const decoder = new TextDecoder();
+
+export interface ApexHealthEntry {
+  host: string;
+  ok: boolean;
+  code: number | null;
+  finalUrl?: string | null;
+  offSite?: boolean;
+}
+
+export interface ApexHostRecord {
+  state: "alive" | "cold" | "unknown";
+  since: string;
+  checks: number;
+  gaps: number;
+}
+
+export interface ApexLogEntry {
+  file: string;
+  title: string;
+  date: string;
+  claimed: string;
+  observed: string;
+  attested: string;
+}
+
+function text(files: Map<string, Uint8Array>, name: string): string {
+  const bytes = files.get(name);
+  if (!bytes) throw new Error(`not in corpus: ${name}`);
+  return decoder.decode(bytes);
+}
+
+export const apexHealth = (files: Map<string, Uint8Array>) =>
+  JSON.parse(text(files, "apex/health.json")) as {
+    checkedAt: string;
+    ok: boolean;
+    lastOkAt?: string | null;
+    entries: Record<string, ApexHealthEntry>;
+  };
+
+export const apexHistory = (files: Map<string, Uint8Array>) =>
+  JSON.parse(text(files, "apex/history.json")) as {
+    updatedAt: string;
+    hosts: Record<string, ApexHostRecord>;
+  };
+
+/**
+ * Frontmatter only, and a deliberately unclever parser: the fields are quoted
+ * single-line YAML scalars, and pulling in a YAML library would let this reader
+ * accept shapes the producer never emits.
+ */
+export function apexLog(files: Map<string, Uint8Array>): ApexLogEntry[] {
+  const out: ApexLogEntry[] = [];
+  for (const file of [...files.keys()].filter((k) => k.startsWith("apex/log/")).sort()) {
+    const body = text(files, file);
+    const match = /^---\n([\s\S]*?)\n---/.exec(body);
+    const front = match?.[1];
+    if (!front) throw new Error(`no frontmatter in ${file}`);
+    const field = (name: string): string => {
+      const m = new RegExp(`^${name}:\\s*"?([\\s\\S]*?)"?\\s*$`, "m").exec(front);
+      return m?.[1] ?? "";
+    };
+    out.push({
+      file,
+      title: field("title"),
+      date: field("date"),
+      claimed: field("claimed"),
+      observed: field("observed"),
+      attested: field("attested"),
+    });
+  }
+  return out;
+}
+
+/**
+ * `subject` is the host — the thing observed. hivemark's subject is the
+ * claimant. Both are carried as written; flattening them into one meaning is the
+ * mistake §5 records and M2 leaves open.
+ */
+export function readApex(files: Map<string, Uint8Array>): Envelope[] {
+  const health = apexHealth(files);
+  const history = apexHistory(files);
+  const envelopes: Envelope[] = [];
+
+  Object.entries(health.entries).forEach(([host, entry], index) => {
+    envelopes.push({
+      subject: host,
+      occurred_at: health.checkedAt,
+      payload: entry,
+      origin: { file: "apex/health.json", index },
+    });
+  });
+
+  Object.entries(history.hosts).forEach(([host, record], index) => {
+    envelopes.push({
+      subject: host,
+      // The occurrence is when this state was first observed, not when the file
+      // was folded — `updatedAt` is a write time and is deliberately not used.
+      occurred_at: record.since,
+      payload: record,
+      origin: { file: "apex/history.json", index },
+    });
+  });
+
+  apexLog(files).forEach((entry, index) => {
+    envelopes.push({
+      subject: entry.file,
+      occurred_at: new Date(entry.date).toISOString(),
+      payload: entry,
+      origin: { file: entry.file, index },
+    });
+  });
+
+  return envelopes;
+}
