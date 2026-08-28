@@ -30,6 +30,12 @@ function nextFree(held: ReadonlySet<string>): string {
 /**
  * Append one record. Refuses far more than it accepts, on purpose.
  *
+ * Every deposit goes through here. At 20:05:00 a record deposited by another
+ * participant was destroyed by a shell redirect while this guard sat one
+ * function away refusing exactly that — it existed on the path nobody local was
+ * using. Both entry points below share it now, so there is no unguarded way to
+ * write a record.
+ *
  * - **Never overwrites.** A proposed id that is already held is refused. The
  *   store holds one account per id, and a second would be a conflict it has no
  *   basis for resolving — `deposit-semantics.md` §revisited.
@@ -44,10 +50,12 @@ function nextFree(held: ReadonlySet<string>): string {
  * - **The bytes must parse.** A malformed deposit is refused at the door rather
  *   than breaking `loadStore` for every later reader.
  */
-export async function appendRelay(
+async function deposit(
   bytes: string,
-  proposedId?: string,
-  root = STORE_ROOT,
+  depositedBy: string,
+  provenance: "authored" | "as-received",
+  proposedId: string | undefined,
+  root: string,
 ): Promise<DepositResult> {
   const held = await loadStore(root);
 
@@ -73,7 +81,7 @@ export async function appendRelay(
     throw new Error(`the record declares id: ${declared} and would be stored as ${id}`);
   }
 
-  const record = `deposited-by: mcp\nprovenance: as-received\n---\n${bytes.trimStart()}`;
+  const record = `deposited-by: ${depositedBy}\nprovenance: ${provenance}\n---\n${bytes.trimStart()}`;
   const path = join(root, `${id}.txt`);
   await writeFile(path, record.endsWith("\n") ? record : `${record}\n`, { flag: "wx" });
 
@@ -90,4 +98,38 @@ export async function appendRelay(
     sha256: stored.sha256,
     path,
   };
+}
+
+/** The MCP path. Always `mcp` / `as-received` — see the doc comment above. */
+export async function appendRelay(
+  bytes: string,
+  proposedId?: string,
+  root = STORE_ROOT,
+): Promise<DepositResult> {
+  return deposit(bytes, "mcp", "as-received", proposedId, root);
+}
+
+/**
+ * The local path, for a participant writing its own records to disk.
+ *
+ * `authored` asserts that depositor and sender are the same, and
+ * `deposit-semantics.md` says the store can check that much: a record claiming
+ * `from: someone-else` is stored `as-received` however it arrived, because this
+ * process did not write those words. A consistency check between two claims,
+ * not evidence for either.
+ */
+export async function depositLocal(
+  bytes: string,
+  depositor: string,
+  proposedId?: string,
+  root = STORE_ROOT,
+): Promise<DepositResult> {
+  const from = /^from:\s*(\S+)\s*$/m.exec(bytes)?.[1];
+  return deposit(
+    bytes,
+    depositor,
+    from === depositor ? "authored" : "as-received",
+    proposedId,
+    root,
+  );
 }
