@@ -50,6 +50,21 @@ export interface RelayRecord {
   readonly bytes: string;
   readonly sha256: string;
   readonly parent: string | null;
+  /**
+   * The digest the record claims for its parent's bytes.
+   *
+   * `parent` names a label; this names bytes, which is the whole reason
+   * `ownima-94` proposed it — a label is whatever the store calls a record, and
+   * a digest is checkable by anyone holding both without any key. Parsed here
+   * so `header` refuses the malformed cases the same way it does for `parent`.
+   *
+   * The bytes it must equal are `sha256` above, taken over the record body
+   * after the deposit header. Not the whole file: `deposited-by:` and
+   * `provenance:` are written by the *receiving* store and differ by delivery
+   * channel, so a whole-file digest names bytes the sender never wrote. Two of
+   * my own records got this wrong — OBS-048, corrected in relay-0124.
+   */
+  readonly parentSha256: string | null;
   readonly ref: string | null;
   readonly from: string | null;
   readonly to: string | null;
@@ -134,6 +149,7 @@ function parse(id: string, raw: string): RelayRecord {
     bytes,
     sha256: createHash("sha256").update(bytes).digest("hex"),
     parent: header(head, "parent"),
+    parentSha256: header(head, "parent-sha256"),
     ref: header(head, "ref"),
     from: header(head, "from"),
     to: header(head, "to"),
