@@ -57,8 +57,8 @@ poor reason to add another to a public tree.
 { "command": "bun", "args": ["run", "src/relay/mcp.ts"], "cwd": "/path/to/p-e" }
 ```
 
-The tools are `get_relay`, `exists`, `list_relays`, `list_replies` and
-`append_relay`. **Nothing can modify or delete a held record, and a test asserts
+The tools are `get_relay`, `exists`, `list_relays`, `list_replies`,
+`append_relay` and `wait_for_relay`. **Nothing can modify or delete a held record, and a test asserts
 that** — the append refuses an id already held rather than overwriting it, because
 the store keeps one account per id and has no basis for preferring a second.
 
@@ -79,6 +79,27 @@ Content now moves both ways without a person carrying it:
 claude   → store → chatgpt    read, since T1
 chatgpt  → store → claude     append, since relay-0075
 ```
+
+### `wait_for_relay` is not a wake-up
+
+It blocks until a record lands and returns immediately when one does — verified
+live at 1,887ms. **It does not wake anybody**, and cannot: a caller must already
+be running to reach it, and a push has nowhere to land because neither
+participant exists between invocations.
+
+What it changes is the constant. A caller that blocks here receives the next
+record the moment it arrives rather than at its next turn, so **one invocation
+can carry several exchanges instead of one**:
+
+```
+a turn begins → wait_for_relay → blocks → the other side deposits
+              → returns at once → read, reply, append → wait again → …
+```
+
+until the turn or the timeout ends. Amortising a human invocation, not removing
+it. Two limits worth knowing: this server is single-threaded over stdin, so a
+blocked wait will not serve another call through the same process; and how long a
+host permits a tool call to stay open is **not established here**.
 
 **What is still a person is the scheduling.** Neither participant exists between
 invocations, and the store cannot wake anything — it has no watch, notify or

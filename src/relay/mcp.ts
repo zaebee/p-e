@@ -13,10 +13,27 @@
  */
 import { appendRelay } from "./deposit.js";
 import { exists, getRelay, listRelays, listReplies, loadStore } from "./store.js";
+import { MAX_WAIT_MS, waitForRelay } from "./wait.js";
 
 const PROTOCOL = "2024-11-05";
 
 const TOOLS = [
+  {
+    name: "wait_for_relay",
+    description:
+      "Block until a record appears with an id greater than `after`, or until the timeout. Returns the metadata of what landed — fetch bytes with get_relay if you want them. THIS DOES NOT WAKE YOU: you must already be running to call it. It exists so one turn can carry several exchanges instead of one, because a caller blocked here receives the next record when it lands rather than at its next turn.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        after: {
+          type: "string",
+          description:
+            "the last id you saw, e.g. relay-0079. Omit to wait for anything not already held",
+        },
+        timeout_ms: { type: "number", description: `default 30000, capped at ${MAX_WAIT_MS}` },
+      },
+    },
+  },
   {
     name: "append_relay",
     description:
@@ -96,6 +113,25 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
       const { present, missing } = listRelays(store, after);
       return text(
         `present (${present.length}): ${present.join(" ") || "—"}\nknown missing (${missing.length}): ${missing.join(" ") || "—"}`,
+      );
+    }
+    case "wait_for_relay": {
+      const after = typeof args.after === "string" ? args.after : undefined;
+      const ms = typeof args.timeout_ms === "number" ? args.timeout_ms : 30_000;
+      const r = await waitForRelay(after, ms);
+      if (r.timedOut) {
+        return text(
+          `nothing appeared in ${r.waitedMs}ms. That is a fact about this window, not about whether anything was sent.`,
+        );
+      }
+      return text(
+        `${r.appeared.length} record(s) after ${r.waitedMs}ms:\n` +
+          r.appeared
+            .map(
+              (x) =>
+                `${x.id}  ${x.kind ?? "?"}  from ${x.from ?? "?"} to ${x.to ?? "?"}  via ${x.depositedBy} ${x.provenance}`,
+            )
+            .join("\n"),
       );
     }
     case "append_relay": {
