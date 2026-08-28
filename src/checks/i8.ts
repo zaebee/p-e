@@ -13,6 +13,7 @@ export function checkI8(files: Map<string, Uint8Array>): Finding[] {
         entries.length === 0 ? "UNDECIDABLE" : unbounded.length > 0 ? "VIOLATES" : "CONFORMS",
       evidence: "OBSERVED",
       reason: `${entries.length} log entries, each naming what it does not establish (${unbounded.length} without); the field is required by the collection schema, so an entry that could not fill it would not build`,
+      projections: [],
     },
   ];
 
@@ -25,8 +26,8 @@ export function checkI8(files: Map<string, Uint8Array>): Finding[] {
     producer: "hivemark",
     verdict: carries ? "CONFORMS" : "UNDECIDABLE",
     evidence: "OBSERVED",
-    reason:
-      "no published envelope carries the unverifiable list; verifyEnvelope produces it at read time and it does not survive into the artifact, so a holder of the corpus alone is not told the limit",
+    reason: `none of the ${raw.length} published envelopes carries an unverifiable or limits key, checked one by one. The producer's README says a signature does not assert a finding is correct; that sentence is not in the corpus, and this reader does not read source, so a holder of the artifacts alone is not told the limit`,
+    projections: [],
   });
 
   return findings;

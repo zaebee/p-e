@@ -36,6 +36,7 @@ export function checkI2(files: Map<string, Uint8Array>, extractedAt: string): Fi
     verdict: future > 0 ? "VIOLATES" : "UNDECIDABLE",
     evidence: "OBSERVED",
     reason: `${times.length} occurrence times spread over ${spanHours.toFixed(1)}h, ${future} of them after extraction — compatible with occurrence rather than publication, and no arrangement of timestamps read alone can establish which of the two a field means`,
+    projections: [],
   });
 
   const health = apexHealth(files);
@@ -48,6 +49,7 @@ export function checkI2(files: Map<string, Uint8Array>, extractedAt: string): Fi
     verdict: checkedAt > cutoff || badSince.length > 0 ? "VIOLATES" : "CONFORMS",
     evidence: "OBSERVED",
     reason: `the snapshot's occurrence ${health.checkedAt} precedes extraction, and every host's since precedes that snapshot (${badSince.length} exceptions); updatedAt is a write time and is not used as one`,
+    projections: [],
   });
 
   return findings;

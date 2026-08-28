@@ -47,6 +47,7 @@ export function checkI5(files: Map<string, Uint8Array>): Finding[] {
           : "CONFORMS",
     evidence: "OBSERVED",
     reason: `${anchors.length} anchor(s) — ${anchors.map((a) => a.period).join(", ")} — named as valid ISO weeks with uid counts matching (${malformed.length} malformed, ${miscounted.length} miscounted); with one period a gap cannot be exhibited, so the no-backfill half is unobservable here`,
+    projections: [],
   });
 
   const history = apexHistory(files);
@@ -67,6 +68,7 @@ export function checkI5(files: Map<string, Uint8Array>): Finding[] {
     reason: anyGap
       ? `${records.length} host records carry gaps counts, ${records.filter((r) => r.gaps > 0).length} of them non-zero, so a hole is visible rather than absorbed`
       : `${records.length} host records each carry a gaps count and a since no later than the fold, but every count is zero, so no hole exists for the record to have preserved`,
+    projections: [],
   });
 
   return findings;

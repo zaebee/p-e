@@ -7,6 +7,7 @@ const f = (producer: string, verdict: Finding["verdict"]): Finding => ({
   verdict,
   evidence: "OBSERVED",
   reason: "",
+  projections: [],
 });
 
 describe("admits", () => {

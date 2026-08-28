@@ -83,6 +83,30 @@ export interface ReportMeta {
  */
 const RUN_NOTES: Record<string, string> = {
   "01": "First run. No prior run to differ from.",
+  "05": `The reader audited against itself, at relay-0025. **No verdict
+changed.**
+
+**Every finding now declares its projections** — meaning the reader supplied that
+no producer publishes. Four findings carry one. The two that matter:
+
+- **I-1/hivemark.** That verdict code \`0\` means *unresolved* is read off
+  hivemark's source, not its artifacts. The producer publishes a uint8. The
+  finding was already UNDECIDABLE and is now honest about why it could not have
+  been anything else.
+- **I-4/hivemark.** The grouping key — identityId, repo, pr, commitSha as one
+  review, newest time surviving — is this reader's rule, and a different rule
+  gives a different count. This finding stays CONFORMS because the conforming
+  half, that no published envelope stores the answer, is native and does not
+  depend on it.
+
+**Three reasons were rewritten.** \`I-4/apex\`, \`I-8/hivemark\` and
+\`I-9/hivemark\` asserted an absence without a denominator — *no envelope carries
+it* over a number the report never gave — and two of them cited producer source
+symbols this reader does not read. They now carry counts and say plainly which
+half is a claim about source.
+
+Run 04's numbers are unchanged. What changed is what the report admits about how
+it got them.`,
   "04": `I-6/hivemark reopened at relay-0022 and demoted. **CONFORMS →
 UNDECIDABLE.**
 
@@ -167,7 +191,12 @@ export function renderReport(findings: readonly Finding[], meta: ReportMeta): st
     .map((id) => {
       const own = findings.filter((f) => f.invariant === id);
       const lines = own
-        .map((f) => `- **${f.producer} — ${f.verdict}** *(${f.evidence})*. ${f.reason}`)
+        .map((f) => {
+          const head = `- **${f.producer} — ${f.verdict}** *(${f.evidence})*. ${f.reason}`;
+          if (f.projections.length === 0)
+            return `${head}\n  - *projections: none. This finding rests on published bytes alone.*`;
+          return `${head}\n${f.projections.map((x) => `  - *projection:* ${x}`).join("\n")}`;
+        })
         .join("\n");
       return `### ${id} · ${TITLES[id] ?? ""} — ${admits(own)}\n\n${lines}`;
     })
@@ -315,6 +344,24 @@ Which is this run's actual finding, and it is about p-e rather than about either
 producer: **a protocol extracted only from what producers publish will be very
 much smaller than the discipline that produced them.** Where that leaves the
 core is a decision, not a result, and this report does not make it.
+
+## Reader self-audit
+
+The four criteria of relay-0025, each enforced by a test in
+\`tests/self-audit.test.ts\` rather than asserted here.
+
+| | criterion | how it is enforced |
+|---|---|---|
+| 1 | every corpus class examined or excluded with a reason | the coverage matrix below, measured; an excluded class with no reason fails the suite |
+| 2 | every verdict traceable to artifact evidence | every reason must cite a count or a named published field; three findings failed this and were rewritten to carry denominators |
+| 3 | every semantic projection explicitly marked | \`projections\` is a required field on every finding, listed under each below, and a run declaring none anywhere fails as decorative |
+| 4 | no adapter-derived meaning counted as producer evidence | a CONFORMS may name a projection only while stating that its conforming half is native; enforced on every conforming finding |
+
+**Two dispositions that are not variants of each other.** \`NOT_APPLICABLE\` means
+the reader looked and the producer has no such construct — a statement about the
+producer. \`EXCLUDED_WITH_REASON\` means the reader did not look, and says why — a
+statement about the reader. Collapsing them would let unexamined ground read as
+cleared ground, which is the defect OBS-010 records.
 
 ## Corpus coverage
 

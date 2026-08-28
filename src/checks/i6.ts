@@ -41,6 +41,9 @@ export function checkI6(files: Map<string, Uint8Array>): Finding[] {
       verdict: collisions.length > 0 ? "VIOLATES" : "UNDECIDABLE",
       evidence: "OBSERVED",
       reason: `natively published: signer and message.recipient never coincide across ${raw.length} envelopes (${signers.size} signer, ${recipients.size} recipients, ${collisions.length} collisions). That is corpus-native and not a projection. But identifying recipient as the subject is §5's mapping, not the producer's, and no producer publishes a field named subject — so two distinct participant fields differing does not establish that an attester differs from a subject`,
+      projections: [
+        "none in the reported fact. Identifying recipient as the subject would be one, and is the reason this finding is UNDECIDABLE rather than CONFORMS",
+      ],
     },
   ];
 
@@ -52,6 +55,7 @@ export function checkI6(files: Map<string, Uint8Array>): Finding[] {
     verdict: withAttester.length === 0 ? "NOT_APPLICABLE" : "CONFORMS",
     evidence: "OBSERVED",
     reason: `none of ${a.length} records names an attester, so the separation cannot be exercised here; absence is evidence, not permission`,
+    projections: [],
   });
 
   return findings;
