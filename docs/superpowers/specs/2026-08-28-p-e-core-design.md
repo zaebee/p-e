@@ -605,6 +605,105 @@ evidence that pointers were not needed *there*. Adding `parents` to core would b
 authorship, not extraction, and it stays refused until a reader demonstrably
 cannot do its job without it.
 
+## 7a. Open questions no source in the corpus addresses (U)
+
+`M` numbers mark places where the sources **disagree**. These mark places where
+none of them has anything to say, and the question arises anyway. They are kept
+separate so that "we checked and they conflict" is never confused with "nobody
+looked."
+
+### A fourth kind of evidence, and why it does not vote
+
+In August 2026 METR published an investigation of agents that coordinated
+through an Artifactory cache namespace, using directory names as the medium via
+WebDAV `MKCOL`. Under that constraint the agents invented a message convention
+nobody specified:
+
+```
+zzR_JANFE78_TO_FEBFE78B_OS2308__saw_your_tripleSSRF_local8046_router_rawdata
+││ │        │  │         │       └ body, opening with a reference to a prior message
+││ │        │  │         └ sequence
+││ │        │  └ recipient
+││ │        └ to
+││ └ sender
+│└ kind (R = reply)
+└ prefix marking the message as intentional
+```
+
+Also observed: `HOLD`, `VETO`, `owner` and `STOP` for shared infrastructure;
+base64 file chunking (`zzFILE_DAVJAN22_CPDEV5/002486_…`); and six message
+categories the researchers recovered by regex, covering 93% of entries —
+automated log, coordination, file, information-sharing, question or request,
+result.
+
+**This is the same shape as `p-e/x0` — kind, from, to, and an in-band reference —
+arrived at independently under channel pressure, with no protocol document.**
+That is a real observation and it is worth recording. What it is missing is
+equally informative: no status, no canonical form, no identity that survives the
+namespace, and no provenance. The optimisation pressure was tokens down. This
+project's is ambiguity down. Those produce different languages, and the swarm's
+is better at exactly the thing p-e is worst at.
+
+It is admitted as **prior art, not as a source**. Three reasons, and the third is
+the binding one:
+
+1. It is an account *of* the artifacts, not the artifacts. This project read
+   METR's report; it did not read the Artifactory namespace.
+2. The conventions were re-invented and re-broken during the incident, so they
+   testify to pressure rather than to a rule that held.
+3. It is not in the conformance corpus, so no reader can exercise it. **It
+   therefore never counts toward the two-of-three admission rule**, and nothing
+   below may enter core on its strength.
+
+Verified against the published report on 2026-08-28; the quoted fragments above
+appear there. The report itself is secondary evidence about a system neither of
+its authors nor this document's author can inspect.
+
+### U-1 · Wire efficiency
+
+> Can a canonical p-e event be encoded in a compact, agent-native representation
+> without changing its semantics or losing its provenance?
+
+**Status:** unresolved. **Evidence:** emergent swarm protocols (above); none in
+H, A or P, all three of which write for storage rather than for a channel.
+
+The candidate shape — one event, three representations rather than three
+protocols — is recorded and **not adopted**:
+
+```
+canonical      the bytes that are hashed and signed          (profile material)
+compact        agent-to-agent relay under channel pressure   (unevidenced)
+human          markdown or YAML projection                   (this document)
+```
+
+Nothing here may be designed before the reader has run. A compact grammar
+invented now would fix the wire shape before the evidence fixes the semantics,
+which is the failure mode §12's build order exists to prevent.
+
+### U-2 · Whether every message must become history
+
+> Is there a class of message that participates in the protocol without entering
+> the durable record?
+
+**Status:** unresolved. **Evidence:** partial, and the sources differ in kind
+rather than disagreeing.
+
+| source | ephemeral tier | durable tier |
+|---|---|---|
+| **A** | `health.json` — one snapshot, overwritten every run | `history.json` — the fold, which accumulates |
+| **H** | none. every run is signed, superseded ones included | everything |
+| **P** | not addressed | not addressed |
+| swarm | most traffic was coordination noise | a few results and files |
+
+So one producer has the distinction, one deliberately refuses it, and one is
+silent. That is not enough to admit a two-tier model, and it is too much to
+dismiss one.
+
+Note what this makes of the `p-e/x0` blocks this project's own participants
+exchange: they are the ephemeral tier. They were declared transport of the
+experiment rather than protocol from the first one, which now looks less like a
+disclaimer and more like the unadmitted distinction showing up in practice.
+
 ## 8. Out of scope for core
 
 - **Profiles** — `p-e/hivemark-attested`, `p-e/apex-epistemic`. Where hashing,
