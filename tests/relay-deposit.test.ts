@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { appendRelay } from "../src/relay/deposit.js";
+import { appendRelay, depositLocal } from "../src/relay/deposit.js";
 import { loadStore } from "../src/relay/store.js";
 
 function scratch(): string {
@@ -54,5 +54,30 @@ describe("appendRelay", () => {
 
   it("refuses a malformed id", async () => {
     await expect(appendRelay(body("x"), "nope", scratch())).rejects.toThrow(/must look like/);
+  });
+});
+
+describe("depositLocal", () => {
+  it("marks authored only when the depositor is the from: participant", async () => {
+    const root = scratch();
+    const mine = await depositLocal(
+      body("relay-0002").replace("from: chatgpt", "from: claude"),
+      "claude",
+      "relay-0002",
+      root,
+    );
+    const theirs = await depositLocal(body("relay-0003"), "claude", "relay-0003", root);
+    const store = await loadStore(root);
+    expect(store.get(mine.id)?.provenance).toBe("authored");
+    // The record says `from: chatgpt` and this process did not write those
+    // words, so it is stored as-received however it arrived.
+    expect(store.get(theirs.id)?.provenance).toBe("as-received");
+  });
+
+  it("refuses to overwrite, which a shell redirect did not", async () => {
+    const root = scratch();
+    await expect(depositLocal(body("relay-0001"), "claude", "relay-0001", root)).rejects.toThrow(
+      /already held/,
+    );
   });
 });

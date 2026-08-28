@@ -10,7 +10,8 @@
     "conform": "bun run src/cli.ts --",
     "diff-runs": "bun run scripts/diff-runs.ts",
     "relay": "bun run src/relay/cli.ts",
-    "relay-mcp": "bun run src/relay/mcp.ts"
+    "relay-mcp": "bun run src/relay/mcp.ts",
+    "relay-put": "bun run scripts/put-relay.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
