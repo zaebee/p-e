@@ -27,6 +27,8 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   "relay-0113": "PLACEHOLDER, retracted by its own author in relay-0114",
   "relay-0119": "whole-file digest instead of the body digest; OBS-048, erratum in relay-0124",
   "relay-0123": "whole-file digest instead of the body digest; OBS-048, erratum in relay-0124",
+  "relay-0138": "whole-file digest, hy3; OBS-055, erratum in relay-0142",
+  "relay-0141": "whole-file digest, hy3; OBS-055, erratum in relay-0142",
 };
 
 const all = process.argv.includes("--all");

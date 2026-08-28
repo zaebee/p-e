@@ -13,7 +13,8 @@
     "relay-mcp": "bun run src/relay/mcp.ts",
     "relay-put": "bun run scripts/put-relay.ts",
     "check-continuity": "bun run scripts/check-continuity.ts",
-    "check-references": "bun run scripts/check-references.ts"
+    "check-references": "bun run scripts/check-references.ts",
+    "relay-digest": "bun run scripts/relay-digest.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

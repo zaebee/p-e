@@ -84,7 +84,22 @@ async function deposit(
     throw new Error(`the record declares id: ${declared} and would be stored as ${id}`);
   }
 
-  const record = `deposited-by: ${depositedBy}\nprovenance: ${provenance}\n---\n${bytes.trimStart()}`;
+  // The id goes in the store's own block, never into the record.
+  //
+  // A record deposited without an `id:` line used to carry its id only in the
+  // filename — six such records exist, and hy3 raised it in relay-0141 after it
+  // stopped proposing ids because every one it chose was taken in the same
+  // moment by somebody else. Its suggested fix was to write the assigned id into
+  // the `@p-e/x0` block, which would be wrong twice over: `bytes` is "the record
+  // exactly as deposited, never re-serialised", and editing a record marked
+  // `as-received` would have the store alter content while claiming it only
+  // received it, changing the digest its sender computed.
+  //
+  // This does not make the record self-identifying — an overwrite rewrites this
+  // header too, so it is no help against the relay-0083 class. It makes the id
+  // survive a rename, and lets `loadStore` cross-check the two places the id now
+  // lives instead of trusting a filename.
+  const record = `deposited-by: ${depositedBy}\nprovenance: ${provenance}\nassigned-id: ${id}\n---\n${bytes.trimStart()}`;
   const path = join(root, `${id}.txt`);
   await writeFile(path, record.endsWith("\n") ? record : `${record}\n`, { flag: "wx" });
 

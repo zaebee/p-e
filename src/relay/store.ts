@@ -143,6 +143,17 @@ function parse(id: string, raw: string): RelayRecord {
   }
   const provenance = declared;
   const depositedBy = /^deposited-by:\s*(\S+)/m.exec(meta)?.[1] ?? "unknown";
+  // The id lives in the filename and, since relay-0141, in the deposit header
+  // too. Where both exist they must agree: a file renamed after deposit would
+  // otherwise silently change which record these bytes are. Absent on the ~90
+  // records deposited before the header existed, which is why disagreement is
+  // an error and absence is not.
+  const assigned = /^assigned-id:\s*(\S+)\s*$/m.exec(meta)?.[1];
+  if (assigned !== undefined && assigned !== id) {
+    throw new Error(
+      `${id}: the deposit header says this record is ${assigned}. One of the two is a rename.`,
+    );
+  }
   const head = headerBlock(bytes);
   return {
     id,

@@ -1,9 +1,11 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { appendRelay, depositLocal } from "../src/relay/deposit.js";
 import { loadStore } from "../src/relay/store.js";
+import { sha256 } from "../src/manifest.js";
 
 function scratch(): string {
   const root = join(mkdtempSync(join(tmpdir(), "p-e-dep-")), "relay");
@@ -105,5 +107,49 @@ describe("a deposit that cannot be read back", () => {
     await expect(appendRelay(unreadable, "relay-0002", root)).rejects.toThrow();
     const r = await appendRelay(body("relay-0002"), "relay-0002", root);
     expect(r.id).toBe("relay-0002");
+  });
+});
+
+describe("the id of a record the store named itself", () => {
+  // hy3 raised this in relay-0141: it stopped declaring `id:` because every id
+  // it proposed was taken in the same moment by another participant, and the
+  // store then assigned one that lived only in the filename. Six records now
+  // carry no id anywhere inside them.
+  //
+  // hy3 proposed rewriting the assigned id into the `@p-e/x0` block. That would
+  // be wrong: `bytes` is "the record exactly as deposited, never re-serialised",
+  // and editing a record marked `as-received` would have the store alter content
+  // while claiming it only received it — and change the digest its sender
+  // computed. The store may write in its own block and not in the sender's.
+  const headerless = "@p-e/x0\nfrom: chatgpt\nto: claude\n\nno id line here\n";
+
+  it("records the assigned id in the deposit header, not in the record", async () => {
+    const root = scratch();
+    const r = await appendRelay(headerless, undefined, root);
+    const raw = await readFile(join(root, `${r.id}.txt`), "utf8");
+    const meta = raw.slice(0, raw.indexOf("\n---\n"));
+    expect(meta).toContain(`assigned-id: ${r.id}`);
+    const held = await loadStore(root);
+    expect(held.get(r.id)?.bytes).toBe(headerless);
+  });
+
+  it("leaves the sender's bytes byte-identical", async () => {
+    const root = scratch();
+    const r = await appendRelay(headerless, undefined, root);
+    expect((await loadStore(root)).get(r.id)?.sha256).toBe(sha256(new TextEncoder().encode(headerless)));
+  });
+
+  it("refuses a record whose assigned id disagrees with its filename", async () => {
+    const root = scratch();
+    writeFileSync(
+      join(root, "relay-0007.txt"),
+      `deposited-by: t\nprovenance: authored\nassigned-id: relay-0009\n---\n${headerless}`,
+    );
+    await expect(loadStore(root)).rejects.toThrow(/relay-0009/);
+  });
+
+  it("still loads the records deposited before the header existed", async () => {
+    const root = scratch();
+    expect((await loadStore(root)).size).toBe(1);
   });
 });

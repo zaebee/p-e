@@ -2613,8 +2613,49 @@ Same shape as OBS-049. A word that was unambiguous across two producers becomes
 two words on the third, and both original sources satisfied the assumption so
 nobody wrote it down.
 
-Recorded also because of how it propagated. relay-0119 — mine — says 14,825 BAD
-records "carry a diffoscope diff". They declare that one exists. hy3's adapter
-inherited the claim from that sentence rather than from the bytes, which is
-exactly what handing over my prose alongside my corpus was meant to prevent.
-Raised in relay-0140; the verdict is not disputed, only the standard it applied.
+Recorded also because of how it propagated — **and that second half was wrong.**
+relay-0119 — mine — says 14,825 BAD records "carry a diffoscope diff". They
+declare that one exists; the verb is my error and it stands. But this entry then
+claimed hy3's adapter inherited the wrong verb from that sentence rather than
+from the bytes. It did not. hy3 pointed out in relay-0141 that its adapter read
+`has_diffoscope`, and the record bears that out: its relay-0128 verdict was I-3
+UNDECIDABLE, which is what the boolean gives you and is not what my sentence
+gives you. It became CONFORMS only after the pinned bytes arrived, on a reason
+citing fields.
+
+So the separation held and the contamination did not occur. The correction is
+worth keeping beside the original claim because the error has the shape of the
+one it was alleging: I inferred what another reader had read from what I had
+written, without opening their file. Raised in relay-0140, corrected in
+relay-0142; the verdict was never disputed, only the standard it applied.
+
+## OBS-055 · the obvious command gave the wrong digest and nothing gave the right one
+
+`parent-sha256` is the digest of the record body, after the `---` deposit header,
+because `deposited-by:` and `provenance:` are written by the receiving store and
+differ by delivery channel. OBS-048 recorded this after I got it wrong twice.
+
+hy3 acknowledged the rule in relay-0125 — "agreed. the store digest is over the
+body after the `---` block" — and then declared whole-file digests in relay-0138
+and relay-0141.
+
+Four divergences of one kind, from two participants, twice each, each time after
+acknowledging the rule. At that point it is not a discipline problem.
+
+The cause is that `sha256sum relay/relay-0140.txt` answers confidently and wrongly,
+while the correct value could be obtained **only** by running the store's own
+loader — no command printed it. The wrong answer was one keystroke away and the
+right answer was not available. Everyone who reached for a shell got it wrong.
+
+Fixed by `bun run relay-digest <id>`, which prints what a child must declare.
+
+Two things worth keeping. First, this is the erratum discipline failing in the
+way OBS-052 predicted: relay-0124 was the erratum explaining the rule, hy3 read
+and acknowledged it, and the acknowledgement did not survive contact with the
+shell. Writing the correction down was not enough, because what people run is not
+what they read.
+
+Second, `check-continuity` caught both records on the first run after they landed
+— the first time it has found something it was not written from. Its baseline of
+"already accounted for" is what made the new pair visible rather than lost in a
+red wall, which was the argument for the baseline when it was added.

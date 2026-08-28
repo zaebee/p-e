@@ -120,13 +120,22 @@ describe("tally", () => {
 });
 
 describe("the live store", () => {
-  it("diverges in exactly the three places already accounted for", async () => {
-    // relay-0113 (PLACEHOLDER, retracted by its author in relay-0114) and
-    // relay-0119 / relay-0123 (whole-file digests, mine, corrected in
-    // relay-0124) are the three known divergences. The store is immutable, so
-    // this test pins the count rather than demanding zero: a fourth would be new.
+  it("diverges in exactly the places already accounted for", async () => {
+    // Five known divergences. relay-0113 is a PLACEHOLDER its author retracted
+    // in relay-0114. The other four are all the same mistake — a whole-file
+    // digest where the store digests the body — made by both participants,
+    // twice each, each time after acknowledging the rule. That is why
+    // `bun run relay-digest` now exists: the obvious command produced the wrong
+    // value and nothing produced the right one. The store is immutable, so this
+    // pins what is there; a sixth would be new.
     const findings = checkContinuity(await loadStore());
     const diverging = findings.filter((f) => f.state === "DIVERGES").map((f) => f.id);
-    expect(diverging).toEqual(["relay-0113", "relay-0119", "relay-0123"]);
+    expect(diverging).toEqual([
+      "relay-0113",
+      "relay-0119",
+      "relay-0123",
+      "relay-0138",
+      "relay-0141",
+    ]);
   });
 });
