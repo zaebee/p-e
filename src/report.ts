@@ -7,6 +7,8 @@ import { checkI6 } from "./checks/i6.js";
 import { checkI7 } from "./checks/i7.js";
 import { checkI8 } from "./checks/i8.js";
 import { checkI9 } from "./checks/i9.js";
+import { RecordingCorpus, coverageOf } from "./coverage.js";
+import type { Manifest } from "./manifest.js";
 import { type Finding, admits } from "./verdict.js";
 
 const TITLES: Record<string, string> = {
@@ -21,24 +23,55 @@ const TITLES: Record<string, string> = {
   "I-9": "data read back is validated, failures counted",
 };
 
+/** Every check, named, so nothing can be run without appearing in coverage. */
+const CHECKS: ReadonlyArray<
+  readonly [string, (files: Map<string, Uint8Array>, extractedAt: string) => Finding[]]
+> = [
+  ["I-1", (f) => checkI1(f)],
+  ["I-2", (f, at) => checkI2(f, at)],
+  ["I-3", (f) => checkI3(f)],
+  ["I-4", (f) => checkI4(f)],
+  ["I-5", (f) => checkI5(f)],
+  ["I-6", (f) => checkI6(f)],
+  ["I-7", (f) => checkI7(f)],
+  ["I-8", (f) => checkI8(f)],
+  ["I-9", (f) => checkI9(f)],
+];
+
 export function runAll(files: Map<string, Uint8Array>, extractedAt: string): Finding[] {
-  return [
-    ...checkI1(files),
-    ...checkI2(files, extractedAt),
-    ...checkI3(files),
-    ...checkI4(files),
-    ...checkI5(files),
-    ...checkI6(files),
-    ...checkI7(files),
-    ...checkI8(files),
-    ...checkI9(files),
-  ];
+  return CHECKS.flatMap(([, run]) => run(files, extractedAt));
+}
+
+/**
+ * The same run, watching which corpus paths each check actually opens.
+ *
+ * Each check gets its own recording view of the corpus, so attribution is
+ * measured rather than declared. A hand-kept table of which check reads which
+ * artifact would drift from the code without anything going red.
+ */
+export function runAllWithCoverage(
+  files: Map<string, Uint8Array>,
+  extractedAt: string,
+): { findings: Finding[]; byInvariant: Map<string, Set<string>> } {
+  const findings: Finding[] = [];
+  const byInvariant = new Map<string, Set<string>>();
+  for (const [id, run] of CHECKS) {
+    const view = new RecordingCorpus(files);
+    findings.push(...run(view, extractedAt));
+    byInvariant.set(id, view.reads);
+  }
+  return { findings, byInvariant };
 }
 
 export interface ReportMeta {
   readonly extracted_at: string;
   readonly artifacts: number;
   readonly runId: string;
+  /** Present when the run was made through `runAllWithCoverage`. */
+  readonly coverage?: {
+    readonly manifest: Manifest;
+    readonly byInvariant: ReadonlyMap<string, ReadonlySet<string>>;
+  };
 }
 
 /**
@@ -50,6 +83,34 @@ export interface ReportMeta {
  */
 const RUN_NOTES: Record<string, string> = {
   "01": "First run. No prior run to differ from.",
+  "04": `I-6/hivemark reopened at relay-0022 and demoted. **CONFORMS →
+UNDECIDABLE.**
+
+The concern raised was that the check compared two adapter-derived roles.
+Checked against the corpus, it did not: \`signer\` and \`message.recipient\` are
+both fields hivemark publishes under those names, they never coincide across all
+932 envelopes, and no projection is involved. That half stands.
+
+The step after it does not. I-6 asks whether the attester differs from the
+**subject**, and identifying \`recipient\` as the subject is §5's mapping rather
+than the producer's claim. No producer publishes a field named \`subject\`. Two
+natively distinct participant fields never coinciding is a real fact about
+hivemark; it is not the same fact as an attester differing from a subject, and
+the check no longer reports it as though it were.
+
+The reader now reads the raw JSON for this check rather than the envelope
+stream, so nothing it renames can influence the result.
+
+**Coverage is now a section of this report, not an assumption.** Required at
+relay-0023: omission from the matrix is not a disposition. Which check opens
+which artifact is measured — every check runs against a recording view of the
+corpus — and every class carries either the invariants that examined it or a
+stated reason for exclusion.
+
+It found more than the gap that prompted it. \`anchors.json\` is read by I-5
+after all, though no adapter projects it into an envelope. **\`births.json\` and
+\`corpus.json\` are opened by nothing at all**, and had been absent from four
+reports without that being visible anywhere.`,
   "03": `A wording correction, at relay-0018. **No verdict changed** — run the
 diff against run 02 and it says so.
 
@@ -146,6 +207,24 @@ export function renderReport(findings: readonly Finding[], meta: ReportMeta): st
     })
     .join("\n");
 
+  const coverageSection = (() => {
+    if (!meta.coverage) return "_Not measured: this run was made without coverage recording._";
+    const rows = coverageOf(meta.coverage.manifest, new Set(), meta.coverage.byInvariant).map(
+      (c) => {
+        const disposition =
+          c.disposition === "EXAMINED"
+            ? `examined by ${c.invariants.join(", ")}`
+            : "**EXCLUDED_WITH_REASON**";
+        return `| \`${c.cls}\` | ${c.files} | ${disposition} |`;
+      },
+    );
+    const reasons = coverageOf(meta.coverage.manifest, new Set(), meta.coverage.byInvariant)
+      .filter((c) => c.disposition === "EXCLUDED_WITH_REASON")
+      .map((c) => `- **\`${c.cls}\`** — ${c.reason || "**no reason stated. this is a defect.**"}`)
+      .join("\n");
+    return `| class | files | disposition |\n|---|:-:|---|\n${rows.join("\n")}\n\n${reasons}`;
+  })();
+
   const tally = (v: string) => findings.filter((f) => f.verdict === v).length;
 
   return `# p-e conformance report ${meta.runId}
@@ -236,6 +315,15 @@ Which is this run's actual finding, and it is about p-e rather than about either
 producer: **a protocol extracted only from what producers publish will be very
 much smaller than the discipline that produced them.** Where that leaves the
 core is a decision, not a result, and this report does not make it.
+
+## Corpus coverage
+
+Every artifact class in the manifest, with an explicit disposition. Required at
+relay-0023: **omission from this matrix is not a valid disposition.** Which check
+opened which artifact is measured, not declared — each check runs against a
+recording view of the corpus.
+
+${coverageSection}
 
 ## Findings
 

@@ -6,7 +6,18 @@
  * exercised. UNDECIDABLE: it applies, but the published artifacts do not settle
  * it. Neither is a failure, and neither is support.
  */
-export type Verdict = "CONFORMS" | "VIOLATES" | "NOT_APPLICABLE" | "UNDECIDABLE";
+export type Verdict =
+  | "CONFORMS"
+  | "VIOLATES"
+  | "NOT_APPLICABLE"
+  | "UNDECIDABLE"
+  /**
+   * A corpus class the reader deliberately does not examine, with the reason
+   * stated. Added at relay-0023, where omission from the matrix was ruled out
+   * as a disposition: a class the reader never opened must say so, rather than
+   * be absent and look considered.
+   */
+  | "EXCLUDED_WITH_REASON";
 
 /**
  * How a verdict was reached, which is a different question from what it was.
