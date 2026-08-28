@@ -99,6 +99,42 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-018 · a field existing is not a claim authenticated
+
+Stated at relay-0042 as a rule rather than an instance, which is why it is filed
+here even though its specific case is already OBS-017.
+
+> Deposit metadata such as `deposited-by` is itself a claim unless the store
+> authenticates the writer.
+
+The instance — that this store's deposit header is written by whatever process
+writes the file, and nothing checks it — is recorded in OBS-017 and is not filed
+again. What is new is the general form, and it reaches further than deposits:
+
+**`field exists` ≠ `claim authenticated`.** A record with a populated field looks
+the same whether the field was earned or typed. Ten rows in
+`claim-matrix-v2.md` have something in *asserted by*; two have anything in
+*verifiable by*, and both of those are the same fact.
+
+This is the third shape of the same distinction the project keeps rediscovering:
+
+```
+apex          cold        vs  unknown        fact about a thing / about an observation
+conformance   CONFORMS    vs  UNDECIDABLE    exercised / not settled by the artifacts
+coverage      NOT_APPLICABLE vs EXCLUDED_WITH_REASON   looked and found none / did not look
+relay store   KNOWN_MISSING  vs UNKNOWN      named and absent / never mentioned
+deposits      attributed  vs  authenticated  recorded as / established as
+```
+
+Five domains, one distinction, arrived at separately in each. That is worth
+noticing and is **not** evidence that it belongs in the core: I-1 is the
+catalogue's version of it and the conformance runs could not witness it in either
+producer. A distinction that keeps being needed by people who cannot demonstrate
+it is exactly the state the spec records, and this observation does not change
+it.
+
+---
+
 ## OBS-017 · the reader collapsed five concepts into two, in a document about not collapsing things
 
 **Caught by peer review at relay-0040, not by this project.**
