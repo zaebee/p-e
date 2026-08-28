@@ -99,6 +99,45 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-020 · a failed access path must not be represented as empty state
+
+Recorded at relay-0048. **Observation, not a core invariant.**
+
+The MCP server is launched by `tunnel-client` from a working directory of its
+choosing. The store resolved `relay/` against the process working directory, so
+started from anywhere but the repository root it opened nothing and answered:
+
+```
+present (0): —    known missing (0): —
+```
+
+A complete, well-formed, confident report of an empty exchange — produced by a
+failure to open a directory.
+
+**Two changes, and they are different repairs.** The root now resolves against
+the module, which fixes this deployment. A missing directory now **throws**,
+which fixes the class: *the store could not be opened* and *the store holds
+nothing* are different answers, and returning the second when the first is true
+is a lie no path fix would have prevented.
+
+**Where it sits.** This is OBS-019's distinction on the reader's own I/O:
+
+```
+property of the subject     the store holds no records
+property of our access      the store could not be opened
+```
+
+Found by writing a deployment command, not by 72 tests — because every test ran
+from the repository root, which is the one directory where the bug is invisible.
+
+**What it says about the conformance runs.** I-1 could not be witnessed in either
+producer because neither published corpus exercises a third state. This code did
+not exercise one either, until a deployment forced it. The distinction is easy to
+name, hard to demonstrate, and easy to lose in exactly the place nobody is
+looking — which is what five runs measured and what this is a sixth instance of.
+
+---
+
 ## OBS-019 · property-of-subject is not property-of-access
 
 Named at relay-0044. **Not an invariant, and not evidence for admitting I-1.**
