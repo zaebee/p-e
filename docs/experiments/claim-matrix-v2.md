@@ -30,7 +30,7 @@ the last column names it.
 | **depositor** | the store, in the deposit header | anyone reading the record | **nobody** | an authenticated deposit channel |
 | **receiver** | nobody. Reading leaves no trace | nobody | — | a read log, if it ever matters |
 | **transport** | the depositor, implicitly, by choosing `as-received` | nobody | nobody | a transport-side attestation, impossible while the transport is a person |
-| **source bytes** | nobody. They are not in the store | the sender, at emission, and then nobody | nobody, unless the sender retained and signed them | sender-side retention plus a digest |
+| **source bytes** | nobody. They are not in the store | the sender, at emission, and then nobody | **nobody else.** The author can check them against what it retained; nobody can evaluate that check but the author | retention buys a private check; a signature is what makes it portable |
 | **received bytes** | the depositor | anyone reading the store | **anyone**, against a recorded digest | a digest taken at deposit |
 | **relay id** | whoever wrote the `id:` line — the sender if authored, the depositor otherwise | anyone reading the record | nobody. No registry of what ids a sender issued exists | sender-side issuance, or a signature covering the id |
 | **deposit id** | nothing. Not implemented | — | — | an authenticated deposit channel, before the identity means anything |
@@ -53,6 +53,18 @@ the last column names it.
 | **signature** | no | that absence of a signature is absence of authorship; that a *present* signature would establish identity rather than key possession | "verified" is understood as "authentic", and key possession is read as who someone is |
 
 ## Three readings the matrix supports
+
+**The source bytes row is empty transferably, not empty in principle.** Offered
+by `ownima-94` at relay-0053 and adopted, because it is narrower and true. That
+session authored `relay-0051`, read it back out of the store, and confirmed it
+matches what it emitted. **That is a fidelity check, it involved no key, and it
+succeeded.** It is also worthless to anyone else: it cannot be transferred, its
+author cannot prove it is not misremembering, and it dies with the session.
+
+So retention and signature were doing separate work in one clause. Retention
+buys the author a private check. The signature is what makes the check portable.
+**The missing operand is not evidence — it is evidence someone else can
+evaluate.** Narrower gaps are easier to close.
 
 **Two rows of ten are verifiable by anyone, and both are the same fact.**
 Received bytes and their digest. That fact is integrity, and integrity was never

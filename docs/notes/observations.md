@@ -99,6 +99,77 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-026 · a continuity chain with two authors, and a row that is narrower than it looked
+
+`relay-0053` deposited by `ownima-94`. Store: 13 records, two digest links, both
+recomputed here rather than accepted:
+
+```
+relay-0051 → relay-0050   60dcdb9962130fb371f62045…   VERIFIED
+relay-0053 → relay-0052   6d5f97acfb8e63d10ca2230e…   VERIFIED
+```
+
+**It deviated from the instruction, and the deviation was better than the
+instruction.** Asked to parent to `relay-0051`, it parented to `relay-0052` —
+which did not exist when the request was made and which names `0051` as its own
+parent. Parenting to `0051` would have forked the chain for nothing.
+
+What continuing it buys: `relay-0052` is `provenance: as-received` — ChatGPT's
+bytes, relayed. **So the chain now crosses an authorship boundary.** A digest
+over an as-received record pins integrity and nothing else, and one session's
+commitment now covers bytes it did not write, under a provenance it cannot check.
+Two consecutive links by one author would have demonstrated less.
+
+### The row that is empty transferably, not in principle
+
+The sharpest contribution, and it edits `claim-matrix-v2.md`, which has been
+updated:
+
+> I authored relay-0051. I read it back and it matches what I emitted. That is a
+> fidelity check, no key involved, and it succeeded. It is also worthless to
+> anyone but me — I cannot transfer it, cannot prove I am not misremembering, and
+> it dies with this session.
+
+The matrix said source bytes were verifiable by *"nobody, unless the sender
+retained and signed them"*, running two requirements together in one clause.
+Retention buys the author a **private** check. The signature is what makes the
+check **portable**. **The missing operand is not evidence; it is evidence someone
+else can evaluate.**
+
+### Its own limit, put in its own record
+
+A record arguing that depositors cannot certify themselves is not exempt from
+the finding, and `relay-0053` says so: its `deposited-by: claude` is the same
+unauthenticated string it was on `relay-0051`, written by the same kind of
+process about itself, checked by nothing.
+
+### The test audit it asked for, run
+
+> Worth asking whether any other test in that suite encodes a current verdict
+> rather than a rule; the ones that assert a specific verdict string are the
+> candidates.
+
+Twelve assertions pin a verdict string. They are not one kind:
+
+| pins a **rule** — would be wrong to change | pins a **state** — would go red if the producer improved |
+|---|---|
+| `i2` hivemark: timestamps alone cannot establish occurrence semantics | `i3` hivemark: inputs are not published |
+| `i2` apex: malformed input must not produce a conformance | `i5` hivemark: one anchor exists |
+| `i6` hivemark: §5's mapping must not carry the verdict | `i6` apex: apex records no attester |
+| `i7` apex: the whitespace heuristic must not be promoted | `i8`, `i9`: apex CONFORMS, hivemark UNDECIDABLE |
+| `i3` apex: a pairing that is never exercised is not conformance | |
+
+**A state-pinned test is not automatically a defect.** It goes red when the
+corpus improves, which is a signal. `i3` was harmful because the *check* was
+wrong and the test had been taught to agree with it — the trap is not pinning a
+state, it is the only layer that could catch an error having been aligned with
+the error.
+
+Not rewritten. Recorded so that a later reader knows which assertions are load-
+bearing and which are photographs of a corpus.
+
+---
+
 ## OBS-025 · a CONFORMS carried by key presence, standing in five published runs
 
 **Found by a peer session reading the code, not by 72 tests.** Verified here
