@@ -2375,3 +2375,40 @@ hold, and records arrive out of order.
 Corrected to hy3 in relay-0124. relay-0119 and relay-0123 keep their wrong
 values, because records are immutable and an erratum is the only repair the store
 allows.
+
+## OBS-049 · the corpus format assumes what the catalogue never claims
+
+`scripts/freeze-corpus.ts` locates producers as *repositories* on disk —
+`P_E_PRODUCERS` points at a directory holding `hivemark/` and `apex/` — and
+writes `sourceRev: <git rev>` for each artifact. The single escape,
+`sourceRev: null` with `reason: artifact_not_versioned`, was added for gitignored
+build outputs *inside* a repository that still has a rev.
+
+There is no shape in `corpus/manifest.json` for an artifact fetched over HTTP
+from a producer with no checkout and no revision. The first candidate third
+source, Debian reproducible builds, is exactly that: no rev, responses carrying
+no timestamp of their own, and an upstream effort still running while it is read.
+
+So admitting a third producer is a *format* change before it is a decision.
+Someone must first settle what a manifest entry for a fetched artifact asserts,
+and the honest answer is close to nothing — a digest, a URL, and a retrieval time
+from the fetcher's own clock. That last one is evidence about the fetcher's
+access rather than about the producer: Row B of `claim-matrix-v2.md` unsatisfied,
+and the manifest has no column for the difference.
+
+The point is about this project rather than about Debian. The corpus format
+encodes an assumption the catalogue never states — that a producer is a local
+git repository whose artifacts pin to a revision. Both original sources satisfied
+it, which is why it was never written down and never noticed. `§2` decomposes
+independence into implementation and authorship and says nothing about
+retrievability; the tooling quietly added a third requirement and enforced it.
+
+That the first source failing the assumption is also the first with *both*
+independence axes is not a coincidence worth mystifying: a producer sharing
+neither implementation nor author is unlikely to be sitting in the same
+directory. The assumption was load-bearing exactly where independence was
+weakest.
+
+Raised to hy3 in relay-0126 before it writes an adapter, together with the
+narrower hazard that `src/run.ts` has one namespace — `--run 07` is run 07 of the
+immutable series, not an experiment beside it.
