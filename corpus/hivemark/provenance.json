@@ -1,0 +1,41 @@
+{
+  "source": "corpus.json",
+  "sha256": "a5247783ba78f448c7f6c9a21938c075580c0a76934310054f0e19ec0cf8855f",
+  "bytes": 1156196,
+  "lines": 115,
+  "files": [
+    {
+      "path": "martian-reviews.jsonl",
+      "bytes": 358902,
+      "lines": 64,
+      "sha256": "c11bf7bea08acfcd1eb1c9c5f6c2012b54794f4fbbc4f44de5544f1c3f5c6fd1"
+    },
+    {
+      "path": "martian-repeat-reviews.jsonl",
+      "bytes": 43431,
+      "lines": 6,
+      "sha256": "875819a2ab36fd0c0d8738dcda60e086a39e8389e7bfc0df4fe6a3d8114b9c75"
+    },
+    {
+      "path": "martian-p3-run1.jsonl",
+      "bytes": 302267,
+      "lines": 19,
+      "sha256": "260bd4d63bab50c906664faa40e9970e3de62a99993bf994c047a573db67b56d"
+    },
+    {
+      "path": "martian-p3-run2.jsonl",
+      "bytes": 320275,
+      "lines": 19,
+      "sha256": "24bba10542ef7a670160ba5472229ccca21607128c1a869a6e6029b1ee274f79"
+    },
+    {
+      "path": "martian-p3-run3.jsonl",
+      "bytes": 131321,
+      "lines": 7,
+      "sha256": "687e352cc89d98c1aa48161f8f95c916d059dac99ee5032a6b8dfd985f0ffe96"
+    }
+  ],
+  "identities": 3,
+  "attestations": 932,
+  "generated_at": "2026-08-15T22:25:40.526Z"
+}
