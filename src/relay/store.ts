@@ -66,11 +66,48 @@ export interface RelayRecord {
   readonly depositedBy: string;
 }
 
-const header = (bytes: string, field: string): string | null => {
-  const m = new RegExp(`^${field}:\\s*(\\S+)\\s*$`, "m").exec(bytes);
-  const value = m?.[1];
-  return value === undefined || value === "none" ? null : value;
-};
+/**
+ * The header block: everything above the first blank line.
+ *
+ * `header()` used to search the whole record, so a record quoting another's
+ * headers could adopt its values — and records in this store already quote
+ * header-like lines at column 0 (`relay-0060`'s body contains
+ * `status: provisional is in every record...`). Present headers were protected
+ * only by first-match-wins and the convention that headers come first. A record
+ * that omitted one would have taken someone else's.
+ */
+function headerBlock(bytes: string): string {
+  const blank = bytes.indexOf("\n\n");
+  return blank === -1 ? bytes : bytes.slice(0, blank);
+}
+
+/**
+ * One header, or null when the line is absent.
+ *
+ * A malformed line **throws** rather than reading as absent. The old regex
+ * required a single token and returned `undefined` otherwise, so
+ * `parent: relay-0001 relay-0002` parsed as no parent at all — and the two ids
+ * it names dropped out of `knownMissing`, becoming `UNKNOWN` ("nobody mentioned
+ * this") instead of `KNOWN_MISSING` ("named, and we do not hold it").
+ *
+ * That is this store's central distinction, lost to a regex. Header-absent and
+ * header-present-but-unparseable are different facts and now produce different
+ * outcomes.
+ *
+ * `none` is a deliberate vocabulary: `ref: none` means the writer said there is
+ * no reference, which this returns as null alongside an absent line. The two are
+ * not distinguished, and nothing currently depends on distinguishing them.
+ */
+function header(head: string, field: string): string | null {
+  const line = new RegExp(`^${field}:(.*)$`, "m").exec(head);
+  if (!line) return null;
+  const value = (line[1] ?? "").trim();
+  if (value === "") throw new Error(`header \`${field}:\` is present and empty`);
+  if (/\s/.test(value)) {
+    throw new Error(`header \`${field}:\` is present and unparseable: ${JSON.stringify(value)}`);
+  }
+  return value === "none" ? null : value;
+}
 
 function parse(id: string, raw: string): RelayRecord {
   // The first line is a deposit header this store writes; the rest is the
@@ -79,17 +116,28 @@ function parse(id: string, raw: string): RelayRecord {
   if (split === -1) throw new Error(`${id}: no deposit header`);
   const meta = raw.slice(0, split);
   const bytes = raw.slice(split + 5);
-  const provenance = /^provenance: authored$/m.test(meta) ? "authored" : "as-received";
+  // Absence must not read as a claim. A meta block with no `provenance:` line
+  // used to parse as `as-received` — turning "the depositor did not say" into
+  // "these bytes came through a transport and may differ from what the sender
+  // emitted", a specific fidelity claim invented out of silence.
+  const declared = /^provenance:\s*(\S+)\s*$/m.exec(meta)?.[1];
+  if (declared !== "authored" && declared !== "as-received") {
+    throw new Error(
+      `${id}: deposit header must declare provenance as authored or as-received, got ${JSON.stringify(declared)}`,
+    );
+  }
+  const provenance = declared;
   const depositedBy = /^deposited-by:\s*(\S+)/m.exec(meta)?.[1] ?? "unknown";
+  const head = headerBlock(bytes);
   return {
     id,
     bytes,
     sha256: createHash("sha256").update(bytes).digest("hex"),
-    parent: header(bytes, "parent"),
-    ref: header(bytes, "ref"),
-    from: header(bytes, "from"),
-    to: header(bytes, "to"),
-    kind: header(bytes, "kind"),
+    parent: header(head, "parent"),
+    ref: header(head, "ref"),
+    from: header(head, "from"),
+    to: header(head, "to"),
+    kind: header(head, "kind"),
     provenance,
     depositedBy,
   };

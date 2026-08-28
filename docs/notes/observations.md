@@ -99,6 +99,48 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-036 · the store cluster closed, and a false alarm raised by my own check
+
+Three defects in `store.ts`, all of them turning one of its three states into
+another. Fixed on instruction, each with a test that demonstrates the old
+behaviour.
+
+| | was | now |
+|---|---|---|
+| **malformed → absent** | `parent: a b` parsed as `null`, so two explicitly named, not-held ids became `UNKNOWN` instead of `KNOWN_MISSING` | a present-but-unparseable header **throws**; header-absent and header-present-but-broken are different facts |
+| **absent → claim** | a meta block with no `provenance:` line parsed as `as-received` — a fidelity claim about transport, invented out of silence | the deposit header must declare `authored` or `as-received`, or loading throws |
+| **another's → ours** | `header()` searched the whole record, so a record could adopt a header quoted in its body | headers are read only from the block above the first blank line |
+
+The third was live rather than theoretical. `relay-0060`'s body carries
+`status: provisional is in every record...` at column 0, and demonstrated
+against the old function:
+
+```
+old header(kind)    "decision"      adopted from the body
+old header(parent)  "relay-0000"    adopted from the body
+now                 null, null
+```
+
+Present headers were protected only by first-match-wins and the convention that
+headers come first. A record that omitted one would have taken someone else's.
+
+All 26 records still load and the graph is unchanged: `known missing` remains
+`relay-0026, relay-0045`.
+
+### A false alarm, raised by the check that was verifying the fix
+
+Before touching the parser, a check ran over every record to confirm each had a
+clean header block. It reported **fifteen unclean**. They were not: the test's
+own regex was `^[a-z-]+:` and `parent-sha256` contains digits.
+
+Fifteen records reported broken by a checker that could not read one of its
+fields. It cost one minute and it is the same shape as everything else recorded
+here — **an instrument's limit reported as a property of what it measured** — with
+the difference that this one appeared inside the work of fixing that exact class
+of defect, and was caught only because the numbers looked wrong.
+
+---
+
 ## OBS-035 · the adapter audit, and a false claim in the file about false claims
 
 A `fable` review of the adapter layer: **two firing, nine latent**, each
