@@ -7,6 +7,18 @@ const meta = async (): Promise<Manifest> =>
   JSON.parse(await readFile("corpus/manifest.json", "utf8"));
 
 describe("I-2", () => {
+  it("does not let an unparseable timestamp produce a conformance", async () => {
+    const files = await loadCorpus(".");
+    const health = JSON.parse(
+      new TextDecoder().decode(files.get("apex/health.json") as Uint8Array),
+    );
+    health.checkedAt = "not a date";
+    files.set("apex/health.json", new TextEncoder().encode(JSON.stringify(health)));
+    const apex = checkI2(files, (await meta()).extracted_at).find((f) => f.producer === "apex");
+    // Every comparison against NaN is false, so this once landed on CONFORMS.
+    expect(apex?.verdict).toBe("UNDECIDABLE");
+  });
+
   it("holds every occurrence time before the extraction time", async () => {
     const findings = checkI2(await loadCorpus("."), (await meta()).extracted_at);
     expect(findings.some((f) => f.verdict === "VIOLATES")).toBe(false);

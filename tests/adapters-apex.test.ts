@@ -17,6 +17,19 @@ describe("readApex", () => {
     expect(health.every((e) => e.attester === undefined)).toBe(true);
   });
 
+  it("refuses a log entry missing a frontmatter field rather than reading it as empty", async () => {
+    const files = await loadCorpus(".");
+    const name = [...files.keys()].find((k) => k.startsWith("apex/log/")) as string;
+    const bytes = files.get(name) as Uint8Array;
+    const gutted = new TextDecoder()
+      .decode(bytes)
+      .replace(/^attested:.*$/m, "")
+      .replace(/^attested:[\s\S]*?(?=^---$)/m, "");
+    files.set(name, new TextEncoder().encode(gutted));
+    // An absent field and an empty one must not produce the same value.
+    expect(() => apexLog(files)).toThrow(/no attested field/);
+  });
+
   it("gives every log entry a non-empty attested field", async () => {
     for (const entry of apexLog(await loadCorpus("."))) {
       expect(entry.attested.length).toBeGreaterThan(0);

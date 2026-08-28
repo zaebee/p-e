@@ -58,17 +58,28 @@ export function apexLog(files: Map<string, Uint8Array>): ApexLogEntry[] {
     const match = /^---\n([\s\S]*?)\n---/.exec(body);
     const front = match?.[1];
     if (!front) throw new Error(`no frontmatter in ${file}`);
-    const field = (name: string): string => {
+    // An absent field and a present-but-empty one must not collapse to the same
+    // value. `?? ""` made "the producer did not publish this" indistinguishable
+    // from "the producer published nothing here" — I-1's distinction, lost in
+    // the adapter that feeds the check that tests for it. Latent on this corpus,
+    // where every field is present and non-empty, and it would have fired
+    // silently the first time a log entry omitted `attested:`.
+    const field = (name: string): string | undefined => {
       const m = new RegExp(`^${name}:\\s*"?([\\s\\S]*?)"?\\s*$`, "m").exec(front);
-      return m?.[1] ?? "";
+      return m?.[1];
+    };
+    const required = (name: string): string => {
+      const value = field(name);
+      if (value === undefined) throw new Error(`${file}: frontmatter has no ${name} field`);
+      return value;
     };
     out.push({
       file,
-      title: field("title"),
-      date: field("date"),
-      claimed: field("claimed"),
-      observed: field("observed"),
-      attested: field("attested"),
+      title: required("title"),
+      date: required("date"),
+      claimed: required("claimed"),
+      observed: required("observed"),
+      attested: required("attested"),
     });
   }
   return out;

@@ -32,13 +32,27 @@ export function checkI3(files: Map<string, Uint8Array>): Finding[] {
   const entries = Object.values(health.entries);
   const concluded = entries.filter((e) => e.offSite === true);
   const missing = concluded.filter((e) => e.finalUrl === null || e.finalUrl === undefined);
-  const carriesRecord = entries.every((e) => "finalUrl" in e && "offSite" in e);
+  // Found by a peer session reviewing this file, and standing in runs 01-05.
+  //
+  // The old test was `entries.every(e => "finalUrl" in e && "offSite" in e)` —
+  // key presence. On this corpus `offSite === true` occurs zero times and
+  // `finalUrl` is null in all eight entries, so a CONFORMS was being carried
+  // entirely by two keys existing over empty values. `field exists` is not
+  // `claim demonstrated`, which is the heading of this project's own matrix.
+  //
+  // i1 and i5 already apply the opposite standard to the same producer, and
+  // i1 carries a comment about having been corrected for exactly this: a
+  // present-but-zero mechanism accepted here while an occurring value is
+  // demanded there. This check was that uncorrected draft.
+  //
+  // The pairing must be exercised. On this corpus it is not.
+  const exercised = concluded.length > 0;
   findings.push({
     invariant: "I-3",
     producer: "apex",
-    verdict: missing.length > 0 ? "VIOLATES" : carriesRecord ? "CONFORMS" : "UNDECIDABLE",
+    verdict: missing.length > 0 ? "VIOLATES" : exercised ? "CONFORMS" : "UNDECIDABLE",
     evidence: "OBSERVED",
-    reason: `all ${entries.length} entries pair the offSite conclusion with the finalUrl it was drawn from, and the pairing is exercised ${entries.length} times — but every conclusion in this corpus is negative (${concluded.length} positive, ${missing.length} of those without evidence), so the case where the evidence would matter most is not among them`,
+    reason: `all ${entries.length} entries carry both the offSite conclusion and the finalUrl field, but ${concluded.length} conclusions are positive and finalUrl is null in ${entries.filter((e) => e.finalUrl === null).length} of ${entries.length}: the pairing is never exercised, so keeping evidence beside a conclusion cannot be observed here. Two keys existing over empty values is not the invariant`,
     projections: [],
   });
 
