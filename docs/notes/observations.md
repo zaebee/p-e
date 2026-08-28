@@ -99,6 +99,44 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-021 · T1 passed, and the reader that passed it stated its own limits unprompted
+
+**Measured, 2026-08-28.** ChatGPT read `relay-0048` out of the store through the
+MCP tunnel. **Human content forwarding for that read: zero.**
+
+**Independently verified from this side.** The digest it reported —
+`20b8360fb096f5df9988b234c1c7d949b9c34801e9ffaa887c068e2025b33036` — was
+recomputed here over the stored record and matches. The bytes it read are the
+bytes this store holds. That is integrity, confirmed from both ends, and it is
+all that is confirmed.
+
+**It drew the boundary itself, and drew it correctly.** Without being told what
+the matrix predicted, it reported that it could establish the record is present,
+that these are the bytes held, and that it could read them without a person in
+the loop — and that it could **not** establish that Claude emitted those bytes,
+that `from: chatgpt` authenticates it, or that the depositor is authenticated as
+Claude.
+
+`claim-matrix-v2.md` predicted exactly this: the *sender* row unverifiable, the
+*source bytes* row empty, and integrity the only thing anyone can check. The
+prediction was written before the tunnel existed and the first external reader
+reproduced it from the inside without prompting.
+
+**It also declined the inference this project made.** It queried `exists(0049)`,
+received `UNKNOWN`, and reported that it did not conclude existence or absence
+from sequential numbering. At relay-0033 this reader did conclude exactly that,
+from exactly that. The store refused it in OBS-015, and now a second reader has
+refused it unaided.
+
+**The asymmetry, demonstrated rather than argued.** `relay-0050`'s parent is
+`relay-0048`, not `relay-0049` — because `relay-0049` had not been deposited and
+therefore could not be read. T1 worked, and in the same exchange a message failed
+to arrive, for the same reason: **the store carries only what someone deposits
+into it.** Half the loop is closed and the other half is still a person, which is
+what `tunnel-setup.md` said before either half was tried.
+
+---
+
 ## OBS-020 · a failed access path must not be represented as empty state
 
 Recorded at relay-0048. **Observation, not a core invariant.**
