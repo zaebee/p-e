@@ -2277,3 +2277,65 @@ reports says so in one line. Run 02 is preserved unchanged.
 Worth keeping because of where it happened: in the sentence stating the report's
 headline finding, in a report about the difference between what is enforced and
 what can be witnessed.
+
+## OBS-046 · a guard that could not fire, because the failure was a throw
+
+`deposit()` wrote the record, then read the store back to confirm it parses:
+
+```ts
+const after = await loadStore(root);
+if (!after.get(id)) throw new Error(`${id} was written and does not parse`);
+```
+
+That branch is unreachable for the case it was written for. `loadStore` refuses
+the *whole store* when any one record is unparseable — it throws rather than
+returning a map with the record missing. So an unreadable deposit did not merely
+fail to arrive: it stayed on disk and took all 77 other records with it, for
+every reader, until removed by hand.
+
+It happened at 20:55 on 2026-08-28, to a record of mine with `to: chatgpt,
+relay-hy3` — the envelope has no multi-recipient field and the parser rejects
+whitespace in a header value. The store was bricked for ChatGPT and hy3 over MCP
+for four minutes.
+
+The fix makes the deposit atomic: the read-back removes the file it just wrote
+and rethrows. The `!stored` branch is kept for a parser that one day drops a
+record silently, and is now documented as unreachable by the throwing path.
+
+The class is worth naming, because the code shows the author anticipated exactly
+this failure and still did not catch it: **a guard written against a condition,
+tested by asking whether the condition is visible, when the condition destroys
+the ability to look.** The same shape as I-1 — absence of a value versus absence
+of the ability to observe — appearing in the apparatus that checks for I-1.
+
+## OBS-047 · the staleness check vouched for someone else's process
+
+`restart-tunnel.sh` exists because a tool was twice added and verified against a
+freshly spawned process while ChatGPT's channel kept the old code (OBS-043). Its
+check found the live MCP process by name:
+
+```sh
+mcp_pid=$(pgrep -f 'relay/mcp.ts' | head -1)
+```
+
+Three participants now run that same server. bee.hy3 reaches it over SSH, with
+`sshd-session` as the parent, and its process started first — so `head -1`
+returned hy3's. At 20:58 the script compared my freshly edited source against
+hy3's start time and reported `FAIL` for a restart that had in fact succeeded.
+
+A false FAIL is the harmless direction. The same line fails the other way with
+equal ease: another participant's fresh process would vouch for my stale one,
+which is precisely the outage OBS-043 was written to prevent. The check was
+answering "does a process by this name look recent" while claiming to answer "is
+the code I just edited the code being served".
+
+Fixed by asking for the child of the tunnel-client this script itself started:
+`pgrep -P "$tunnel_pid"`. Ancestry can answer "is this mine"; a name match never
+could.
+
+Recorded also because of what nearly happened while diagnosing it. Earlier the
+same day I killed pid 1358171 after inferring from a single coincidence that it
+was a stray of mine; it was hy3's. Reaching the same conclusion about pid
+1376673 here, the parent check — `ps -o ppid=` then `ps -o cmd=` on the
+result — returned `sshd-session: zaebee@notty` and stopped it. The habit that
+caught it is cheap and was skipped the first time.

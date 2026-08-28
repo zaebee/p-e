@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { STORE_ROOT, loadStore } from "./store.js";
 
@@ -47,8 +47,11 @@ function nextFree(held: ReadonlySet<string>): string {
  *   identity. Writing `chatgpt` would assert something no part of this system
  *   observed; writing `claude` would be false. The store records that a call
  *   arrived over this transport, which is what it saw.
- * - **The bytes must parse.** A malformed deposit is refused at the door rather
- *   than breaking `loadStore` for every later reader.
+ * - **The bytes must parse.** Not at the door: the record is written, read back
+ *   through the store's own parser, and removed again if that fails. So a
+ *   malformed deposit leaves nothing behind, rather than breaking `loadStore`
+ *   for every later reader. It did break it once, at 20:55 on 2026-08-28, for
+ *   a `to:` header holding two words.
  */
 async function deposit(
   bytes: string,
@@ -88,9 +91,24 @@ async function deposit(
   // Read it back through the store's own parser. A deposit that cannot be read
   // is not a deposit, and finding that out now is cheaper than finding it out
   // in every later loadStore.
-  const after = await loadStore(root);
-  const stored = after.get(id);
-  if (!stored) throw new Error(`${id} was written and does not parse as a record`);
+  //
+  // The read-back has to undo the write itself. loadStore refuses the whole
+  // store when any one record is unparseable, so an unreadable deposit left on
+  // disk does not merely fail to arrive - it takes every other record with it,
+  // for every reader, until a human removes the file. The failure is a throw
+  // rather than a missing key, which is why the `!stored` branch below cannot
+  // be reached by an unparseable record and is kept only for a parser that one
+  // day drops a record silently.
+  let stored: Awaited<ReturnType<typeof loadStore>> extends Map<string, infer R> ? R : never;
+  try {
+    const after = await loadStore(root);
+    const found = after.get(id);
+    if (!found) throw new Error(`${id} was written and does not parse as a record`);
+    stored = found;
+  } catch (error) {
+    await rm(path, { force: true });
+    throw error;
+  }
 
   return {
     id,

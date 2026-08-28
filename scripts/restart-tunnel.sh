@@ -21,12 +21,21 @@ set -a; . ./.env; set +a
 # after.
 log="/tmp/tunnel-client-p-e-relay.log"
 nohup ~/.local/bin/tunnel-client run --profile p-e-relay >>"$log" 2>&1 &
-echo "log: $log"
+tunnel_pid=$!
+echo "log: $log (tunnel-client $tunnel_pid)"
 for _ in $(seq 1 15); do curl -fsS http://127.0.0.1:8080/readyz >/dev/null 2>&1 && break; sleep 2; done
 
 newest_src=$(find src -name '*.ts' -newermt '-1 day' -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
-mcp_pid=$(pgrep -f 'relay/mcp.ts' | head -1)
-[ -z "$mcp_pid" ] && { echo "FAIL: no MCP process"; exit 1; }
+# Ask for THIS tunnel's child, not for whatever matches the pattern. Other
+# participants run the same server over their own transports — bee.hy3 reaches
+# it through sshd — and `pgrep -f relay/mcp.ts | head -1` returns whichever
+# started first. At 20:58 that was hy3's process, and the staleness check below
+# compared my fresh code against someone else's start time and reported a false
+# FAIL. It can fail the other way just as easily: someone else's fresh process
+# would vouch for my stale one. Ancestry answers "is this mine", a name match
+# never does.
+mcp_pid=$(pgrep -P "$tunnel_pid" -f 'relay/mcp.ts' | head -1)
+[ -z "$mcp_pid" ] && { echo "FAIL: tunnel-client $tunnel_pid spawned no MCP process"; exit 1; }
 
 started=$(date -d "$(ps -o lstart= -p "$mcp_pid")" +%s)
 edited=$(stat -c %Y "$newest_src")

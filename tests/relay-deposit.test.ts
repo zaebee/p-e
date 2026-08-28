@@ -81,3 +81,29 @@ describe("depositLocal", () => {
     );
   });
 });
+
+describe("a deposit that cannot be read back", () => {
+  // The read-back guard was written to catch bytes that write but do not parse.
+  // It could not fire: loadStore throws on such a record rather than returning a
+  // map without it, so the guard's own error was unreachable and the unparseable
+  // file stayed on disk, where it broke every later loadStore for every reader.
+  const unreadable = "@p-e/x0\nid: relay-0002\nfrom: claude\nto: two words\n\nbody\n";
+
+  it("rejects", async () => {
+    await expect(appendRelay(unreadable, "relay-0002", scratch())).rejects.toThrow();
+  });
+
+  it("leaves the store readable", async () => {
+    const root = scratch();
+    await expect(appendRelay(unreadable, "relay-0002", root)).rejects.toThrow();
+    const held = await loadStore(root);
+    expect(held.size).toBe(1);
+  });
+
+  it("leaves the id free, so a corrected record can take it", async () => {
+    const root = scratch();
+    await expect(appendRelay(unreadable, "relay-0002", root)).rejects.toThrow();
+    const r = await appendRelay(body("relay-0002"), "relay-0002", root);
+    expect(r.id).toBe("relay-0002");
+  });
+});
