@@ -108,6 +108,19 @@ follows from this invariant rather than standing beside it: gates compare by
 value, never by truthiness, since "anything that is not exactly `true` or exactly
 `false` was not observed."
 
+```
+I-1  absence is a named state
+status:     PREDICTED
+sources:    H yes · A yes · P no
+falsifier:  the reader can hold both producers' judgement values only by
+            collapsing not-observed into false
+reader:     load H Verdict {confirmed,refuted,uncertain,unresolved} and
+            A Status {alive,cold,offline,private,unknown} into one
+            representation; assert no value maps onto another
+note:       this invariant constrains the reader's own output — which is why
+            the verdict vocabulary in §9 has four values and not two
+```
+
 ### I-2 · Where a producer records an event time, that time is the occurrence
 
 Narrowed deliberately. The three sources do **not** share temporal semantics —
@@ -136,6 +149,19 @@ reviews as October's, asserting something untrue about when they existed.
 The cost is paid openly: easscan displays this time as the attestation's creation
 date, which it is not, and the README says so.
 
+```
+I-2  recorded time is the occurrence
+status:     PREDICTED
+sources:    H yes · A yes · P yes (declared)
+falsifier:  a producer's time field is interpretable only as write time
+reader:     assert every occurrence time precedes the corpus extraction
+            timestamp; assert A's since <= checkedAt; assert H's message.time
+            values are not clustered into one publication window
+limit:      distinguishing occurrence from write time from artifacts alone is
+            weak evidence. the strong evidence is in the source, which the
+            reader does not read
+```
+
 ### I-3 · The observation is kept beside the conclusion
 
 A record that stores a derived judgement also stores what the judgement was made
@@ -152,6 +178,18 @@ only the cases the code already decided are kept." `replyFor` will not print
 `Claim` does not carry, and it survives into every derived track record.
 `dist/provenance.json` pins each input file of a published derivation by
 `sha256`, byte count and line count.
+
+```
+I-3  observation kept beside conclusion
+status:     PREDICTED
+sources:    H yes · A yes · P no
+falsifier:  a producer publishes a conclusion whose input is not in the corpus
+reader:     A — for every offSite, require the finalUrl it was drawn from
+            H — for every derived track record, require the claims behind it
+watch:      dist/provenance.json pins corpus.json by digest, but corpus.json
+            may not itself be published. if so H fails its own I-3 at the
+            artifact level, and that is a finding, not a bug in the reader
+```
 
 ### I-4 · Derived state is never stored
 
@@ -188,6 +226,18 @@ Y at that time" is a compound historical fact, and it stays true forever no
 matter what a later skeptic says. Superseded-ness, by contrast, is genuinely the
 fourth row, and H accordingly computes it and stores it nowhere.
 
+```
+I-4  derived state is never stored
+status:     PREDICTED
+sources:    H yes · A yes · P no
+falsifier:  a stored value disagrees with recomputing it from the published set
+reader:     H — recompute superseded from attestations.json alone and compare
+            H — recompute Judge from each genome; assert it is absent as input
+            A — recompute status from health.json; nothing to compare against,
+                since the rendered page is not in the corpus
+expect:     A's half may return UNDECIDABLE
+```
+
 ### I-5 · Coverage is stated over named absolute periods, and a gap is visible
 
 Missing coverage is representable, and it is never repaired retroactively.
@@ -207,6 +257,21 @@ before that was silent unobserved. Saying otherwise would testify to something
 nobody watched." `HostRecord.gaps` counts runs that could not observe: "a streak
 with holes in it is a different claim from an unbroken one, and hiding the holes
 would make the count say more than it should."
+
+```
+I-5  named periods, gaps never backfilled
+status:     PREDICTED
+sources:    H yes · A yes · P no
+falsifier:  a period covers days outside its own name, or a gap is absorbed
+            into an adjacent period
+reader:     H — every anchors.json period is a valid ISO week; periods do not
+            overlap; every week between first and last is present or absent,
+            never merged
+            A — since never precedes first observation; gaps counted
+expect:     one anchor exists. a gap cannot be observed in a single period, so
+            the no-backfill half is UNDECIDABLE and must not be reported as
+            CONFORMS
+```
 
 ### I-6 · The attester is not the subject, and an attestation asserts observation, not truth
 
@@ -228,6 +293,18 @@ the **subject** the record is about, the **observer** that saw it, and the
 **signer** that vouches for the record's transmission. Collapsing any two is how
 a record starts asserting more than anyone checked.
 
+```
+I-6  the attester is not the subject
+status:     PREDICTED — and the most likely to be rejected
+sources:    H yes · A structural only · P no
+falsifier:  a producer signs as the subject of its own record
+reader:     H — assert signer != recipient across all 932 envelopes
+            A — no attester field exists: NOT_APPLICABLE
+expect:     if A can never exercise this, the invariant is under test a
+            single source, and honesty requires demoting it to §4 rather than
+            counting a NOT_APPLICABLE as support
+```
+
 ### I-7 · Field ownership is enforced, not conventional
 
 Each field has exactly one authorised class of producer, and the boundary is
@@ -243,6 +320,18 @@ plausible.
 **H** — `Judge` is derived from the genome and refused as input for the same
 reason (see I-4).
 
+```
+I-7  field ownership is enforced, not conventional
+status:     PREDICTED
+sources:    A yes · H yes · P no
+falsifier:  an artifact carries a value from the wrong producer class
+reader:     A — machine-written files carry no prose fields
+            H — Judge does not appear in any published genome
+limit:      the enforcement is a test inside each producer, and the reader
+            cannot see it. artifacts can only show the enforcement's result,
+            never that it is enforced
+```
+
 ### I-8 · A record states the limit of its own testimony
 
 **A** — the `/log` collection schema requires a third field beside `claimed` and
@@ -255,6 +344,19 @@ is the opposite of where the risk sits."
 
 **H** — `verifyEnvelope` returns an `unverifiable` list; the README says in as
 many words that a signature does not assert a finding is correct.
+
+```
+I-8  a record states the limit of its own testimony
+status:     PREDICTED
+sources:    A yes · H yes (at runtime) · P no
+falsifier:  an artifact makes a claim with no boundary and its producer offers
+            no equivalent anywhere in the corpus
+reader:     A — every /log entry carries a non-empty attested field
+            H — the unverifiable list is produced by verifyEnvelope at runtime
+                and does not appear in attestations.json
+expect:     H's half is likely UNDECIDABLE from artifacts, which would leave
+            I-8 single-source under test
+```
 
 ### I-9 · Data read back is validated, not trusted — and what fails validation is counted
 
@@ -269,6 +371,16 @@ carrying a number nobody can account for."
 "dropping them quietly would make `superseded` understate the very difference it
 exists to explain, and the caller would have no way to tell an accurate small
 number from a large one with most of its input discarded."
+
+```
+I-9  data read back is validated, failures counted
+status:     PREDICTED
+sources:    A yes · H yes (at runtime) · P no
+falsifier:  unreadable input is dropped with no count anywhere in the record
+reader:     A — history carries gaps per host
+            H — supersede's undecodable count is computed but not published
+expect:     likely UNDECIDABLE for H, same reason as I-8
+```
 
 ## 4. Evidence catalogued but kept out of core
 
@@ -528,6 +640,50 @@ Real published output, not fixtures written for this document.
 
 **The falsifier.** Any invariant the reader cannot honour without changing a
 producer is removed from this document.
+
+### The reader's verdict vocabulary
+
+Four values, not two. This follows from I-1 applied to the reader itself: a
+tool that can only say pass or fail collapses "not observed" into "false", which
+is the exact defect the catalogue's strongest invariant exists to prevent.
+
+| verdict | meaning |
+|---|---|
+| `CONFORMS` | the invariant was exercised against this producer and held |
+| `VIOLATES` | it was exercised and failed |
+| `NOT_APPLICABLE` | this producer has no such construct — the invariant cannot apply |
+| `UNDECIDABLE` | it applies, but the published artifacts do not settle it |
+
+`apex` carries no signatures. The reader must report `NOT_APPLICABLE`, never
+`VIOLATES — no signature`. And **a producer's absence is evidence, not
+permission**: a `NOT_APPLICABLE` never counts as support. An invariant supported
+by one `CONFORMS` and one `NOT_APPLICABLE` is single-source under test, and is
+demoted to §4 regardless of what the code inspection found.
+
+### The corpus manifest, frozen before implementation
+
+The reader must be written against a corpus that cannot move under it.
+
+- every artifact pinned by `sha256`, byte count and source revision
+- the **extraction timestamp** recorded separately from any occurrence
+  timestamp inside the artifacts, and never confused with one (I-2 applied to
+  this project's own record)
+- no invented fixtures. A fixture may exercise the reader; only a real artifact
+  may support a verdict
+
+### What is predicted to happen, recorded before it runs
+
+The catalogue was read off **source code**. The reader consumes **published
+artifacts**. Those are different evidence bases, and much of the discipline in H
+and A lives in the producer rather than in what it publishes — `verifyEnvelope`'s
+`unverifiable` list, `supersede`'s `undecodable` count and `takeRecord`'s
+validation all run and then vanish.
+
+The prediction, stated now so it cannot be adjusted afterwards: **several
+invariants that are PROVEN in code will come back UNDECIDABLE at the artifact
+level.** I-6, I-8 and I-9 are the most likely, and I-6 is the likeliest to be
+demoted outright. A conformance report in which all nine conform would be
+evidence that the reader is too permissive, not that the catalogue is right.
 
 ## 10. Non-goals
 
