@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { type Manifest, loadCorpus } from "./manifest.js";
-import { renderReport, runAll } from "./report.js";
+import { renderReport, runAllWithCoverage } from "./report.js";
 import { assertFreeToWrite, parseRunId, reportPath } from "./run.js";
 
 const runId = parseRunId(process.argv.slice(2));
@@ -12,11 +12,12 @@ const path = reportPath(runId, manifest.extracted_at);
 // half-write over a previous result.
 await assertFreeToWrite(path);
 
-const findings = runAll(await loadCorpus("."), manifest.extracted_at);
+const { findings, byInvariant } = runAllWithCoverage(await loadCorpus("."), manifest.extracted_at);
 const text = renderReport(findings, {
   extracted_at: manifest.extracted_at,
   artifacts: manifest.entries.length,
   runId,
+  coverage: { manifest, byInvariant },
 });
 
 await mkdir(dirname(path), { recursive: true });

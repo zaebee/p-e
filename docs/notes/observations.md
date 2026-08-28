@@ -99,6 +99,55 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-010 · the evaluator's boundary, in both directions
+
+Proposed at relay-0023 as OBS-009. Renumbered: OBS-009 was already taken by the
+M2 reframing below, and one number pointing at two observations is the defect
+this file exists to avoid.
+
+> A reader can produce a complete-looking conformance matrix while silently
+> omitting an artifact class from the corpus.
+
+**Confirmed, and worse than the prompt suggested.** The gap that raised the
+question was `anchors.json`. Measuring coverage found `anchors.json` is read by
+I-5 after all — and that **`births.json` and `corpus.json` are opened by nothing
+at all**. Two of eight classes had been absent from four consecutive reports, and
+nothing in any of them said so. The matrix looked complete because absence has no
+row.
+
+**The pair.** Two evaluator failures, in opposite directions, found in the same
+week:
+
+```
+I-6       the reader read producer semantics TOO STRONGLY
+          — it renamed signer/recipient to attester/subject and reported
+            that two native fields differing established that an attester
+            differs from a subject
+
+anchors   the reader read corpus coverage TOO WEAKLY
+          — a class it never opened was indistinguishable, in the output,
+            from a class it had cleared
+```
+
+Neither is a failure of producer discipline. Both are failures of the
+**evaluator's own boundary**: what it may conclude, and what it must account for.
+The conformance runs were built to test two producers, and the two most
+informative results so far are about the thing doing the testing.
+
+**Repaired structurally, not by resolve.** Coverage is measured rather than
+declared — every check runs against a recording view of the corpus, so the matrix
+is an observation of what was opened. `EXCLUDED_WITH_REASON` is a disposition and
+absence is not one, enforced by a test that fails when any excluded class carries
+no stated reason. A hand-kept table of which check reads which artifact would
+have drifted from the code with nothing going red, which is how the gap survived
+four reports.
+
+**Not repaired.** `births.json` and `corpus.json` stay unexamined. They now say
+so, in the report, with the reason. Writing checks for them is new work and
+relay-0023 asked for classification, not coverage.
+
+---
+
 ## OBS-009 · `subject` may be the wrong abstraction, and M2 may be misnamed
 
 **Not a spec change.** Recorded here because relay-0020 asked to reopen M2 while
