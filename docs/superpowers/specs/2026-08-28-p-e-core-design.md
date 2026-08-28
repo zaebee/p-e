@@ -21,6 +21,18 @@ conformance corpus without any producer being modified. An invariant the reader
 cannot honour without changing a producer is not an invariant — it is this
 document's opinion, and it is removed.
 
+**The status ladder.** Nothing in this document is admitted by being written
+here. Every core item carries a status, and the only transition that admits it is
+running the reader:
+
+```
+PREDICTED  →  READER IMPLEMENTED  →  CONFORMS  →  ADMITTED
+```
+
+If the reader can only be made to conform by taking producer-specific exceptions
+that change semantics, the invariant is **removed**, not patched around. A reader
+with a special case per producer has proved that the invariant was not shared.
+
 **The size constraint.** `p-e/core 0.1` must stay smaller than the union of what
 the three sources carry. A core the size of the union has extracted nothing.
 
@@ -41,12 +53,23 @@ checked later.
 | **A** | `apex` / zae.life | `afb3a3c` | 2026-08-14 | a personal site that probes its own districts and publishes what came back, including that most of them are not answering |
 | **P** | `agents` | `11fda22` | 2026-08-08 | `dna-core/pollen_protocol.proto` — the Pollen envelope, v1. A declaration, with no producer and no consumer in the corpus |
 
-**How independent these are, stated plainly.** H and A share an author and a
-house style, so they are not two unrelated teams. They share no domain, no data
-model, no runtime, and no code; neither reads the other; and neither was written
-with this document in view. That is the independence claimed by every "2 of 3"
-below, and it is weaker than it would be between strangers. It bounds every
-conclusion here.
+**Independence has two axes, and only one of them holds.** "Two of three
+independent sources" is too strong a phrase to use unqualified, so it is
+decomposed:
+
+```
+implementation_independence: true
+    no shared domain, data model, runtime or code;
+    neither reads the other; neither written with this document in view
+
+authorship_independence: false
+    H and A share an author and a house style
+```
+
+Every "2 of 3" below means the first line and not the second. A rule can
+therefore be an artefact of one person's taste rather than a property of the
+problem, and this method cannot tell the two apart. Closing that gap needs a
+source neither of us wrote, and none is in the corpus.
 
 P is weaker still. It is a schema nobody has run, so it testifies to what its
 author intended, not to what survived. It is admitted as evidence of intent and
@@ -85,10 +108,14 @@ follows from this invariant rather than standing beside it: gates compare by
 value, never by truthiness, since "anything that is not exactly `true` or exactly
 `false` was not observed."
 
-### I-2 · The time on a record is the time of the occurrence
+### I-2 · Where a producer records an event time, that time is the occurrence
 
-Not the time of writing. Any bucketing, ordering or ageing reads the occurrence
-time and never the clock at write time.
+Narrowed deliberately. The three sources do **not** share temporal semantics —
+they differ in granularity, in whether a time is ever revised, and in what an
+absent time means. What they share is the narrow rule: when a time is given, it
+refers to when the thing happened, not to when the record was written. Any
+bucketing, ordering or ageing reads that time and never the clock at write
+time.
 
 **H** — `attest/attest.ts::reviewTimeOf`. `time` is when the review happened, a
 deliberate departure from how EAS reads that field.
@@ -144,11 +171,22 @@ that could disagree with the genome would be a field that could lie about it."
 **A** — `resolveStatus` derives status from the snapshot at render time. Status
 is not a field of anything.
 
-**Consequence for this project.** An epistemic status — `unresolved`,
-`confirmed`, `superseded` — must not sit inside an immutable event as mutable
-state. Where it appears inside a signed record in H, it is not mutable state: it
-is half of a compound observation ("this identity claimed X **and** our skeptic
-said Y at that time"), which is a historical fact and stays true forever.
+**Consequence for this project — four things that must not be conflated.**
+
+| | what it is | mutability |
+|---|---|---|
+| **record** | that an event was emitted, by whom, when | immutable |
+| **claim** | what the record asserts about the world | immutable; it was asserted |
+| **judgement** | what some evaluator said about a claim, and when | immutable; it was said |
+| **derived state** | what the whole set now implies | recomputed, never stored |
+
+An epistemic status — `unresolved`, `confirmed`, `superseded` — belongs to the
+fourth row and must not sit in the first as a mutable field. Where `verdict`
+appears inside a signed record in H it is **not** the fourth row: it is the
+third, frozen into the second. "This identity claimed X **and** our skeptic said
+Y at that time" is a compound historical fact, and it stays true forever no
+matter what a later skeptic says. Superseded-ness, by contrast, is genuinely the
+fourth row, and H accordingly computes it and stores it nowhere.
 
 ### I-5 · Coverage is stated over named absolute periods, and a gap is visible
 
@@ -261,9 +299,9 @@ outside the record does not count here, however strong the rule.
 
 | field | H | A | P | ruling |
 |---|:-:|:-:|:-:|---|
-| `subject` | ✓ `identity_id` | ✓ host key | ✓ `aggregate_id` | **REQUIRED.** Opaque string. Core defines no ontology for it — see **M2** |
+| `subject` | ✓ `identity_id` | ✓ host key | ✓ `aggregate_id` | **REQUIRED as a token, syntactic convergence only.** See the note below and **M2** |
 | `occurred_at` | ✓ | ✓ | ✓ | **REQUIRED.** The occurrence, per I-2 |
-| `payload` | ✓ | ✓ | ✓ | **REQUIRED.** Opaque to core |
+| `payload` | ✓ | ✓ | ✓ | **REQUIRED, and core requires opacity rather than semantics** — see the note below |
 | `type` | ✓ schema UID | ✗ | ✓ `event_type` | **OPTIONAL.** An in-band identifier of the payload's shape. H's is a digest, P's is a past-tense name; core does not choose — see the note below |
 | `version` | ✓ `envelope_version` | ✗ | ✓ `event_version` | **OPTIONAL** |
 | `id` | ✓ `uid` | ✗ | ✓ `event_id` | **OPTIONAL**, and its semantics are unresolved — see **M1** |
@@ -271,6 +309,35 @@ outside the record does not count here, however strong the rule.
 | `parents` | ✗ (`refUID` is zeroed) | ✗ | ✗ | **EXCLUDED.** No evidence — see **M4** |
 | `content_hash` | ✓ | ✗ | ✗ | **EXCLUDED from core.** Profile material |
 | `signature` | ✓ | ✗ | ✗ | **EXCLUDED from core.** Profile material |
+
+**On `subject`, which is worse than a shared field with three ontologies.**
+The review asked whether `subject` is a common invariant or only a
+common-shaped field. Checked against the code, it is the second, and the
+divergence is not in what the three mean by the thing — it is in **which role
+occupies the slot**:
+
+| source | the slot holds | verified at |
+|---|---|---|
+| **H** | the **claimant**. `recipient: ownerAddress(claim.identity_id)` is the reviewer that made the finding. What the finding is *about* — repo, commit, file, line — sits in the payload | `attest/attest.ts:140`, `types.ts:43-55` |
+| **A** | the **observed**. `entries` is keyed by host: the district the probe was pointed at. The observer, a workflow, appears nowhere in the record | `status.ts:29`, `status.ts:104` |
+| **P** | the **producer**. "The unique identifier of the Aggregate that produced the event" | `pollen_protocol.proto:27` |
+
+Claimant, observed, producer. Three different roles wearing one field name. What
+is actually proven is far weaker than "all three have a subject":
+
+> Three systems each need **some** token binding a record to something outside
+> itself. They do not agree on what.
+
+Core therefore carries `subject` as an **opaque relation token** and promises
+nothing about the relation. A conformance reader may not assume it denotes the
+thing observed, and specifically may not join records from two producers on it.
+**M2** is widened accordingly: it is not only the ontology of the subject that is
+unresolved, it is the role.
+
+**On `payload`.** The same test, the same answer. All three carry a container;
+none agrees on what goes in it. Core requires that the field exist and that it be
+**opaque to core** — no schema, no interpretation, no validation — and nothing
+more. A future profile may say what its payload means. Core may not.
 
 **On `type`.** Both in-band forms identify the shape of the payload, which is why
 they count as one field. They are not interchangeable: a schema digest is
@@ -288,7 +355,61 @@ neither. They therefore belong to a profile, not to core. This was not the
 intended outcome and it is not being worked around: it is what the method
 returned, and reversing it would mean the method was decoration.
 
-## 6. Deliberately unresolved
+**Absence from core is not an anti-crypto decision.** It is a statement about
+where the evidence currently sits, and nothing else. The expected first profile
+is `p-e/attested/hivemark`, which defines canonical bytes (N-2), hash domain
+separation (N-3), the signing domain, and what a signature does and does not
+assert (I-6). A second producer adopting any of it moves those rules from a
+profile into core by the ordinary admission rule, with no argument needed.
+
+## 6. Status of every item
+
+Two axes, because "we found this in the code" and "we think this belongs in the
+protocol" are different claims and this document has been careless about the
+difference until now.
+
+- **evidence** — `PROVEN` means read in a source's code at the pinned revision in
+  §2. `NONE` means no source carries it.
+- **admission** — `PREDICTED` means expected to be core and unconfirmed;
+  `REJECTED` means deliberately out of core 0.1; `UNRESOLVED` means the question
+  is open. `ADMITTED` requires the reader to have run.
+
+| item | evidence | admission |
+|---|---|---|
+| I-1 absence is a named state | PROVEN H+A | PREDICTED |
+| I-2 recorded time is the occurrence | PROVEN H+A+P | PREDICTED |
+| I-3 observation kept beside conclusion | PROVEN H+A | PREDICTED |
+| I-4 derived state is never stored | PROVEN H+A | PREDICTED |
+| I-5 named periods, gaps never backfilled | PROVEN H+A | PREDICTED |
+| I-6 attester is not the subject | PROVEN H, weak A | PREDICTED |
+| I-7 field ownership enforced by test | PROVEN A+H | PREDICTED |
+| I-8 a record states its own limit | PROVEN A+H | PREDICTED |
+| I-9 data read back is validated and failures counted | PROVEN A+H | PREDICTED |
+| N-1 identity is the hash of the thing | PROVEN H | REJECTED — single source |
+| N-2 canonical encoding before hashing | PROVEN H | REJECTED — profile |
+| N-3 domain separation on hashes | PROVEN H | REJECTED — profile |
+| N-4 event id is f(content) | PROVEN H, contradicted by P | REJECTED — see M1 |
+| N-5 freshness follows provenance kind | PROVEN A | REJECTED — single source |
+| N-6 a derivation pins its inputs by digest | PROVEN H | REJECTED — single source |
+| envelope `subject` | PROVEN, **syntactic only** | PREDICTED, semantics UNRESOLVED |
+| envelope `occurred_at` | PROVEN H+A+P | PREDICTED |
+| envelope `payload` | PROVEN, **container only** | PREDICTED, semantics out of scope |
+| envelope `type` | PROVEN H+P | PREDICTED, optional |
+| envelope `version` | PROVEN H+P | PREDICTED, optional |
+| envelope `id` | PROVEN H+P, absent in A | PREDICTED optional, semantics UNRESOLVED |
+| envelope `attester` | PROVEN H only | PREDICTED optional |
+| envelope `parents` | NONE | REJECTED — see M4 |
+| envelope `content_hash` | PROVEN H | REJECTED — profile |
+| envelope `signature` | PROVEN H | REJECTED — profile |
+| M1 identity semantics | conflict H↔P | UNRESOLVED |
+| M2 subject role and ontology | conflict H↔A↔P | UNRESOLVED |
+| M3 cryptographic family | PROVEN H; intent elsewhere | UNRESOLVED, and not yet a real conflict |
+| M4 causal linkage | NONE, and never considered | UNRESOLVED |
+
+**Nothing in this document is `ADMITTED`.** No reader exists, so the falsifier in
+§9 has never been run, and every `PREDICTED` above is exactly that.
+
+## 7. Deliberately unresolved
 
 Four gaps. Each is a real disagreement between sources, and each is recorded with
 its provenance so that whoever closes it knows what evidence they are overruling.
@@ -302,9 +423,19 @@ A:  no id                    records keyed by subject, rewritten in place
 ```
 
 Producers **MUST NOT** assume `id` is content-addressed unless a profile says so.
-A candidate resolution exists and is explicitly **not** adopted in 0.1:
-separating event identity from transport identity, so a generated id and a
-derived one are different fields rather than two readings of one.
+A candidate resolution exists and is explicitly **not** adopted in 0.1: that
+three distinct concepts are currently being forced through one word.
+
+```
+record_id      this record, as emitted       generated, may be arbitrary
+content_id     what the record says          derived, f(canonical bytes)
+transport_id   this copy, in this store      assigned by the store
+```
+
+Named here for one purpose only — so a later discussion cannot quietly settle on
+one meaning and lose the other two. **None of the three enters core in 0.1.**
+`id` stays a single optional opaque string whose semantics the spec declines to
+fix.
 
 ### M2 · Subject ontology
 
@@ -314,8 +445,12 @@ A:  human-named entity         a slug in districts.toml, written by hand
 P:  opaque aggregate_id
 ```
 
-Core carries `subject` as an opaque string and defines nothing about it. It does
-not promise the subject is an identity, an aggregate, a host, or a document.
+Widened after review. The divergence is not only ontological — what kind of
+thing the subject is — but **role**: H's slot holds the claimant, A's holds the
+observed, P's holds the producer (see §5). Core carries `subject` as an opaque
+relation token, defines nothing about it, and does not promise it denotes an
+identity, an aggregate, a host, a document, or the thing the record is about.
+Readers must not join across producers on it.
 
 ### M3 · Cryptographic family
 
@@ -338,13 +473,27 @@ the first profile is written.
 
 ### M4 · Causal linkage
 
-No evidence in any source. H zeroes `refUID`; A has no links; P has none.
-Causality in H is recovered by grouping over fields, not by pointers
-(`supersede.ts`). Adding `parents` to core would be authorship, not extraction,
-and it is refused on that ground until a reader demonstrably cannot do its job
-without it.
+No evidence in any source — but "no evidence" has kinds, and the review is right
+that the distinction may decide M4 later. Recorded precisely:
 
-## 7. Out of scope for core
+| kind | meaning | who |
+|---|---|---|
+| **absent** | the format has no such field | A, P |
+| **present, null-valued, inherited** | the field exists because an adopted format requires it, and is filled with the null value | H — `refUID: 0x00…00` at `attest/attest.ts:144`, and `ZERO_UID` again in `birth/submit.ts:69` and `anchor/submit.ts:43` |
+| **explicitly suppressed** | a source considered linkage and rejected it | **nobody** |
+
+That last row is the finding. No source has decided against causal linkage; in
+all three it simply never arose, and H's zeroes are an inherited EAS requirement
+rather than a judgement — no comment in that codebase defends the choice, which
+in that codebase is itself a signal.
+
+So M4 is an absence of consideration, not an absence of need. Causality in H is
+recovered by grouping over fields rather than pointers (`supersede.ts`), which is
+evidence that pointers were not needed *there*. Adding `parents` to core would be
+authorship, not extraction, and it stays refused until a reader demonstrably
+cannot do its job without it.
+
+## 8. Out of scope for core
 
 - **Profiles** — `p-e/hivemark-attested`, `p-e/apex-epistemic`. Where hashing,
   signing, anchoring and freshness rules live. Single-source is legitimate here;
@@ -361,7 +510,7 @@ without it.
 - **bee.zae** — a participant in the protocol, not the protocol. The relationship
   is HTTP to a browser.
 
-## 8. The conformance corpus
+## 9. The conformance corpus
 
 Real published output, not fixtures written for this document.
 
@@ -380,7 +529,7 @@ Real published output, not fixtures written for this document.
 **The falsifier.** Any invariant the reader cannot honour without changing a
 producer is removed from this document.
 
-## 9. Non-goals
+## 10. Non-goals
 
 p-e is not a version control system, and does not compete with Git, Pijul,
 Radicle or `mur`. Git answers how an artefact changed. p-e answers what was
@@ -393,7 +542,7 @@ that comparison is not yet written.
 
 p-e/core does not know what a file is.
 
-## 10. What this document does not establish
+## 11. What this document does not establish
 
 Per I-8, stated as a field rather than left for a reader to work out.
 
@@ -404,14 +553,32 @@ Per I-8, stated as a field rather than left for a reader to work out.
   pass, and a rule enforced quietly — by a type, a test name, or the absence of a
   field — could have been missed.
 - **Not** that the envelope in §5 works. No reader has been written, so the
-  falsifier in §8 has never been run. Every "REQUIRED" here is a prediction.
+  falsifier in §9 has never been run. Every "REQUIRED" here is a prediction.
 - **Not** that P is evidence of practice. It is a schema with no producer and no
   consumer, and it is cited only for intent.
 - **Not** that the incidents are complete accounts. They are what the source
   comments record about themselves, and a comment is written by the person who
   made the mistake.
+- **Not** that `subject` and `payload` denote anything shared. §5 establishes
+  only that three systems each need *some* token binding a record to something
+  outside itself, and that they disagree on what — including on which role the
+  token names.
+- **Not** that H and A agreeing is strong evidence. They are independent as
+  implementations and dependent in authorship (§2), and this method cannot
+  separate a property of the problem from a property of one person's taste.
 
-## 11. Planned repository layout
+**Revision history of this document's own errors**, per I-8, since a catalogue
+of other systems' mistakes that hides its own would be the joke telling itself:
+
+| corrected | was | now |
+|---|---|---|
+| `type` evidence | reported single-source | 2 of 3 — H carries it in-band as the EAS schema UID (`message.schema`) |
+| `subject` | "opaque string, ontology unresolved" | syntactic convergence only; the *role* diverges — claimant / observed / producer |
+| M3 | stated as an H↔P conflict | P specifies no signature at all; the Ed25519 expectation comes from `aura`, which is not a source in §2 |
+| corpus size | "12 hosts" | 8 hosts; 12 districts, four of which have no host to probe |
+| independence | "2 of 3 independent" | decomposed into implementation and authorship axes; only the first holds |
+
+## 12. Planned repository layout
 
 Written down so the shape is agreed before anything fills it. No code exists yet,
 and none should until this catalogue is reviewed.
@@ -429,6 +596,19 @@ p-e/
 ├── profiles/hivemark-attested.md
 └── README.md
 ```
+
+**Build order, and why it is not negotiable.**
+
+```
+1. conformance reader     external to both producers; runs the falsifier
+2. minimal codec          only for what the reader admitted
+3. first profile          p-e/attested/hivemark
+```
+
+The reference library must not be written before the reader has run. An
+implementation written first becomes a second source of protocol semantics — the
+spec then describes the library instead of the corpus, and the archaeology is
+over without anyone having decided to end it.
 
 Git is the development and review layer. IPFS, if adopted, is an immutable
 publication layer for released artefacts. Neither is part of p-e/core.
