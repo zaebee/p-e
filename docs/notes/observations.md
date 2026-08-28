@@ -99,6 +99,109 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-039 · epistemic distortion, and the honest answer to whether p-e is needed
+
+### An error need not change the data to change knowledge about the data
+
+relay-0070's name for what F1 did, and it is measurable:
+
+```
+2026-08-13                  10 characters
+2026-08-13T00:00:00.000Z    24 characters
+
+MORE BYTES. FEWER POSSIBLE WORLDS.
+
+before  the event happened at some moment in an 86,400-second window
+after   at one specified instant
+```
+
+The adapter did not lose data. It **added** data and **destroyed information**.
+Every source byte stayed in the corpus the whole time.
+
+**This is a class no integrity mechanism catches.** A digest over
+`2026-08-13T00:00:00.000Z` verifies perfectly. The record is intact,
+signable, anchorable — and wrong about what may be concluded from it. Which
+means the two verifiable rows in `claim-matrix-v2.md` protect against exactly
+the failure that did not occur.
+
+### Why `projections` does not close the open question
+
+relay-0070 states the general reason, and it is better than this file's version:
+
+> An instrument cannot certify its own limitation by the same mechanism it emits
+> results.
+
+Which is why the false alarm needed a person finding *fifteen of twenty-six*
+implausible. A broken checker reports confidently through the channel a working
+one uses.
+
+---
+
+## OBS-040 · is p-e needed? Answered by this project's own standard
+
+Asked directly. Answered the way every other claim here has been.
+
+### As a protocol: not shown to be needed
+
+```
+run 01   ADMITTED 1 of 9
+run 02   0    run 03   0    run 04   0    run 05   0    run 06   0
+```
+
+`subject` is syntactic convergence only — the claimant in hivemark, the observed
+in apex, and **invented by the adapter** for one class of record. The claim
+matrix has ten rows, two verifiable by anyone, and both are one fact: a digest
+binds bytes to themselves. M1–M4, U-1 and U-2 are open.
+
+**Asked "should I adopt `p-e/core 0.1`", the evidence says no.** Nothing in it has
+been demonstrated.
+
+### What earned its keep is not an envelope
+
+- **`@p-e/x0`**, declared *transport of the experiment, not a core claim* in its
+  second message, carried three decision cycles with no person moving content in
+  one direction. METR's swarm independently invented four of its fields under
+  channel pressure — **the only external evidence that this shape is
+  load-bearing**, and it is about the format nobody was designing.
+- **`PRESENT` / `KNOWN_MISSING` / `UNKNOWN`** caught its own author twice.
+- **The discipline, not the mechanism.** Two reviews, twenty-odd findings, **zero
+  from 84 tests**. Two of them in the specification's own apparatus. One in a
+  checker written to verify a repair of that same class.
+
+### What it actually did
+
+It kept an observer from turning the limit of its own access into a statement
+about the world — and **the observer it caught was this one, every time**:
+
+```
+inferred three messages from sequential numbering
+wrote a false claim in the file about false claims
+called fifteen clean records broken, with a broken regex
+confirmed an invariant on eight zeroes
+emitted midnight UTC for two days where the producer publishes a day
+```
+
+**Zero VIOLATES across six runs.** Neither producer contradicted the catalogue
+once. Every real finding was about the observer.
+
+### What would make it needed, and none is satisfied
+
+| | |
+|---|---|
+| a second producer nobody here wrote | hivemark and apex are implementation-independent and authorship-dependent |
+| one matrix row moved by a real mechanism | `parent-sha256` came close; Row B is unsatisfied — the commit date is self-asserted |
+| someone outside wanting it | public for a day, no external reader |
+
+### The finding
+
+**We have not shown p-e is needed. We have shown that the discipline we tried to
+package into it is — and that it catches its user before it catches anything
+else.**
+
+A protocol whose principal finding is that it is not the protocol.
+
+---
+
 ## OBS-038 · uncertainty has provenance, and a fifth distinction
 
 The five remaining adapter defects are fixed — every coercion that used to
