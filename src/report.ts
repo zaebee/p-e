@@ -50,6 +50,21 @@ export interface ReportMeta {
  */
 const RUN_NOTES: Record<string, string> = {
   "01": "First run. No prior run to differ from.",
+  "03": `A wording correction, at relay-0018. **No verdict changed** — run the
+diff against run 02 and it says so.
+
+**Run 02 overstated its own result.** It closed with "None of them can be
+witnessed by a stranger holding only the published artifacts of both producers",
+which reads as *none can be witnessed at all*. Six findings CONFORM, each from
+one producer. The true statement is narrower: no invariant is witnessable from
+the artifacts of **both** producers. That is what admission requires and what
+this corpus does not supply.
+
+**The corpus count is now explicit.** Run 02 said "11 artifacts" while the
+directory holds twelve files. Eleven are pinned; the twelfth is the manifest,
+which is not among its own entries.
+
+Run 02 is preserved unchanged.`,
   "02": `Two verdicts demoted, at relay-0012, after run 01 was read.
 
 **I-2 / hivemark: CONFORMS (INFERRED) → UNDECIDABLE.** Run 01 — quoting it,
@@ -97,6 +112,17 @@ export function renderReport(findings: readonly Finding[], meta: ReportMeta): st
     })
     .join("\n\n");
 
+  // Witnessable from exactly one producer. Reported beside the admitted count
+  // because run 02 said "none can be witnessed by a stranger holding the
+  // artifacts of both producers", which reads as "none can be witnessed at
+  // all" — and six can, from one producer each. Corrected in run 03.
+  const singleWitness = invariants.filter((id) => {
+    const confirming = new Set(
+      findings.filter((f) => f.invariant === id && f.verdict === "CONFORMS").map((f) => f.producer),
+    );
+    return confirming.size === 1;
+  }).length;
+
   // The right-hand column is computed from the findings, never restated.
   //
   // An earlier version of this table wrote "apex only" and "hivemark only" by
@@ -130,9 +156,14 @@ ${meta.runId === "01" ? "The first run of the falsifier the spec had never run."
 
 ${RUN_NOTES[meta.runId] ?? "Not recorded."}
 
-Corpus extracted at \`${meta.extracted_at}\`, ${meta.artifacts} artifacts, digests in
-\`corpus/manifest.json\`. The extraction time is not an occurrence time and is
-recorded apart from every timestamp inside the artifacts.
+Corpus extracted at \`${meta.extracted_at}\`. **${meta.artifacts} pinned
+artifacts**, digests in \`corpus/manifest.json\`. The directory holds
+${meta.artifacts + 1} files: the ${meta.artifacts} above and the manifest itself,
+which is not among its own entries — a manifest that pinned itself would be a
+file whose digest is a hash of a file containing that digest.
+
+The extraction time is not an occurrence time and is recorded apart from every
+timestamp inside the artifacts.
 
 **ADMITTED: ${admitted.length} of 9${admitted.length > 0 ? ` — ${admitted.join(", ")}` : ""}.**
 
@@ -195,8 +226,11 @@ invariant.
 ${witnessTable}
 
 ${invariants.length} rules are enforced, demonstrably, in source — a claim taken
-from the spec, not from this run. ${admitted.length === 0 ? "None of them can be" : `${admitted.length} of them can be`}
-witnessed by a stranger holding only the published artifacts of both producers.
+from the spec, not from this run. Of those, **${admitted.length} can be witnessed
+from the artifacts of both producers**, which is what admission requires, and
+**${singleWitness} from the artifacts of one producer alone**. The second number
+is not a weaker version of the first: a rule one system can be seen keeping is a
+rule about that system, not a rule two independent systems share.
 
 Which is this run's actual finding, and it is about p-e rather than about either
 producer: **a protocol extracted only from what producers publish will be very
