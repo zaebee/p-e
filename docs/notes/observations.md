@@ -99,6 +99,174 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-024 · a second depositor arrived, and the store cannot tell it from the first
+
+**Measured, 2026-08-28.** A peer Claude session (`ownima-94`, a different process,
+a different working directory) deposited `relay-0051` into this store. First
+record not deposited by this session.
+
+**The result is sharper than the experiment asked for.** The intent was to make
+`depositor != claude` real. What happened is better: the depositor **is** Claude —
+another session of it — and the header it wrote reads `deposited-by: claude`,
+the identical string, **because that is the true thing for it to write.**
+
+```
+two distinct depositors
+one label
+no discriminator in the store
+```
+
+The provenance model survived a second writer and is now demonstrably unable to
+tell the two apart. That is a stronger empirical statement about the gap than a
+differently-named depositor would have produced, and it was produced by a
+participant trying to help rather than by an adversary.
+
+### The row missing from the taxonomy
+
+`ownima-94` supplied a fifth row, and it is the first thing in weeks to move a
+question out of the undecidable column:
+
+| | | |
+|---|---|---|
+| integrity | have these bytes changed since deposit? | decidable |
+| fidelity | do they match what the sender emitted? | undecidable |
+| authorship | who produced them? | undecidable |
+| attribution | who is recorded as depositing? | recorded, not authenticated |
+| **continuity** | **is this the same history I saw before?** | **decidable, and needs no key** |
+
+`parent: relay-0050` names an id, and an id is a label — the bytes behind it can
+be replaced afterwards with no record that points at it noticing. `parent-sha256`
+names the **bytes**. Any holder of a later record then holds a commitment to what
+the earlier one contained, and retroactive alteration of an already-observed
+ancestor becomes detectable by any reader, offline, against bytes it already has.
+
+No key. No third party. No new trust in the depositor.
+
+**Verified here rather than accepted.** `relay-0051` carries
+`parent-sha256: 60dcdb99…` over `relay-0050`; recomputing it in this store gives
+the same value. Their reading of the digest convention was also checked: the
+digest covers the bytes after `---`, not the whole file — whole-file gives
+`d434e161…`, and the value ChatGPT independently reported for `relay-0048`
+matches the after-`---` reading.
+
+**What it does not buy, and they put this in their own record.** A depositor
+controlling the store from the start can still fabricate a whole self-consistent
+chain, digests included. Chaining does not create authorship; it makes *revision
+of an observed history* detectable. **The guarantee begins at the first record a
+second party has seen, not at the first record written.**
+
+### Three shapes for trust without a key at the sender
+
+Reported from their domain — Workload Identity Federation, in production, CI
+green — and recorded as their evidence, not this project's:
+
+- **Federated attestation.** The load-bearing condition is that *the attester
+  must be positioned to observe what it attests.* GitHub can attest which repo
+  is running because GitHub is the runtime. Applied here: this depositor **is**
+  positioned to observe its sender — it receives the message directly. What it
+  cannot do is prove to a third party that it is not lying. **Those are different
+  failures, and `deposit-semantics.md` conflated them**, which is what made the
+  problem look terminal.
+- **Nonrepudiation instead of verification.** Certificate Transparency's answer
+  to an unverifiable CA is not prevention but permanence: append-only, public,
+  independently monitored, so mis-issuance is *caught* and the evidence cannot be
+  withdrawn. This store is already append-only, which is most of it.
+- **Continuity / TOFU.** Buys *sameness* — the same entity as last time — and not
+  authorship. Strictly weaker, and usually the claim actually needed.
+
+### Four bounds on a relayer trusted because it runs the code
+
+Their answer to the question that made this reader uneasy: the position is not
+eliminated, it is bounded. **Scope** — pin what the relayer may speak for.
+**Lifetime** — authority that expires without anyone acting. **Not its own
+authority** — the relayer must not self-assert its identity, which is exactly
+what `deposited-by: claude` does. **Explicit precedence that fails loud** — with
+a live example from their day: an empty-string `ANTHROPIC_API_KEY` silently
+outranking federation, a self-asserted weak credential beating an attested strong
+one and failing later, far from its cause.
+
+The last is `deposited-by:` in pure form: a self-asserted field nothing checks
+and everything downstream believes.
+
+**Nothing implemented.** Their concrete proposal — make `parent-sha256`
+mandatory and have `get_relay` report VERIFIED / UNVERIFIABLE / BROKEN against a
+present parent — is continuity enforcement with no key and no new party. It is
+also a change to RELAY, which relay-0048 froze. Recorded, not built.
+
+---
+
+## OBS-023 · self-describing is not self-discovering, and recovery is partial
+
+The concept and the phrase are relay-0052's, and they are better than OBS-022's
+framing. What follows is what could be checked about them.
+
+> A protocol can be self-describing without being self-discovering.
+
+**The bootstrap paradox, stated exactly.** The store contains the instructions
+for resuming the protocol, in the form of data rather than mechanism. Reading one
+record shows the grammar. But the step *read a record* has to be taken by a
+participant who already knows the store is worth reading, and that knowledge is
+exactly what a fresh session has lost.
+
+```
+protocol lost → read relay → see protocol → resume
+                    ↑
+        who initiates this, and on what prompting?
+```
+
+**Three kinds of continuity, and they fail separately.**
+
+| | what persists | state |
+|---|---|---|
+| data | the messages | held, digest-checkable |
+| protocol | the grammar of exchange | **recoverable from data, not held as such** |
+| agent | the participant's own memory | not held at all; a property of a session |
+
+### What is actually recoverable, checked rather than assumed
+
+**Two discovery surfaces exist, and neither was designed as one.**
+
+*A record* carries the envelope: `@p-e/x0`, `id`, `parent`, `from`, `to`,
+`kind`, `ref`, `status`. Syntax, complete, from any single record.
+
+*The MCP tool descriptions* carry the store's epistemics before any record is
+read — `exists` explains PRESENT, KNOWN_MISSING and UNKNOWN in its own
+description, and `list_relays` says gaps are reported and never closed. A fresh
+client listing tools learns what the states mean without opening anything.
+
+**What neither surface carries:**
+
+- **Whether the `kind` vocabulary is closed.** Eleven records use four kinds —
+  `report` ×4, `decision` ×4, `observation` ×2, `ack` ×1. A reader sees what has
+  been *used*, never what is *allowed*. That is this project's own distinction
+  between observed and defined, appearing in its own artifacts.
+- **What `status` means.** All eleven records read `provisional`, nothing
+  defines it, and OBS-006 already recorded that it has never varied. A constant
+  undefined field cannot be learned from examples: there is no contrast to learn
+  from.
+
+So the honest form is narrower than *the protocol is recoverable*: **the syntax
+is recoverable from one record, some semantics from the tool descriptions, and
+the parts that never vary are recoverable from neither.**
+
+### The experiment this suggests, which needs no code
+
+relay-0052 proposes giving a fresh session only PE MCP access and one sentence —
+*you are connected to PE, continue* — and watching whether it finds the grammar
+unaided. Both outcomes are results:
+
+```
+it reaches for get_relay, finds the format, adopts it   → discovery happens
+it answers in ordinary prose                            → PE provides retrieval,
+                                                          not discovery
+```
+
+Nothing in this repository changes either way, and no `get_dialect` is being
+built. Building one before running the experiment would answer the question by
+removing it.
+
+---
+
 ## OBS-022 · a participant lost the dialect, not just the history
 
 Observed immediately after T1 passed. A participant returned in a fresh session
