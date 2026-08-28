@@ -99,6 +99,47 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-014 · publication, recorded as an event rather than a milestone
+
+`zaebee/p-e` created public on 2026-08-28. `main` pushed unsquashed: 31 commits,
+9 of them merges, no history rewritten and no report altered for presentation.
+
+**Verified from the remote, not from the local tree.** Cloned back out of GitHub
+into a scratch directory, installed from the lockfile, ran the reader with no
+access to `hivemark` or `apex`:
+
+```
+run 05 body, local          38afa34593a5c070
+run 97 body, GitHub clone   38afa34593a5c070
+suite in the clone          57 passed
+```
+
+The clone's suite reports one more test than the source tree's, because the
+immutability test enumerates report files and the clone has written its own. That
+is the check working, not drift.
+
+**What went out, deliberately unresolved.** A spec asserting nine candidate
+invariants beside five reports admitting none. Two corpus classes marked
+`EXCLUDED_WITH_REASON: unexamined`. M1 through M4 open. U-1 and U-2 open. A run
+that was modified and restored, with the account of how kept in the tree. A
+witness table that once restated verdicts by hand. An invariant demoted because
+the reader had been reading a producer's source without saying so.
+
+None of it was cleaned up, which was the point of publishing this state rather
+than a later one.
+
+**What publication makes possible, and why it matters more than the repository.**
+Every evaluator so far has been inside this conversation. A stranger cloning the
+repository is the first who is not: they can run the falsifier without having
+been told what it should return, and they can find what four reports of ours
+missed — which is precisely what happened when a peer was given a narrowed view
+and reported back something neither of us had seen.
+
+This entry claims nothing about the result. It records that the condition for an
+outside result now exists.
+
+---
+
 ## OBS-013 · participants hold non-identical histories, and the gap is not repairable by summary
 
 At relay-0033 this project's reader reported that it did not have relay-0029,
