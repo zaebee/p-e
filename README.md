@@ -13,13 +13,33 @@ does not compete with it.
 run against it twice.
 
 ```
-core invariants proposed        9
-experimentally admitted         0
-experimentally unsupported      9
-contradicted                    0
+proposed core invariants     9
+experimentally admitted      0
+contradicted                 0
 ```
 
-Nothing has been proven. Nothing has been refuted either — the reader found no
+**The spec and the reports disagree, and the disagreement is the project.**
+
+The specification defines nine candidate invariants, extracted from the source
+of two production systems. Conformance runs 01–05 admitted none of them from
+those systems' published artifacts. Neither document is being adjusted to match
+the other, and §3 has not been rewritten to encode run 05 as its normative state.
+
+The separation is deliberate:
+
+| | holds |
+|---|---|
+| **spec** | the hypotheses under test |
+| **reports** | what survived the falsifier, per run, immutably |
+| **observations** | how the method failed and what was changed |
+| **this README** | where the project currently stands |
+
+A spec edited to match the latest run would make the normative document a
+function of the most recent experiment — and run 06 admitting something would
+then force a normative change for an empirical reason. The draft records what is
+proposed. The reports record what was witnessed.
+
+Nothing has been proven. Nothing has been refuted either: the reader found no
 producer that contradicts any rule in the catalogue, and no rule that a stranger
 holding only the published artifacts could witness. Those are different failures
 and the reports keep them apart.
