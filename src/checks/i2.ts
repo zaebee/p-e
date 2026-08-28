@@ -57,17 +57,25 @@ export function checkI2(files: Map<string, Uint8Array>, extractedAt: string): Fi
   findings.push({
     invariant: "I-2",
     producer: "apex",
+    // Amended at relay-0056. This branch confirmed on ordering, and the whole
+    // evidence base is two distinct instants: all eight `since` are identical
+    // and checkedAt == updatedAt == lastOkAt. Ordering is not occurrence.
+    //
+    // It is the step the hivemark branch thirty lines above was demoted for at
+    // relay-0012, taken on thinner data. VIOLATES stays reachable — a time
+    // after extraction, or out of order, is still a contradiction. CONFORMS
+    // does not: no arrangement of timestamps read alone says what they mean.
     verdict:
       unparseable.length > 0
         ? "UNDECIDABLE"
         : checkedAt > cutoff || badSince.length > 0
           ? "VIOLATES"
-          : "CONFORMS",
+          : "UNDECIDABLE",
     evidence: "OBSERVED",
     reason:
       unparseable.length > 0
         ? `${unparseable.length} timestamp(s) do not parse (${unparseable.join(", ")}); an unreadable time settles nothing, and must not be counted as ordered correctly`
-        : `the snapshot's occurrence ${health.checkedAt} precedes extraction, and every host's since precedes that snapshot (${badSince.length} exceptions); updatedAt is a write time and is not used as one`,
+        : `${new Set([...Object.values(history.hosts).map((r) => r.since), health.checkedAt]).size} distinct instants in the whole evidence base; ordering holds (${badSince.length} exceptions) and ordering is not occurrence — no arrangement of timestamps read alone says which of the two a field means`,
     projections: [],
   });
 

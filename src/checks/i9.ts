@@ -5,13 +5,25 @@ import type { Finding } from "../verdict.js";
 export function checkI9(files: Map<string, Uint8Array>): Finding[] {
   const records = Object.values(apexHistory(files).hosts);
   const uncounted = records.filter((r) => typeof r.gaps !== "number");
+  // Amended at relay-0056, after a review found this confirming on
+  // [0,0,0,0,0,0,0,0]. Eight zeroes show that `uncounted` was empty; they do
+  // not show that failures are counted. The reader was turning an absence of
+  // detected failures into evidence of correct accounting.
+  //
+  // The same report called this field unexercised twice — i1 counts `gaps > 0`
+  // among its "exercised" signals and i5 requires `anyGap`, both landing
+  // UNDECIDABLE on this corpus. This check now applies the standard its
+  // siblings already applied to the same field.
+  const anyGap = records.some((r) => r.gaps > 0);
   const findings: Finding[] = [
     {
       invariant: "I-9",
       producer: "apex",
-      verdict: uncounted.length > 0 ? "VIOLATES" : "CONFORMS",
+      verdict: uncounted.length > 0 ? "VIOLATES" : anyGap ? "CONFORMS" : "UNDECIDABLE",
       evidence: "OBSERVED",
-      reason: `all ${records.length} host records publish a gaps count, so runs that could not observe are visible in the artifact rather than folded into the checks total`,
+      reason: anyGap
+        ? `all ${records.length} host records publish a gaps count and ${records.filter((r) => r.gaps > 0).length} are non-zero, so runs that could not observe are visible in the artifact rather than folded into the checks total`
+        : `all ${records.length} host records publish a gaps count and every one is zero: the mechanism exists and has never recorded a failure, so whether failures would be counted cannot be observed here`,
       projections: [],
     },
   ];

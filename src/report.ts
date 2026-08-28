@@ -83,6 +83,44 @@ export interface ReportMeta {
  */
 const RUN_NOTES: Record<string, string> = {
   "01": "First run. No prior run to differ from.",
+  "06": `Three falsifier corrections, decided at relay-0056. **Two verdicts
+change.**
+
+The ruling that made them possible: **"frozen" covers the normative catalogue —
+the invariant statements, §4, M1-M4, U-1/U-2 — and not the falsification
+apparatus.** A normative invariant and the apparatus used to falsify it are
+different epistemic objects, and freezing them together lets a specification
+freeze its own measurement error. It had done so twice.
+
+**I-3/apex: CONFORMS → UNDECIDABLE.** Tested that two keys existed —
+\`"finalUrl" in e && "offSite" in e\` — while \`offSite === true\` occurs zero
+times and \`finalUrl\` is null in all eight entries. Here the code had gone
+*beyond* its clause, which is conditional on the conclusion occurring, so this
+one needed no amendment: correcting it brought the code back into line.
+
+**I-9/apex: CONFORMS → UNDECIDABLE.** Confirmed that failures are counted over
+\`gaps = [0,0,0,0,0,0,0,0]\`. Eight zeroes show that \`uncounted\` was empty, not
+that anything is counted — an absence of detected failures read as evidence of
+correct accounting. The same report called this field unexercised twice, in I-1
+and I-5, which apply the standard this check now applies.
+
+**I-2/apex: CONFORMS → UNDECIDABLE.** Confirmed occurrence semantics from two
+distinct instants: all eight \`since\` identical, \`checkedAt == updatedAt ==
+lastOkAt\`. Ordering is not occurrence. This is the step the hivemark branch
+thirty lines above was demoted for at relay-0012, taken on thinner data.
+
+I-9 and I-2 were **prescribed by their \`reader:\` clauses**, which are amended in
+§3 and recorded in §11.
+
+**Not done, deliberately.** Eight further defects a review demonstrated by
+mutating the corpus are latent — key-presence tests in I-8/H and I-9/H, vacuity
+in I-3/H and I-4/H, NaN and unimplemented clauses in I-5. relay-0056 ruled they
+are candidates, not a reason for a large unrelated diff, until independently
+reproduced. They are recorded in OBS-028 and unfixed.
+
+**What this run is evidence of.** Zero of the ten came from 75 tests. The tests
+enforced the interpretation the falsifier had encoded upstream of them, which is
+not a failure of the suite: a test cannot catch an error it inherited.`,
   "05": `The reader audited against itself, at relay-0025. **No verdict
 changed.**
 

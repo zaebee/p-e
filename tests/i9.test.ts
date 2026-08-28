@@ -3,9 +3,11 @@ import { checkI9 } from "../src/checks/i9.js";
 import { loadCorpus } from "../src/manifest.js";
 
 describe("I-9", () => {
-  it("confirms apex publishes a gaps count per host", async () => {
+  it("will not confirm accounting from counts that are all zero", async () => {
+    // Asserted CONFORMS through runs 01-05, over gaps [0,0,0,0,0,0,0,0].
     const a = checkI9(await loadCorpus(".")).find((f) => f.producer === "apex");
-    expect(a?.verdict).toBe("CONFORMS");
+    expect(a?.verdict).toBe("UNDECIDABLE");
+    expect(a?.reason).toMatch(/every one is zero/);
   });
 
   it("reports hivemark UNDECIDABLE: the undecodable count is computed, not published", async () => {

@@ -19,6 +19,14 @@ describe("I-2", () => {
     expect(apex?.verdict).toBe("UNDECIDABLE");
   });
 
+  it("will not confirm occurrence from ordering, on either producer", async () => {
+    const findings = checkI2(await loadCorpus("."), (await meta()).extracted_at);
+    expect(findings.every((f) => f.verdict !== "CONFORMS")).toBe(true);
+    expect(findings.find((f) => f.producer === "apex")?.reason).toMatch(
+      /ordering is not occurrence/,
+    );
+  });
+
   it("holds every occurrence time before the extraction time", async () => {
     const findings = checkI2(await loadCorpus("."), (await meta()).extracted_at);
     expect(findings.some((f) => f.verdict === "VIOLATES")).toBe(false);

@@ -72,6 +72,13 @@ never an edit to it, and the reader refuses to write over a run that exists.
 | [03](docs/reports/2026-08-28-conformance-03.md) | a wording correction; run 02 overstated its own result | 0 of 9 |
 | [04](docs/reports/2026-08-28-conformance-04.md) | I-6 demoted on corrected grounds; coverage becomes measured | 0 of 9 |
 | [05](docs/reports/2026-08-28-conformance-05.md) | the reader audited against itself; every finding declares its projections | 0 of 9 |
+| [06](docs/reports/2026-08-28-conformance-06.md) | three falsifier corrections; two of them prescribed by the spec's own apparatus | 0 of 9 |
+
+**What "frozen" covers**, ruled at relay-0056 after run 05: the normative
+catalogue — the invariant statements, §4, M1–M4, U-1/U-2. Not the falsification
+apparatus. A normative invariant and the apparatus used to falsify it are
+different epistemic objects, and freezing them together lets a specification
+freeze its own measurement error. Run 06 corrects two places where it had.
 
 Every run is kept, including the ones that were wrong. Run 01 admitted an
 invariant on evidence that only said *consistent with*; run 02 overstated its own
