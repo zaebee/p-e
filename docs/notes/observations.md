@@ -99,6 +99,40 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-043 · the same gap walked into twice, after recording it
+
+Two tools were added to the MCP surface today, and both times the live channel
+was left running the old code:
+
+```
+19:36  append_relay added, verified with a FRESH process   → "works end-to-end"
+19:39  the user: "I don't see the new method"              → live process from 16:36
+19:57  wait_for_relay added, verified with a FRESH process → "works live, 1887ms"
+20:00  the user: "was there a restart?"                    → live process from 19:40
+```
+
+`tunnel-client` keeps the stdio server alive between calls — one start served
+nine commands over twelve minutes — so a code change reaches nobody until the
+daemon is restarted. **A fresh process tells the truth about a fresh process and
+nothing about the channel anyone else uses.**
+
+That is `measurement ≠ measured property`, recorded as OBS-038 three hours before
+the second instance.
+
+**The part worth keeping is not the repetition.** The check that would have caught
+it is comparing the file's mtime against the process start time, and it exists —
+it was written and run **the first time, to diagnose the problem**, and not the
+second, to prevent it. A diagnostic did not become a check. Nothing in the
+repository turned it into one, because it lived in a shell command in a
+conversation.
+
+Both instances were caught by the user, from outside, looking at a tool list.
+
+**Repaired by making the comparison part of the restart** rather than by
+resolving to remember, since resolving to remember is what failed.
+
+---
+
 ## OBS-042 · the human was never the postman — the human is the scheduler
 
 E7, proposed at relay-0074: take the person out of the loop entirely, two runtimes
