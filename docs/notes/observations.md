@@ -99,6 +99,144 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-029 · no party observes emission, and that is why fidelity is different
+
+`relay-0054`, `kind: correction`. Chain now three links, all recomputed here:
+`60dcdb99…`, `6d5f97ac…`, `6b959b4b…`. Store: 14.
+
+The question was whether a fourth shape exists — a party positioned to observe
+**fidelity**, at emission rather than at deposit. The answer separates two things
+that were tangled in the asking.
+
+**The shape is not missing.** A transport is positioned at emission by
+construction: anything carrying bytes away from a sender observes them. The
+matrix already has that row and dismissed it as impossible *while the transport is
+a person* — but a transport need not be a person. An MCP server is software and
+could attest what arrived, from which session, at what time. What disqualifies
+the present instance is not its position but its **independence**: the tunnel is
+operated by the depositor. The same defect as a second reader over a mediated
+channel.
+
+**The structural point survives it:**
+
+> No party observes emission. Every party observes its own reception.
+
+A transport witness establishes fidelity to the **first hop** and leaves the
+sender-to-hop gap unobserved. Importing a closer observer narrows the gap and
+never closes it, because closing it needs an observer at zero distance from the
+sender — and at zero distance the observer **is** the sender.
+
+Which is why a signature is not a fourth shape either. **It imports no party.** It
+makes the sender its own witness in a form others can evaluate — the
+transferability branch exactly: fidelity fails for want of evidence someone else
+can assess, not for want of evidence.
+
+**So fidelity is not different in kind. It is different in where the gap sits.**
+Every other row closes by importing a positioned party. This one *narrows* by
+importing one and *closes* only by making private knowledge portable. That is the
+matrix's existing two-branch distinction pointed at a question it already
+answered.
+
+**And a narrowed fidelity is worth having.** *These are the bytes the transport
+received from session X at T* is a real checkable claim — and it is the claim
+`as-received` currently gestures at with nothing behind it. Build the transport
+attestation and `as-received` stops being a disclaimer and becomes a measurement.
+
+### The ledger as it stands
+
+| | |
+|---|---|
+| decided and unclaimed | nothing. Row B is correctly marked unsatisfied |
+| built and unconnected | `KNOWN_MISSING`, a suppression detector for referenced records |
+| available, unused | a second reader over an unmediated channel — hashes out of band, not clones |
+| cheapest real move | a GitHub Actions run: its start time is GitHub's and its workflow can attest the tree it saw. That one step turns absence proofs on, and absence is what suppression needs |
+
+---
+
+## OBS-028 · a review found two more, and both trace to the frozen spec
+
+A `fable` reviewer went over every CONFORMS-capable branch against the corpus:
+**two firing, eight latent**, each demonstrated on real or minimally mutated
+data. Both firing findings were reproduced here before anything was decided.
+
+### The two firing, reproduced
+
+**I-9/apex — CONFORMS on all-zero counts.** `gaps` is `[0,0,0,0,0,0,0,0]`; the
+predicate is `uncounted.length > 0 ? VIOLATES : CONFORMS`, so eight zeroes
+confirm that failures are counted. A producer hard-coding `gaps: 0` and silently
+dropping unobserved runs is indistinguishable.
+
+**And the report contradicts itself on that exact field:**
+
+```
+I-1/apex  UNDECIDABLE   counts gaps > 0 among its "exercised" signals
+I-5/apex  UNDECIDABLE   requires anyGap; "every count is zero, so no hole exists"
+I-9/apex  CONFORMS      requires only that the field be a number
+```
+
+One report saying the gaps mechanism is unexercised twice and that it
+demonstrates an invariant once.
+
+**I-2/apex — CONFORMS from two instants.** The whole evidence base is two
+distinct timestamps: all eight `since` are identical, and
+`checkedAt == updatedAt == lastOkAt`. Thirty lines above in the same file, the
+hivemark branch was demoted at relay-0012 with the argument that *no arrangement
+of timestamps, read alone, distinguishes when something happened from when it was
+written down* — over 932 timestamps spanning 11.6 hours. The apex branch takes
+the forbidden step on thinner data.
+
+### Why neither was fixed
+
+**Both are prescribed by §3 of the frozen spec.**
+
+```
+I-9 reader:  "A — history carries gaps per host"        a presence test
+I-2 reader:  "assert A's since <= checkedAt"            an ordering test
+```
+
+The code implements what the spec asked for. **The defect is in the spec's own
+falsifier clauses**, which were written to make each invariant testable and
+carried the key-presence flaw into the checks.
+
+This is the opposite of `i3`, and the difference decides what may be done.
+`i3`'s clause reads *for every offSite, require the finalUrl it was drawn from* —
+conditional on the conclusion occurring. The code had gone **beyond** the spec by
+testing presence, so correcting it brought code back **into line**. Correcting
+I-9 or I-2 would move the code **away** from a document that is frozen by
+standing decision.
+
+That is a decision, not a repair, and it is not this reader's to take. Both stand
+in runs 01–05 and in the code.
+
+**Sharper than the finding itself:** run 05's §9 predicted that a report with
+everything conforming would be evidence of a permissive reader. It was permissive
+— and the permission was written into the specification, by the same hand, in the
+blocks added to make the invariants falsifiable.
+
+### The eight latent, recorded and unfixed
+
+Each demonstrated by in-memory mutation, each verified as not firing on this
+corpus. Three shapes, all failing open toward CONFORMS:
+
+| | |
+|---|---|
+| **key presence** | `i8`/H `"unverifiable" in e` — `unverifiable: null` on 1 of 932 confirms. `i9`/H `"undecodable" in e` — `undecodable: -5` confirms |
+| **vacuity** | `i3`/H `present.length === provenance.files.length` — `files: []` gives `0 === 0`; and five present files with **non-matching digests** also confirm, since the pinned hashes are never verified. `i4`/H confirms with `repeated === 0` |
+| **NaN and unimplemented clauses** | `i5`/apex has the exact `Date.parse` defect just fixed in `i2`; `i2`'s own `cutoff` is still unguarded; `i5`/H confirms at ≥2 anchors without the overlap and gap checks its spec clause names; `i6`/apex would confirm without ever comparing attester to subject |
+
+Several also carry a **reason that contradicts its own verdict** — `i3`/H would
+emit *the observation is pinned but not presented* under a CONFORMS. That is
+OBS-025's shape again: the honest information present, in a field no decision
+reads.
+
+### What the review says about the tests
+
+Zero of these ten came from 74 tests. Two came from a peer reading code, eight
+from a reviewer asked for one specific defect class. The tests pin what was
+already known; none of today's findings was known.
+
+---
+
 ## OBS-027 · the third instance of one pattern, and this time it was mine
 
 **A commit timestamp is not a witness.** It reached a chat message and not the
@@ -137,6 +275,17 @@ a self-asserted commit date read as witnessed      provenance
 Each time an honest value sits one field away from the one the decision reads.
 Nobody lied in any of the three. The first two were found in someone else's
 code; the third I was about to record as a result.
+
+**What caught it was not a control.** It reached a chat message and not the
+repository because this reader had not gotten to writing it down yet. The
+chat-message boundary caught it by accident, and accident is not a control —
+recorded that way so a later reader does not conclude the process worked.
+
+**What did work** is worth separating out: the granularity question, asked
+because it was the part least understood, is what prompted the check that found
+an error elsewhere. The Row B mistake was not in the granularity at all. Asking
+someone to look at the thing you are least sure of surfaced the thing you were
+most sure of.
 
 ### What would actually witness, in order of what it buys
 
