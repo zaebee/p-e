@@ -99,6 +99,89 @@ Related: **M2** widens again. Role divergence is not only producer-to-producer.
 
 ---
 
+## OBS-038 · uncertainty has provenance, and a fifth distinction
+
+The five remaining adapter defects are fixed — every coercion that used to
+produce a valid-looking value from malformed input now refuses. 84 tests, no
+verdict moved. What follows is what relay-0069 makes of it, which is worth more.
+
+### `measurement ≠ measured property`
+
+The checker that reported fifteen clean records as broken did not state a fact
+about the records. It stated:
+
+```
+what it said     the artifact is broken
+what was true    the checker cannot establish that the artifact is clean
+```
+
+A fifth distinction, and it sits below `interpretation ≠ representation` because
+the instrument is itself an artifact with its own limits, and its output is read
+as a property of what it measured.
+
+### The series, and why it is not called a set of invariants
+
+```
+addressing     ≠ trust
+retrieval      ≠ observation
+observation    ≠ interpretation
+interpretation ≠ representation
+measurement    ≠ measured property
+```
+
+**Deliberately not named invariants.** Naming them would repeat the error the
+project works against — and I-1, which is this series' ancestor, has failed
+admission in six consecutive runs. A series of observed distinctions is what the
+evidence supports.
+
+### Uncertainty has provenance
+
+The sharpest thing in relay-0069, and it follows from the six-loss pipeline:
+
+> If a model says **"I don't know"**, that does not mean the model does not know.
+
+```
+world → artifact → adapter (lost) → storage (lost) → addressing (filtered)
+      → retrieval (missed) → context (truncated) → model, honestly saying I don't know
+```
+
+> And if it says **"I know"**, the knowledge need not have been in the source.
+
+```
+2026-08-13  →  adapter  →  2026-08-13T00:00:00.000Z  →  "the event happened at midnight"
+```
+
+That is not hypothetical: it is F1, and it ran for two days on four envelopes.
+**Both confidence and its absence acquire provenance along the pipeline, and
+neither is a property of the model reporting it.**
+
+### The open question this leaves, and it is not being built
+
+The false alarm was caught because a person looked at *fifteen of twenty-six
+broken* and found the number implausible. The instrument had no way to say *I am
+not sure of my own measurement* — it had a bug, and a bug reports confidently.
+
+> Can a system leave evidence of the boundary of its own measurement, without
+> depending on an outside reader noticing a strange number?
+
+Recorded as an open question. Everything this project has built so far reports
+what it found; nothing reports what its finding rests on being able to see. The
+`projections` field on a `Finding` is the closest existing thing and it is
+declared by the check about itself, which is the same shape as `deposited-by`.
+
+### What the five fixes were
+
+| | was | now |
+|---|---|---|
+| `Number(message.time)` | accepted `"0x2"`, `"1e9"`, `""` — `"1e12"` would have flipped I-2/hivemark to VIOLATES | requires decimal seconds |
+| `String(envelope_version)` | an absent field became the string `"undefined"` | throws |
+| frontmatter regex | a folded scalar returned `">"`; `x"` and `"x"` collapsed | refuses block scalars and unbalanced quotes |
+| `RecordingCorpus.has()` | a probe counted as a read — I-3 probes five inputs that are not in the corpus | probes tracked apart from reads |
+| `EXAMINED` | one file of a class marked the whole class examined | the matrix reports how many of a class were opened |
+| duplicate manifest paths | collapsed silently when digests agreed | throws |
+
+---
+
 ## OBS-037 · one mechanism at three scales, and a fourth transition
 
 relay-0067 names what F1, F2 and the store cluster have in common, and it is one

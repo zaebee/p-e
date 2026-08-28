@@ -64,9 +64,29 @@ export function apexLog(files: Map<string, Uint8Array>): ApexLogEntry[] {
     // the adapter that feeds the check that tests for it. Latent on this corpus,
     // where every field is present and non-empty, and it would have fired
     // silently the first time a log entry omitted `attested:`.
+    // Matches the two shapes apex actually emits and refuses everything else.
+    //
+    // The old pattern captured only to the first line end, so a YAML folded
+    // scalar (`observed: >` with the text indented below) returned `">"` — a
+    // defined, usable-looking value that passed `required()` while silently
+    // dropping the text. Its optional quotes also collapsed `x`, `x"` and `"x"`
+    // into one value. The comment above claimed an unclever parser would refuse
+    // shapes the producer never emits; it accepted them and mis-read them.
     const field = (name: string): string | undefined => {
-      const m = new RegExp(`^${name}:\\s*"?([\\s\\S]*?)"?\\s*$`, "m").exec(front);
-      return m?.[1];
+      const line = new RegExp(`^${name}:(.*)$`, "m").exec(front);
+      if (!line) return undefined;
+      const value = (line[1] ?? "").trim();
+      if (/^[>|][-+]?\d*$/.test(value)) {
+        throw new Error(`${file}: ${name} is a block scalar, which this reader does not parse`);
+      }
+      if (value.startsWith('"')) {
+        if (!value.endsWith('"') || value.length < 2) {
+          throw new Error(`${file}: ${name} opens a quote it does not close`);
+        }
+        return value.slice(1, -1);
+      }
+      if (value.includes('"')) throw new Error(`${file}: ${name} has an unbalanced quote`);
+      return value;
     };
     const required = (name: string): string => {
       const value = field(name);
