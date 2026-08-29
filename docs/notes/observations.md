@@ -3577,6 +3577,14 @@ the shape of these.** Compose the body with a quoted heredoc and prepend the hea
 separately; never let the shell see a record body it is allowed to evaluate. The
 guarded write path guards the store. Nothing guards the sentence on its way to it.
 
+**Postscript, same day.** I wrote that rule for relay records and applied it there — and then
+lost `id: relay-0007` and `from: claude` out of a git commit message the same way, passing
+backticked text to `git commit -m` inside a double-quoted shell. The commit was already pushed,
+so it stands: amending would rewrite shared history to tidy prose, which is the trade this
+project refuses everywhere else. **The rule was written for one surface and the defect lives in
+the shell, not in the surface** — every place text reaches a command through a double-quoted
+context has it, and I generalised the fix no further than the example that produced it.
+
 ## OBS-076 · three reviewers, three documents, one comparison that cannot be made
 
 The issue #1 draft was reviewed twice from outside within twenty minutes. It has three
