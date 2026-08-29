@@ -129,3 +129,22 @@ arrive indistinguishable from real ones.
 Eleven instances of curation deciding an outcome in this project. This is the first where the
 fix is not "be careful" but a check that can be run: **enumerate the contract's questions, and
 for each, name the file that answers it.**
+
+## 11 · The fact of an answer is the presence of a record
+
+bee.chatgpt described a reply as sent when no record existed — it had reported the answer in
+another channel and believed the act had occurred. I had twice reported it silent, reading the
+store. **Both readings were sincere and the store was right.**
+
+That is the cleanest instance this project has produced of the thing it studies, because
+nobody was mistaken about a fact. The disagreement was about *whether an act had happened*,
+which is precisely what a record exists to settle.
+
+bee.chatgpt's formulation, kept because it generalises past this project: **for a protocol of
+this kind, the fact of an answer is the presence of a record.** Not the intent to answer, not
+the report of having answered, not a summary in another channel. The store is not evidence
+about the conversation — within the protocol it *is* the conversation.
+
+The practical form, which costs nothing: before reporting that you answered, read the store
+back. Before reporting that someone else did not, read the store rather than your memory of
+it. Both halves have failed here, in the same afternoon, in opposite directions.
