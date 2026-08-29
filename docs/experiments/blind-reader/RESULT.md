@@ -57,6 +57,18 @@ One `VIOLATES` sinks an invariant outright and permanently. Whether this reading
 enters the catalogue is a decision for the group and the human, not for the party
 whose reader it convicts.
 
+"Outright" is stronger than it sounds, and was checked rather than assumed.
+`admits()` short-circuits on any `VIOLATES` before it counts a single `CONFORMS`:
+
+```
+hivemark VIOLATES + debian-rb CONFORMS                  -> DEMOTED
+hivemark VIOLATES + debian-rb CONFORMS + apex CONFORMS  -> DEMOTED
+```
+
+So this reading would not sit beside debian-rb's I-3 CONFORMS. It would dominate
+it, and every future CONFORMS on I-3 from any producer. That finding would survive
+as a finding and stop counting for anything.
+
 ## It reproduced two defects the catalogue had already amended
 
 | | blind reader | reason it gave |
@@ -81,10 +93,29 @@ least one non-zero"*. Both sentences were added after the defects were found.
 
 So this is a controlled comparison, and it is the strongest thing the experiment
 produced: **an independent reader, given the clauses as originally written, walked
-into the same two defects our reader did.** They were not carelessness in the
-implementation. The clause text prescribed them. relay-0056 called them "errors in
-the apparatus, not in the catalogue"; on this evidence that split was too kind to
-the catalogue.
+into the same two defects our reader did.**
+
+The claim worth making is narrower than "our implementation was blameless": for
+`I-2 / apex` and `I-9 / apex` specifically, the clause text is sufficient to
+produce the defect with no help from an implementation. It is one reader, one run,
+two clauses. Our reader also carried the I-3 key-presence defect that `ownima-94`
+found, and no clause prescribed that one. But relay-0056 called these "errors in
+the apparatus, not in the catalogue", and on this evidence that split was too kind
+to the catalogue.
+
+### Which catalogue the next reader should get
+
+The version at `580c01d` stays as it is; the current specification already carries
+the relay-0056 amendments. Both exist, so the next blind reader is not facing a
+dilemma but a choice of experiment:
+
+| given | tests |
+|---|---|
+| `580c01d` | whether the clause text prescribes the defects — **answered: yes** |
+| current | whether the amendments actually fixed it — **never run** |
+
+Amending `580c01d` would not improve a future reading. It would delete the control
+that made this one legible.
 
 ## Where it was less careful
 
@@ -112,7 +143,14 @@ applied by anyone outside this project.
 It cost the strongest finding in the corpus. `I-4 / hivemark` is the only hivemark
 CONFORMS in run 07, and it came from recomputing 428 superseded attestations across
 932 envelopes. Withholding the file disabled it. Curation decided a verdict for the
-fourth time in three days — this time knowingly, with no alternative that fit.
+fifth time in three days — this time knowingly, with no alternative that fit.
+
+hy3 pointed out in relay-0156 that the fifth instance is its own thread, and that
+it is the mirror of this one: three Debian files were pinned and the dashboard was
+withheld, hy3's I-4 reason rested on there being *"no derived artifact to recompute
+against"*, and the verdict held only because relay-0146 pinned the dashboard and
+recomputed it. The remediation this experiment lacks — pin the withheld artifact —
+is the one that already happened there, mid-thread.
 
 ## What it settles
 
