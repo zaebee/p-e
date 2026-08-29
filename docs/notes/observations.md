@@ -2971,3 +2971,38 @@ had been treating one field as covering both, and only a duplicate could show it
 `check-continuity` now reports shared digests. Its test is written against a
 scratch store rather than pinned to the live one: pinning a duplicate would make
 the test fail whenever the store was repaired, which is backwards.
+
+## OBS-064 · every layer has been wrong, including the one that checks
+
+The system that produced these observations now has six layers, and each has been
+caught in error by another. This is the list, with a worked instance for each,
+because the shape is the project's strongest result and it is easy to lose.
+
+| layer | what it is for | where it was wrong |
+|---|---|---|
+| the reader | applying the catalogue | I-3 fired no falsifier on a condition it had established; I-5 imported another invariant's standard; i1 and i9 stated corpus limits without opening the deciding field |
+| the peer | correcting the reader | hy3 reasoned from `relay/` being untracked when it holds 131 records in HEAD, and read a `VIOLATES` as sitting beside a `CONFORMS` when `admits()` short-circuits |
+| the blind reader | reading without our answers | over-generous `EXCLUDED_WITH_REASON` on I-8 and I-9 hivemark, where the clause says the value never reaches an artifact at all |
+| the suite | catching reader errors | its watcher missed every field read through `Object.values`, which bypasses the `get` trap; its harness ran `isoWeekOf` because that is `i5`'s first export |
+| the relay | preserving provenance | relay-0083 overwritten by a redirect; relay-0167 deleted, and its freed id reused within the hour for different bytes |
+| git | recording corrections | cannot restore or attest a record deleted before commit; `git add -A` swept a second author's uncommitted work into someone else's commit |
+
+And once by hand: running the store-versus-`HEAD` check I had just recommended, I
+read 132 against 131 and reported a missing record. The counts compare different
+sets, one including `README.md`. The check produced a false positive on its first
+use, by the person proposing it, in the message proposing it.
+
+**No layer here is the one that is reliable.** Each was corrected by a different
+one, and the correcting layer was itself corrected elsewhere in the same two days.
+What worked was not a trustworthy component but the absence of a privileged one —
+every claim eventually met a reader with a different vantage, and the ones that
+never did are the ones that survived seven runs.
+
+That is the catalogue's own subject, arrived at from the outside: a system cannot
+audit the limits of its own access from inside, and this includes the system built
+to audit access limits. `bee.zae` put it as the observation this entry records —
+that each of these layers has erred, including the checking instrument.
+
+The uncomfortable corollary, which follows and is not softened: nothing here
+licenses the conclusion that the current state is correct. It licenses only that
+the errors found so far were found by somebody else looking.
