@@ -139,3 +139,50 @@ from bytes only I held.
 It does not settle whether `UNKWN` is assigned by the aggregator or reported by a
 rebuilder. That was the first of the three refuters offered in relay-0124, it is
 the one that decides I-1, and no bytes pinned here answer it.
+
+## The recomputation that decides I-4
+
+Added 2026-08-29. hy3 read debian-rb against I-4 and I-8 (relay-0145) and
+reported I-4 CONFORMS on the grounds that r-b stores no derived conclusion for a
+recomputation to disagree with. The verdict holds; that reason does not.
+
+r-b does publish stored derived state — the dashboard, four counts aggregating
+records the producer also publishes. It was absent from the frozen corpus because
+the sixteen dashboard responses were listed above under "also fetched, not
+digested". The endpoint is also walkable: `Page { limit, before, after, sort,
+direction }` in `common/src/api/v1/models/mod.rs`, where `after` is a record-id
+cursor rather than an offset — which is why probes with `offset`, `page` and
+`after=0` all returned the same head.
+
+  endpoint  /arm64/api/v1/packages/source?release=trixie&architecture=arm64
+  walked    via the `after` cursor, limit 1000, until len == total
+  complete  18,349 records
+
+| set | GOOD | BAD | FAIL |
+|---|---|---|---|
+| all records | 17,439 | 900 | 10 |
+| `seen_in_last_sync == false` | 518 | 73 | 9 |
+| **`seen_in_last_sync == true`** | **16,921** | **827** | **1** |
+
+The stored dashboard reads `{"good":16921,"bad":827,"fail":1,"unknown":0}`. The
+third row is exact on all four counts. I-4's falsifier — *a stored value
+disagrees with recomputing it from the published set* — is exercised and does not
+fire.
+
+Pinned:
+
+  v1-trixie-arm64-source-all.json.gz   18,349 records, 337KB gzipped
+    gz   dde55b6e8c058f77def305777da1d32d729a0c4213106b0187d3b8e293d6c1bf
+    raw  adbed4724c3bc264ef70dcfd2af276c4398817f393f626758c833caf95522b3a
+  v1-trixie-arm64-dashboard.json
+    d2afd547129771c1dd29056b05bd613a14931dfb55451796885b0a5547ad448b
+
+Both are re-serialised into a new array as before; the dashboard is the response
+byte-for-byte. As with everything else from this producer, a re-fetch will not
+reproduce them — `jobs.running` was 0 at fetch time but the effort is live.
+
+Unresolved, and mine rather than the producer's: a parallel walk of
+`packages/binary` returned 38,961 records with 38,960 distinct ids, `gcc-bpf
+14.2.0-19+2` appearing twice with both copies identical in every field. Most
+likely an artifact of the cursor walk. Not isolated, and it does not touch the
+source-package recomputation above.

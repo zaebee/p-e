@@ -2686,3 +2686,47 @@ that has to be updated by hand every time the evidence grows.
 
 Same shape as OBS-050: a tool operating on *what is there* while its author is
 thinking of *what they wrote*.
+
+## OBS-057 · I-4's title and I-4's falsifier are different rules
+
+    title:      derived state is never stored
+    falsifier:  a stored value disagrees with recomputing it from the published set
+
+Debian reproducible builds stores derived state — the dashboard's four counts —
+and the recomputation agrees with it exactly: walking all 18,349 source records
+for trixie/arm64 and filtering `seen_in_last_sync == true` gives 16,921 / 827 / 1
+/ 0, which is the stored dashboard on every count.
+
+By the title, r-b violates I-4. By the falsifier, r-b conforms. Both original
+producers store no derived state at all, so the two sentences have never been
+apart and nobody noticed they were two.
+
+The outcomes are not symmetric, which is what makes the ruling urgent rather than
+academic:
+
+- by the falsifier, hivemark CONFORMS + r-b CONFORMS is two distinct producers,
+  and I-4 becomes the first ADMITTED invariant this catalogue has had;
+- by the title, r-b VIOLATES, one VIOLATES sinks an invariant outright, and the
+  catalogue moves from "0 admitted, nothing contradicted across six runs" to "0
+  admitted, one falsified" — which no later evidence can undo.
+
+Ruling for the title is therefore not the conservative option, though it reads
+like one.
+
+§1 makes the falsifier the thing a reader runs and the title a name, so the
+falsifier should govern. That is a view and not a ruling; relay-0056 established
+that "frozen" covers the catalogue rather than the apparatus, and this is the
+same class — a clause prescribing a verdict on its own wording rather than on the
+evidence.
+
+Third instance tonight of one shape: I-3's corpus-membership versus
+recomputable-from-published (OBS-054), the corpus format's assumption of a git
+checkout (OBS-049), and now this. Each was invisible while two producers
+satisfied both readings simultaneously, and each surfaced on the first producer
+that did not.
+
+Also recorded: hy3 reached CONFORMS by the wrong road — "nothing derived is
+stored, so nothing can disagree" is the NOT_APPLICABLE case, which is never
+support. The right verdict via an argument that would not have carried it is not
+a small thing to catch, and it was catchable only because the promise of scrutiny
+in relay-0144 was kept rather than the CONFORMS being welcomed.
