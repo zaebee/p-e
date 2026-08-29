@@ -39,6 +39,11 @@ disagrees about what V *means* has contradicted nothing — `I-5` is the standin
 our check and an independent reader both returned `UNDECIDABLE` for apex on incompatible
 grounds, and the question is still unruled.
 
+A single authority's G1 claim — "I have never reused a seq" — is **self-asserted** and
+not checkable by a reader who was not present for every allocation; under a single
+authority this is the standing UNDECIDABLE limit (F3), and v1 handles it by *forbidding
+exceptions* (MUST 1) rather than by promising verifiability it cannot deliver.
+
 So this issue has **two profiles, producing different kinds of output rather than different
 confidence**:
 
@@ -124,8 +129,20 @@ never held afterwards.
    exclusive commit, never by reading the current maximum** — `max+1` cannot be made
    safe by care, and an exclusive create already is. This matters even with one
    authority: the legacy authority has three writers, and two of them collided twice
-   within two hours (`relay-0225`, `relay-0232`). `deposit.ts` writes with `flag: "wx"`,
-   so the commit is already correct and only the allocation is advisory.
+   within two hours (`relay-0225`, `relay-0232`).
+   **Allocation mechanism (v1):** each id owns a persistent allocation marker — an
+   empty file `history/relay-NNNN` created with `wx`/`O_EXCL`. To allocate, the
+   authority walks ids and claims the first marker that does not yet exist; the `wx`
+   claim is atomic, has no shared race point, and succeeds for exactly one writer, so
+   concurrent allocators cannot both take an id (capsule 04 measured 16 racing writers
+   → 16 distinct ids, 0 duplicates). **The marker persists beyond deletion of the
+   record**, so a deleted id is not freed and cannot be rebound — this is the fix for
+   `relay-0183`'s class of failure, which the record's own `wx` (on its bytes) did not
+   prevent, because deleting the record removed that guard. The binding write keeps its
+   own `wx`; the marker guards allocation, the record `wx` guards content. Measured
+   cost: one empty file per id, retained for the authority's life; a rollback that
+   removes both markers and records leaves the same retention gap as G2b (deferred, not
+   solved here).
 2. **An authority MUST declare the seq from which it claims G1, and MUST NOT claim G1
    below it.** Without this the contract has no vocabulary for an authority with a
    history, and every authority acquires one the moment it starts. See *Migration*.
@@ -217,6 +234,28 @@ Stated so that no implementation promises it:
   `relay-0236` carries a permanent, verifiable digest over content that was already
   corrupt when it arrived.
 
+## Citing a record
+
+A citation references one record and MUST be a **(locator, digest) pair**, never a
+locator alone:
+
+- **locator** — the record's store-scoped id, `relay-NNNN` within one authority.
+  Cross-store citation needs a store-namespaced locator (`<store>/relay-NNNN`); that
+  namespacing is deferred with cross-authority operation (relays 0337–0343).
+- **digest** — `sha256(bytes)` of the cited record.
+
+The pair is **self-contained and nesting-safe**: it resolves by digest (universal) and
+routes by locator (store-scoped), so a citation quoted inside another record cannot be
+mistaken for that record's own identity — the digest half stays tied to its own bytes
+wherever it is quoted. This is the fix for OBS-063: a label derived from *content* cannot
+cite two distinct records that share bytes, because the pair keys on the record's id
+(locator), not on its content.
+
+A locator standing in for the pair — a bare `relay-NNNN` cite, or a content-derived
+label — is insufficient: it cannot detect rebinding (digest absent) and is unsafe under
+quotation (a quoted header can be mis-adopted — `relay-0060`, `store.ts:87`). Cite the
+pair; the locator alone is a convenience shorthand, not the citation.
+
 ## Named failures
 
 | case | guarantee affected | outcome |
@@ -224,7 +263,7 @@ Stated so that no implementation promises it:
 | partition | ordering (C) | total order unavailable; binding unaffected; merge is union |
 | crash before commit | G1 | the ledger MUST be written **before** the record, or an id is handed out twice. The one place the order of two local operations is load-bearing |
 | crash after write, before witness | G2b | durability holds, witnessing is merely absent. A durable record MAY be unwitnessed |
-| delete | availability, not G1 | the id stays bound. Deletion removes records and **never** ledger entries. This is the case we currently fail |
+| delete | availability, not G1 | the id stays bound. Deletion removes the record but **never** the allocation marker (v1 / future authority); the marker is the ledger entry that persists, so the id cannot be rebound. The legacy authority has no marker and still fails this case |
 | duplicate content | none | two ids, one digest. Correct, and needs no resolution |
 | concurrent append | G1 | no conflict under `(authority, seq)`. Under a global counter it needs consensus |
 | equivocation | G1 | prevented in a conforming authority, detected in a non-conforming one, never prevented in the latter |
