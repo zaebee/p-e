@@ -3857,3 +3857,59 @@ The remaining gap, stated so it is not quietly closed: **nobody has yet independ
 reproduced a finding that turned out to be correct.** What was reproduced here is a
 correction. That is a stronger result for the method and a weaker one for the finding,
 and the two should not be reported as one.
+
+## OBS-081 · independent discovery and independent reproduction, both, on a finding that is correct
+
+The gap left open in OBS-080 is closed. There, the reproducer had reproduced a
+*correction* — it showed the discoverer's mechanism was wrong. What had never happened
+was independent reproduction of a finding that turned out to be **right**.
+
+A blind auditor reading the spec cold reported that `KNOWN_MISSING` carries two
+incompatible definitions: the requirement derives it from a ledger that survives
+deletion, the code derives it from whether a surviving record happens to name the id.
+
+Capsule 02 was built to test that without saying so. It contained the normative text
+verbatim, the implementation, and four states spanning the vocabulary — present,
+absent-and-named, absent-and-unnamed, never-existed — with no indication that any state
+was interesting, no mention of a defect, and an explicit statement that all four agreeing
+was a complete result. The reproducer was told nothing had been found.
+
+**It found S3 on its own.** And it was right — verified here afterwards rather than
+taken on trust:
+
+```
+S2 (survivor names relay-0002): exists(relay-0002) = KNOWN_MISSING
+S3 (survivor does not):         exists(relay-0002) = UNKNOWN
+```
+
+Identical deposits, identical deletion, different visibility state, and the only
+difference is whether some other record happened to mention the id. The requirement says
+a client "must never confuse *content removed* with *no binding*"; the implementation
+confuses exactly those two whenever nothing references the id.
+
+**Two things the reproducer produced that neither audit did.**
+
+First: **S2 agrees in output and not in mechanism.** The requirement gets
+`KNOWN_MISSING` from a retained binding; the implementation gets it from a surviving
+reference. In S2 both models happen to give the same answer, "by coincidence of the
+state's construction." A test suite exercising only S2 would have certified the wrong
+model — which is a general point about conformance testing that this project had not
+made, arriving from an agent that had read none of it.
+
+Second, and better: **the requirement is only evaluable under a mapping.** It is written
+for a two-part architecture, ledger plus payload, where the binding survives the bytes.
+The implementation is single-part — the file *is* both — so both of the requirement's
+defined cases presuppose a component that does not exist. Whether S3 is a violation
+therefore depends on whether this store is the component the clause binds, and the
+reproducer said plainly that the withheld remainder of the specification would settle it
+and that it could not.
+
+That is the interpretation gap — a verdict that byte-identical artifacts cannot settle,
+because what is in dispute was never about which bytes. Twenty rounds reached it as P3.
+An agent with none of that context walked into the same wall in a single run and named
+it correctly.
+
+**So the criterion is met, in both halves and on a correct finding:** a party that did
+not make the discovery reproduced it from a procedure alone, without being told what to
+look for or that there was anything to look for. And the honest caveat travels with it —
+the finding it reproduced is itself conditional on a reading nobody has ruled.
