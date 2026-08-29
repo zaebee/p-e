@@ -1,0 +1,89 @@
+# Blind audit — the rules we derived by breaking them
+
+Each rule here was learned from a specific failure in this project, and each is cheap to
+follow and expensive to skip. Ordered by when they bite.
+
+## 1 · A review names a commit, or it names nothing
+
+Two reviewers were handed a live file in a repository being edited. Their maturity
+verdicts landed six points apart and almost the entire gap was a header added between the
+two readings. There was no disagreement to adjudicate; there were three documents.
+
+Pin the artifact. Record the pin. A reviewer should name it back.
+
+## 2 · After the pin, no author tells the auditor where to look
+
+The first audit contract carried three weak spots nominated by the document's own author,
+placed last with an instruction to form findings first. That mitigation is imaginary — the
+contract is one file, so the steer is present from the first read, and the auditor said so
+itself in its opening paragraph.
+
+Measured against a control: the steered auditor had strictly more information and produced
+the weaker result on the finding that mattered most. `n = 1`, so the licensed claim is the
+weak one — **additional context is not monotonically beneficial to independent auditing**.
+The mechanism is anchoring: hand a reader three places to look and they audit the space
+someone else drew.
+
+## 3 · Different roles get different bundles, on purpose
+
+Knowledge sharing and audit independence are different needs. A rich-context analyst, a
+blind auditor, a blind reproducer and an adversarial reader should be given different
+material deliberately, and their results compared afterwards. Give everyone everything and
+you get an information cascade in which every later reader sees through the first one's
+eyes.
+
+## 4 · The manifest goes beside the bundle, never inside it
+
+The auditor needs the artifacts; we need the record of what they were. A manifest inside a
+blind bundle leaks framing. Keep pin, digests, contract version, and the list of what was
+withheld in a file the auditor never opens.
+
+## 5 · A capsule states a procedure and a question, never an outcome
+
+The reproduction capsule was originally sketched with `expected:` and `observed:` fields.
+Giving those asks the reproducer to confirm an outcome rather than observe one — and in
+the run where it mattered, the outcome we would have asked them to confirm was **false**.
+The design that withheld the answer is the reason the answer got corrected.
+
+Corollaries: include a control condition, so "the conditions were identical" is a
+reportable result; and never name the suspected mechanism or its line number.
+
+## 6 · `NOT_REPRODUCED` is not `REFUTED`
+
+  `NOT_REPRODUCED`  I tried and did not observe it. A statement about the attempt.
+  `REFUTED`         The hypothesised mechanism cannot produce the effect, and here is why.
+                    A statement about the subject.
+
+A bare null reads as *we were unlucky* and leaves the hypothesis alive, which creates a
+hunt for confirmation with no stopping rule. What turns one into the other: an argument
+from the code for why it cannot happen, paired controls with both counts reported, and an
+explicit statement of what the experiment could **not** control.
+
+**A negative result is worth what its mechanism is worth.**
+
+## 7 · If the system has a function that answers the question, a measurement that does not call it is not a measurement
+
+Three separate false measurements in one day, all from the same habit: answering a
+question about the system with an ad-hoc query over its files instead of with the system's
+own predicate.
+
+- A census by `grep '^deposited-by:'` over whole files, which also matches record bodies
+  quoting the header. Off by one, and published as "measured".
+- Reading *absence of a file* as evidence of *deletion*, when absence is equally
+  consistent with never-written.
+- Reading a **prose mention** in a record body as establishing `KNOWN_MISSING`, when
+  `knownMissing()` derives solely from `parent:`/`ref:` headers — the third time this
+  project has made that exact inference, with the first two recorded four lines apart in a
+  file that was open at the time.
+
+The store exports `knownMissing`, `exists`, `loadStore`. All three errors were `grep` and
+eyes. The rule catches all three.
+
+## 8 · Author confirmation is not reproduction
+
+Confirming a finding you already believe requires only an observation *consistent* with
+it. Mine was consistent with two mechanisms and I reported the one I expected. A
+disinterested party running the same procedure returned the other, and was right.
+
+Independent discovery and independent reproduction are separate results and should be
+reported separately, including when only one of them has been achieved.
