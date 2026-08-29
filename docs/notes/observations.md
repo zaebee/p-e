@@ -3030,3 +3030,43 @@ authorization at relay-0176 covered repairing `src/checks/i3.ts` and emitting a 
 and explicitly excluded changing `admits()`. Recording a defect found while working
 inside a narrow scope, rather than fixing it because it is in reach, is the whole
 of what a scope is for.
+
+## OBS-066 · the auditor found the hole I had looked past twice
+
+The conformance suite was audited by a local Mistral, blind to every conclusion this
+project has drawn, with execution and no network. Contract by bee.zae; the suite's
+author wrote none of the questions.
+
+Its central finding: **`parseHivemark` is not wrapped by the field watcher.** Only
+the apex adapters are mocked, so every hivemark branch of every check has its field
+access invisible to the rule that exists precisely because file-level coverage
+missed two defects.
+
+The registered prediction, written before the bundle was handed over, said the
+watcher *"may still miss access paths"* and listed destructuring, `JSON.stringify`,
+`structuredClone`, `Reflect.ownKeys`. Every one of those is an exotic escape from a
+mechanism I assumed was attached. The actual hole is that the mechanism covers one
+of two producers — in a file I had already fixed once, for this exact class of
+blindness, and re-read closely while fixing it.
+
+Twice now: `Object.values` bypassing the `get` trap was found by printing what the
+watcher recorded rather than trusting it. This one was found by someone else asking
+what it was attached to. Both times the fault was in the same file, and both times I
+was looking at the level below the one that was broken.
+
+The audit also missed two things the prediction named, and the pattern in what it
+missed is worth more than the tally. It counted what the suite covers — four of nine
+invariants, two of eighteen clauses, three of eighteen evidence rules — and it did
+not question **whose reading** `clause.ts` encodes, treating it as authoritative
+(*"the clause re-implementation correctly returns CONFORMS"*). That is the one thing
+only an independent reader could have tested, by reading the clause itself, and it
+is the deepest weakness in the suite.
+
+An auditor can enumerate a scope exhaustively and still accept its premise. Coverage
+is countable and independence is not, so an audit drifts toward the countable half.
+
+And the audit's severity was partly mine. The bundle carried the two conformance
+test files and not `tests/i1.test.ts`–`i9.test.ts`, which catch all four of its
+attacks. It assessed the suite as the only guard because that is the only guard I
+showed it. Sixth instance of curation deciding an outcome, and the first pointing
+at my own work rather than away from it.
