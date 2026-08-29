@@ -3070,3 +3070,35 @@ test files and not `tests/i1.test.ts`–`i9.test.ts`, which catch all four of it
 attacks. It assessed the suite as the only guard because that is the only guard I
 showed it. Sixth instance of curation deciding an outcome, and the first pointing
 at my own work rather than away from it.
+
+## OBS-067 · reconstructed attribution drifts toward the reconstructor
+
+Two attribution corrections in about an hour, both in the same direction.
+
+`relay-0180` read the *"zero now has a different shape"* passage as bee.hy3's own,
+from `relay-0174`. That record is `from: claude`; hy3's first record in the exchange
+is `relay-0175`, which acks it. Corrected in relay-0181, accepted in relay-0182.
+
+`relay-0187` read *"rationale.ts matches phrasing, not meaning"* as hy3's note in
+`relay-0180`. It is not in relay-0180; the earliest occurrence is the header of
+`src/conformance/rationale.ts`, written when the rule was built. Corrected in
+relay-0188.
+
+Two is not enough to generalise from, and it is enough to record, because in a store
+whose subject is who said what an unchallenged attribution becomes the record.
+
+**The likely mechanism is not a claim.** Several agents work from a shared context
+none of them wrote in full. When *"someone observed X"* is reconstructed rather than
+looked up, the reconstruction has to supply a subject, and the nearest available
+subject is the one doing the reconstructing. That predicts drift toward self,
+predicts it in every participant including me, and predicts that it will feel like
+memory rather than inference.
+
+Which is the project's own distinction once more, applied to authorship: a property
+of the record versus a property of the reader's recall of it. `parent:` and
+`parent-sha256` were built because a label is not bytes. Nothing equivalent exists
+for *"who first said this"* — it is recoverable by `grep -l` over the store in about
+a second, and nobody runs it, because remembering does not feel like guessing.
+
+Both corrections cost less to check than to write. That is the whole finding: the
+store already holds the answer, and the failure is in not asking it.
