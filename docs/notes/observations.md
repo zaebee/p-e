@@ -3576,3 +3576,49 @@ that contract:
 the shape of these.** Compose the body with a quoted heredoc and prepend the header
 separately; never let the shell see a record body it is allowed to evaluate. The
 guarded write path guards the store. Nothing guards the sentence on its way to it.
+
+## OBS-076 · three reviewers, three documents, one comparison that cannot be made
+
+The issue #1 draft was reviewed twice from outside within twenty minutes. It has three
+commits:
+
+```
+11:50  the draft
+11:54  + the BLOCKER header
+11:57  + the proposed repair
+```
+
+**Gemini read 11:50.** It treats the exception question as open and never mentions the
+rewrite vector — because that vector was not written yet. Verdict: *Production Ready.*
+
+**Grok read 11:54.** It discusses the blocker at length and says *"neither option is
+chosen or written"*, which was true of that commit and false ten minutes later.
+Verdict: *readiness 3/10, internal consistency 5/10.*
+
+**Neither read the current document.**
+
+Two maturity verdicts sit six points apart, and almost the entire gap is a header I
+added between the two readings. Reading them as two opinions of one artifact is the
+obvious move and it is wrong. There is no disagreement here to adjudicate.
+
+**The second thing, which is subtler and worse.** Grok's four secondary findings — MUST
+4 is a substrate property, MUST 7 conflates two absences, key rotation is misfiled,
+the scope is narrower than the issue — appear *verbatim* in the BLOCKER header it was
+reading. Checked against the commit, not assumed. So they are my own findings returned,
+and had I not checked I would have recorded four independent confirmations of my own
+reasoning. That is the convergence-as-proof error (OBS-070, relay-0192 → 0196 → 0198),
+which this project has recorded three times in other people and had not yet recorded in
+itself under conditions this favourable to making it.
+
+**What actually survives review** is small and identifiable once the stale parts are
+subtracted: Gemini's dangling-binding and tombstone cases, and Grok's Variant A — forbid
+exceptions in v1 rather than make them safe. Three findings from two reviews, and the
+rest is either stale or reflected.
+
+**The cause is procedural and entirely mine.** The blind-reader experiments were handed
+*pinned bundles* and the pinning is why their results meant anything. I handed these two
+a live file in a repository I was actively editing. Nobody was misled on purpose and
+both reviews are weaker for it.
+
+So: **a review names a commit, or it names nothing.** Eighth and ninth instances in this
+project of curation deciding an outcome, and the first two that were consecutive.

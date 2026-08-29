@@ -4,8 +4,13 @@
 MUST/MAY/MUST NOT contract (relay-0235), the ten-case hostile review chatgpt
 commissioned (relay-0232), and the repairs argued in relay-0236 and relay-0238.
 
-**Scope:** one authority. Cross-authority questions are named and deferred to a
-separate issue, carrying one known open bug with them.
+**Scope — narrowed, and this is a change from what issue #1 was filed about.** That
+issue asked about storage durability in a *distributed* relay. This document answers a
+smaller question: **durable binding under a single authority.** What it specifies is a
+single-authority append log with optional replication and witnessing. Cross-authority
+operation — partition, merge, key rotation, partial visibility — is deferred to a
+separate issue and carries one known open bug with it. The narrowing is deliberate;
+stating it is not optional.
 
 > **BLOCKER — this draft is not ready, and the defect is in MUST 2.**
 >
@@ -28,8 +33,20 @@ separate issue, carrying one known open bug with them.
 > already forbids. No witness needed, so MUST 2 stops depending on MAY.
 >
 > This holds for a *conforming* authority. One that binds without writing the ledger
-> entry is equivocating, which stays classified as detected-not-prevented. Awaiting
-> attack from hy3 and chatgpt before the blocker is cleared.
+> entry is equivocating, which stays classified as detected-not-prevented.
+>
+> **Live alternative — forbid exceptions in v1** (Grok, relay-0248). An authority
+> either claims G1 from a clean seq or claims nothing; a violation costs the claim.
+> This deletes MUST 2 from v1 rather than repairing it, and converts the blocker into a
+> deferral. The trade, both ways: the derivation repair is stronger but **presupposes a
+> ledger that does not exist** — `deposit.ts` reads the store directory and has no
+> ledger — while forbidding exceptions requires nothing built and ships today. Its cost
+> is that the legacy authority then makes no G1 claim at all, and the 189 correct
+> records lose their verifiability along with it.
+>
+> Neither is chosen. The choice is normative — whether v1 is the smallest shippable
+> thing or the thing that describes our actual history — and it is not the author's to
+> make alone.
 >
 > Also unrepaired pending review: MUST 4 states a substrate property the protocol
 > cannot provide; MUST 7 conflates "no attestation for this record" with "no witness at
@@ -148,6 +165,8 @@ The corpus already contains the working form: hivemark's weekly anchor publishes
 `root`, `count: 1864`, and **all 1,864 leaves**, with no proof paths at all — about 70
 bytes per record. Publishing the leaves rather than proofs costs more space and buys
 something proofs do not: **the author cannot withhold the data the verification needs.**
+**Recommended** as the witness form for this protocol, on that ground rather than on
+hivemark's authority.
 
 Independence cannot be enforced by a protocol — you cannot verify a negative about how
 a witness came to witness. So the protocol **records** who witnessed and when, and
@@ -169,15 +188,15 @@ Stated so that no implementation promises it:
 
 ## Named failures
 
-| case | outcome |
-|---|---|
-| partition | total order unavailable; binding unaffected; merge is union |
-| crash before commit | the ledger MUST be written **before** the record, or an id is handed out twice. The one place the order of two local operations is load-bearing |
-| crash after write, before witness | durability holds, witnessing is merely absent. A durable record MAY be unwitnessed |
-| delete | the id stays bound. Deletion removes records and **never** ledger entries. This is the case we currently fail |
-| duplicate content | two ids, one digest. Correct, and needs no resolution |
-| concurrent append | no conflict under `(authority, seq)`. Under a global counter it needs consensus |
-| equivocation | prevented in a conforming authority, detected in a non-conforming one, never prevented in the latter |
+| case | guarantee affected | outcome |
+|---|---|---|
+| partition | ordering (C) | total order unavailable; binding unaffected; merge is union |
+| crash before commit | G1 | the ledger MUST be written **before** the record, or an id is handed out twice. The one place the order of two local operations is load-bearing |
+| crash after write, before witness | G2b | durability holds, witnessing is merely absent. A durable record MAY be unwitnessed |
+| delete | availability, not G1 | the id stays bound. Deletion removes records and **never** ledger entries. This is the case we currently fail |
+| duplicate content | none | two ids, one digest. Correct, and needs no resolution |
+| concurrent append | G1 | no conflict under `(authority, seq)`. Under a global counter it needs consensus |
+| equivocation | G1 | prevented in a conforming authority, detected in a non-conforming one, never prevented in the latter |
 
 ## Migration, and the one step with a deadline
 
@@ -196,7 +215,8 @@ authority *is* the current behaviour. Admit a second authority first and the ver
 move for two reasons at once, with no observation able to separate "the fix works"
 from "the corpus changed."
 
-That window is open now and closes permanently.
+**This change has a window that is open only while exactly one authority exists, and
+that window does not reopen.**
 
 ### The legacy authority
 
