@@ -17,6 +17,21 @@ import { MAX_WAIT_MS, waitForRelay } from "./wait.js";
 
 const PROTOCOL = "2024-11-05";
 
+// Revisions whose handshake and tool surface this server can serve unchanged: it
+// implements only initialize / tools/list / tools/call, which none of these
+// changed. We echo the client's requested revision when it is one of these,
+// because answering a fixed version regardless of what was asked is how a
+// handshake fails silently — the client rejects the mismatch and retries, which
+// looks from here like a healthy tunnel carrying nothing but `initialize`.
+// Observed on 2026-08-29: 162 consecutive initialize forwards, no tools/list,
+// while every local probe succeeded.
+const SERVABLE = new Set(["2024-11-05", "2025-03-26", "2025-06-18"]);
+
+function negotiate(params: Record<string, unknown> | undefined): string {
+  const asked = params?.protocolVersion;
+  return typeof asked === "string" && SERVABLE.has(asked) ? asked : PROTOCOL;
+}
+
 const TOOLS = [
   {
     name: "wait_for_relay",
@@ -164,7 +179,7 @@ export async function handle(request: Request): Promise<object | null> {
   switch (request.method) {
     case "initialize":
       return reply({
-        protocolVersion: PROTOCOL,
+        protocolVersion: negotiate(request.params),
         capabilities: { tools: {} },
         serverInfo: { name: "p-e-relay", version: "0.1.0" },
       });
