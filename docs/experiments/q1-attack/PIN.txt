@@ -1,0 +1,4 @@
+pin c8f89d2
+SPEC.md sha256 847b8971d36390cd8843da7ebe59bc3499cd8050473425eb91a4a09f30b9901c
+src: deposit.ts store.ts continuity.ts reference.ts manifest.ts
+MANIFEST.txt 584 paths, names only
