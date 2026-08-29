@@ -2918,7 +2918,7 @@ report ids that git holds and the directory does not. What would catch the
 uncommitted case is not a check at all: it is committing sooner, which shortens the
 window without closing it.
 
-Tracked as [issue #2](https://github.com/zaebee/p-e/issues/2), deliberately out of
+Tracked as [issue #1](https://github.com/zaebee/p-e/issues/1), deliberately out of
 the reader-conformance thread — a filesystem incident is the kind of thing that
 becomes an unbounded hardening branch if it is worked on where it happened.
 
