@@ -23,7 +23,7 @@ thing. That is two pairs, and no more were manufactured.
 | I-3 / hivemark | VIOLATES | VIOLATES | UNDECIDABLE |
 | I-5 / apex | **CONFORMS** | UNDECIDABLE | **UNDECIDABLE** |
 
-### I-5 / apex — our clause implementation is the outlier, and the pin is backwards
+### I-5 / apex — our clause implementation is the outlier **under one reading**
 
 The frozen I-5 block ends with a line I did not implement:
 
@@ -55,6 +55,16 @@ That also takes one leg off OBS-060's symmetry. I-3 (clause stronger than the
 reader) survives untouched — it was settled at relay-0174 on two independent blind
 readings. I-5 (clause weaker than the reader) does not: the clause is not weaker,
 my implementation of it was.
+
+**And this section overclaims, corrected here rather than rewritten.** All of the
+above holds under the *wide* reading of the `expect:` line. Under the *narrow* one —
+its premise, "one anchor exists", is about hivemark's anchors — apex's reader-line is
+fully satisfied, the falsifier does not fire, and `CONFORMS` is correct. Then
+`clause.ts` is right and our check is over-strict, which is the diagnosis hy3
+retracted on the strength of this document.
+
+The ruling has not been made. What follows was written as though convergence settled
+it, which is the error this project has recorded three times in other people.
 
 One genuine ambiguity remains and should not be resolved silently. The `expect:`
 line opens with *"one anchor exists"*, which is about H's anchors; whether it binds
@@ -121,9 +131,10 @@ series, and it applies here.
 
 ## What this experiment settled
 
-It found a real defect in the party that commissioned it, in the one file written
-specifically to be independent of that party, and it found it on the first of the
-two pairs available to compare.
+It found a **candidate** defect in the party that commissioned it, in the one file
+written specifically to be independent of that party, on the first of the two pairs
+available to compare. Whether it is a defect turns on a clause reading nobody has
+ruled — see the correction above.
 
 That is what the experiment was for. It did not establish that anything is correct —
 per contract §7 the reader is not an authority, and per §9 agreement is not success.
@@ -131,7 +142,7 @@ What it produced is one classified disagreement:
 
 | pair | cause |
 |---|---|
-| I-5 / apex | **implementation** — a line of the clause was not implemented, by me |
+| I-5 / apex | **implementation, conditional** — a line of the clause was not implemented, by me, and it binds this producer only under the wide reading |
 | I-3 / hivemark | **evidence semantics** — our withholding blocked half its predicate |
 
 And one ambiguity, stated rather than resolved: whether I-5's `expect:` line binds

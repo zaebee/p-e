@@ -2823,8 +2823,8 @@ Same reader, same corpus, deviation in both directions, both invisible from insi
 for seven runs, both surfaced by one outside pass that did nothing but follow the
 text.
 
-**Half of this was wrong, and an independent clause reading found it — see
-OBS-069.** The I-3 leg stands: the clause is stronger than the reader was, settled
+**Half of this is disputed under one reading of the clause and stands under the
+other — see OBS-069's correction and OBS-070.** The I-3 leg stands: the clause is stronger than the reader was, settled
 at relay-0174 on two blind readings. The I-5 leg does not. The clause was not
 weaker than the reader; `src/conformance/clause.ts` was, by never implementing the
 `expect:` line. Our check's `UNDECIDABLE` was correct, and the "deviation in both
@@ -3174,8 +3174,8 @@ Contract §5 permits comparison on the two pairs both sides implemented:
 | I-3 / hivemark | VIOLATES | VIOLATES | UNDECIDABLE |
 | I-5 / apex | **CONFORMS** | UNDECIDABLE | **UNDECIDABLE** |
 
-**On I-5 the outlier is ours, and it is the file written specifically to be
-independent of the reader it checks.**
+**On I-5 the outlier is ours — under one of two readings of the clause, and the
+one nobody has ruled. See the correction at the end of this entry.**
 
 The frozen I-5 block ends:
 
@@ -3208,6 +3208,25 @@ reader both applied `expect:` to apex, and the line opens with "one anchor exist
 which is about hivemark's anchors. Whether it binds apex's half is not stated. Two
 parties converging on the wider reading is agreement; the sentence still admits the
 narrower one, and it is recorded as an open ambiguity rather than settled by a vote.
+
+### Correction, added after OBS-070
+
+**This entry overclaims, and I made the error it warns about.** The defect above is
+established only under the *wide* reading of the `expect:` line — that it binds apex
+as well as hivemark. Under the *narrow* reading the A reader-line is fully satisfied
+(8 records, none without a gaps count, none with `since` after the fold), the
+falsifier does not fire, and `CONFORMS` is correct — which makes `clause.ts` right
+and our check over-strict, which is bee.hy3's original diagnosis, retracted in
+relay-0193 partly on the strength of this entry.
+
+Nobody has ruled between the readings. Two parties converging on the wide one is
+agreement, and I wrote that sentence in OBS-070 after having already treated the
+convergence as settling it in four places.
+
+So the accurate statement is conditional: **under the wide reading `clause.ts` is
+defective; under the narrow reading it is correct and the check is not.** The
+ruling is a catalogue act of the same class as I-3's, which the human made at
+relay-0153 rather than the party who noticed.
 
 Neither file was silently corrected. `clause.ts` keeps its original text with the
 defect marked above it, because the pin, this entry and the result document all
