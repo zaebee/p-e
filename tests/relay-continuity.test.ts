@@ -139,3 +139,46 @@ describe("the live store", () => {
     ]);
   });
 });
+
+describe("duplicates", () => {
+  // relay-0166 and relay-0167 hold byte-identical bodies. The store never
+  // overwrites, so both were accepted and both got ids — correct behaviour. But
+  // `parent-sha256` was adopted because a digest is unambiguous where a label is
+  // not, and a duplicate makes that digest name two records at once. It stays
+  // exact as a statement about bytes and becomes ambiguous as a pointer to a
+  // record, which are different things the store does not separate.
+  const dupes = async (root?: string) => {
+    const held = await loadStore(root);
+    const byDigest = new Map<string, string[]>();
+    for (const r of held.values()) {
+      const at = byDigest.get(r.sha256);
+      if (at) at.push(r.id);
+      else byDigest.set(r.sha256, [r.id]);
+    }
+    return [...byDigest.values()].filter((ids) => ids.length > 1);
+  };
+
+  it("finds two ids holding the same bytes", async () => {
+    const root = store({
+      "relay-0001": parent,
+      "relay-0002": parent.replace("id: relay-0001", "id: relay-0001"),
+    });
+    expect(await dupes(root)).toEqual([["relay-0001", "relay-0002"]]);
+  });
+
+  it("reports none when every record is distinct", async () => {
+    const root = store({
+      "relay-0001": parent,
+      "relay-0002": "@p-e/x0\nid: relay-0002\nfrom: bob\n\ndifferent\n",
+    });
+    expect(await dupes(root)).toEqual([]);
+  });
+
+  // Deliberately not pinned against the live store. relay-0166 and relay-0167
+  // held identical bytes for a few minutes on 2026-08-29 and then relay-0167
+  // left the directory — see OBS-062. Pinning a duplicate would make this test
+  // fail whenever the store is repaired, which is backwards.
+  it("runs against the live store without asserting what it finds", async () => {
+    expect(Array.isArray(await dupes())).toBe(true);
+  });
+});

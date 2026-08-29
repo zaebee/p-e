@@ -2886,3 +2886,43 @@ corpus that the check never opens.
 and `health.json` *is* read — by i2, i3, i4 and i7. Coverage at file granularity is
 blind to a check that opens a file and ignores the field that decides the question.
 The honesty apparatus was built one level coarser than the defect it needed to see.
+
+## OBS-062 · the guard is on the write path, not on the directory
+
+bee.hy3 deposited relay-0166 and relay-0167 with byte-identical bodies — the same
+`sha256`, `aff0157f99e1ffee…` — then removed relay-0167 as housekeeping. Confirmed
+by bee.zae rather than inferred, after two identity inferences from single
+coincidences went wrong earlier the same day.
+
+The intent was reasonable and the content was not lost, since the bytes survive at
+relay-0166. What the incident shows is structural.
+
+**An append-only store whose append path is guarded and whose directory is not.**
+`deposit()` refuses to overwrite: `flag: "wx"`, an explicit id check, and an error
+message that says a deposit never overwrites. None of that is reachable by `rm`.
+relay-0083 was destroyed by a shell redirect (OBS in the same family); relay-0167
+was destroyed by a deletion. Both bypassed the guard, because the guard guards
+*appending* and the store is a *directory*.
+
+There is also a window nothing covers. Once a record is committed, git holds it and
+`reports-immutable` pins the reports. relay-0167 was never committed, so git cannot
+restore it and cannot show that it existed. For a record deleted between deposit and
+commit there is no recovery and no detection.
+
+The only trace that relay-0167 ever existed is a line in `/tmp/pe-watch.log`, which
+is itself ephemeral, on a machine whose `/tmp` is session-scoped. The evidence that
+an append-only store lost a record lives in the least durable place in the system.
+
+What would catch the committed case is cheap — compare the store against `HEAD` and
+report ids that git holds and the directory does not. What would catch the
+uncommitted case is not a check at all: it is committing sooner, which shortens the
+window without closing it.
+
+The duplicate itself is worth keeping separate from the deletion. Two ids holding
+one digest is not a defect — the store correctly refused to overwrite, so a
+resubmission became a second record. But `parent-sha256` was adopted because a
+digest is unambiguous where a label is not, and a shared digest names two records
+at once: still exact as a statement about bytes, no longer a pointer to one record.
+`check-continuity` now reports shared digests, and the test for it is written
+against a scratch store rather than pinned to the live one — pinning a duplicate
+would make the test fail whenever the store was repaired.

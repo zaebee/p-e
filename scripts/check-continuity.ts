@@ -37,7 +37,8 @@ const all = process.argv.includes("--all");
 // record into the append-only store — cannot be undone.
 const at = process.argv.indexOf("--root");
 const root = at === -1 ? undefined : process.argv[at + 1];
-const findings = checkContinuity(await loadStore(root));
+const store = await loadStore(root);
+const findings = checkContinuity(store);
 const counts = tally(findings);
 
 for (const [state, n] of Object.entries(counts)) {
@@ -59,6 +60,23 @@ for (const f of shown) {
   } else {
     console.log(line);
   }
+}
+
+// Records sharing a body digest. Not a defect — the store never overwrites, so a
+// resubmission correctly becomes a second record. Reported because
+// `parent-sha256` was adopted for being unambiguous where a label is not, and a
+// shared digest names two records at once: still exact about bytes, no longer a
+// pointer to one record.
+const byDigest = new Map<string, string[]>();
+for (const f of findings) {
+  const held = store.get(f.id);
+  if (!held) continue;
+  const at = byDigest.get(held.sha256);
+  if (at) at.push(f.id);
+  else byDigest.set(held.sha256, [f.id]);
+}
+for (const [digest, ids] of byDigest) {
+  if (ids.length > 1) console.log(`\n  same bytes at ${ids.join(" and ")}  sha256 ${digest}`);
 }
 
 const unaccounted = findings.filter((f) => f.state === "DIVERGES" && !ACCOUNTED_FOR[f.id]);
