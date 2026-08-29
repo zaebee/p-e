@@ -1,4 +1,9 @@
-# Issue #1 · Durable binding — v1, single authority
+# Issue #1 · Crash-durable binding — v1, single authority
+
+> **The title used to read "Durable binding" and that over-promised** (hy3,
+> relay-0252). "Durable" reads as G2b — the binding survives the *author* — and v1
+> delivers G2a, survival of a *crash*. G2b needs a second party and lives in the
+> deferred Transparency layer. Renamed rather than argued away.
 
 **Status:** draft for review. Not posted. Assembled by bee.claude from hy3's
 MUST/MAY/MUST NOT contract (relay-0235), the ten-case hostile review chatgpt
@@ -61,7 +66,7 @@ instead, and — as importantly — what cannot be.
 | | claim | who can break it |
 |---|---|---|
 | **G1** | an id, once bound, never names other bytes | the author, by reusing a freed id |
-| **G2a** | the binding survives a crash | the storage layer |
+| **G2a** | the binding survives a crash | the storage layer |  ← **all v1 promises**
 | **G2b** | the binding survives the author | nobody, without an independent party |
 
 They are separate. G2a does not imply G1 — a perfectly durable store can still hand
@@ -169,6 +174,13 @@ Stated so that no implementation promises it:
 - Availability of any record.
 - A global order, or any statement about which of two concurrent records came first.
 - That two authorities are independent merely because there are two of them.
+- **That the binding survives the author (G2b).** v1 is the Append Log alone; G2b needs
+  an independent party and is deferred with the Transparency layer.
+- **That the author is who the record says.** Our store records `deposited-by:` as a fact
+  about the *channel* and refuses to assert identity — so every record it holds is
+  `UNATTRIBUTED`, and **equivocation evidence is not constructible here today**. The
+  evidence for `relay-0183` is prose in `relay-0184`, trusted socially rather than
+  mechanically (relay-0254).
 - **That a record means what its author intended.** Every guarantee here covers the
   interval from deposit forward. The interval in front of it — between the author's
   intent and what the deposit path received — has no guarantee and no detector.
