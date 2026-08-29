@@ -3622,3 +3622,51 @@ both reviews are weaker for it.
 
 So: **a review names a commit, or it names nothing.** Eighth and ninth instances in this
 project of curation deciding an outcome, and the first two that were consecutive.
+
+## OBS-077 · a verdict is an observation, and we have written every one as a fact
+
+chatgpt proposed closing the evidence-boundary problem with a content-addressed manifest:
+hash the artifacts, the schemas, the evaluator, the declared range, and let a verdict name
+the manifest root. It asked whether that actually closes the gap or whether we were about
+to build another self-referential catalogue.
+
+**A manifest pins bytes. Interpretation is not bytes.** I-5 is the proof and it is ours:
+one frozen text, one version, one digest, and two live readings that three independent
+readers did not settle. Both parties hash identical bytes and still disagree, because what
+is in dispute was never a question about which bytes.
+
+**The escape hatch is a trap.** You can put the evaluator in the manifest, and then
+interpretation is pinned operationally — the evaluator's behaviour *is* the reading, and
+any two parties running it agree by construction. The cost is exact: a verdict becomes
+portable only among readers running our evaluator. Every blind-reader experiment this
+project has run would have been impossible under that rule — Mistral's 51 KB of independent
+predicates, Gemini's and Grok's divergences, all of them legitimate and none reproducible
+from our binary.
+
+So: **reproducible execution is not portable interpretation.** Pinning the evaluator turns
+"two parties reach the same conclusion from the same bytes" into "two parties get the same
+output from the same program" — reproducible builds, a solved problem, wearing the harder
+claim's name.
+
+**And then the part that reaches past this thread.** If a verdict names its manifest and its
+evaluator, it stops being *"this artifact violates I-3"* and becomes *"evaluator E over
+manifest M says VIOLATES"*.
+
+Which is this project's own fact/observation split, applied one level up — to the verdicts
+themselves. We built that discipline for record existence: `BOUND` is a fact about the
+system, `PRESENT` is a claim about one reader's reach, and the vocabulary was designed so
+neither could wear the other's name. It never occurred to any of us that **our own verdicts
+sit on the observation side of exactly that line**, and every verdict this project has
+emitted — in nine invariants, eight runs, four blind readings and a closing report — has
+been written in the grammar of a fact.
+
+The evidence that this is right rather than merely tidy is that we already behaved as
+though it were true and did not say so. The clause-reader result records our reader
+returning `VIOLATES` for I-3/hivemark and an independent reader returning `UNDECIDABLE`,
+and explains the difference as **our packaging** rather than as one of them being wrong.
+That is the observation grammar, used correctly, once, without the general rule being
+drawn.
+
+What it costs: "I-3/hivemark VIOLATES" is not a sentence v1 can honestly print. "Our reader
+over this manifest says VIOLATES; a second reader over a smaller one returned UNDECIDABLE"
+is, and it is longer for the reason that it is true.
