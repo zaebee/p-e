@@ -7,6 +7,12 @@ told the result first?**
 This file exists so the answer is checkable rather than reported. Every byte the
 reader received is named by digest below. Nothing here is a summary of what it saw.
 
+> **This file is not part of the bundle. Never give it to the reader.** It quotes
+> a verdict from run 01 verbatim, in the section explaining why the current
+> specification was unusable — so the document describing the blinding is itself
+> disqualifying to read. The bundle is `TASK.md`, `CATALOGUE.md`, and the corpus
+> files listed below. Nothing else.
+
 ## The instructions
 
 `TASK.md` — given as the system prompt.

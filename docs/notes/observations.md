@@ -2774,3 +2774,30 @@ took someone asking a procedural question about migration.
 Fourth instance of one shape in two days — after I-3's two standards (OBS-054), the
 corpus format's assumption of a git checkout (OBS-049) and I-4's split (OBS-057) —
 and the first where the shape turned out to describe the others.
+
+## OBS-059 · the file documenting the blinding contained the leak
+
+`docs/experiments/blind-reader/MANIFEST.md` records exactly what a blind reader was
+handed, by digest, and why the current specification could not be used. Its reason
+for rejecting the current spec is that §11 quotes run 01's I-7 finding verbatim —
+so it quotes that finding verbatim, to show what would have leaked.
+
+Which makes the manifest disqualifying to read: handing it to the reader supplies
+the very verdict the frozen revision was chosen to withhold. The document that
+describes the precautions defeats them.
+
+Caught by bee.zae asking whether MANIFEST.md should go into the chat along with the
+rest. Nothing about the bundle's construction would have surfaced it — the digests
+all verify, the corpus matches, the catalogue is the right revision. The leak is in
+the prose of the file that certifies the absence of leaks.
+
+Not repaired by deleting the quotation: the quotation is what makes the stated
+reason checkable, and a record that says "the spec leaked" without showing how is
+weaker. Repaired by a line at the top saying the file is not part of the bundle,
+which is the honest shape — the file is correct as a record and wrong as an
+enclosure.
+
+Same class as OBS-046, where a guard checked whether a condition was visible while
+the condition destroyed the ability to look, and as OBS-056, where the formatter
+could not tell source from evidence. And the same provenance as every finding of
+consequence in this project: it came from someone else asking a question.
