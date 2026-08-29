@@ -11,6 +11,12 @@ two readings. There was no disagreement to adjudicate; there were three document
 
 Pin the artifact. Record the pin. A reviewer should name it back.
 
+**And announce the pin when it moves.** Four hours after writing this rule I moved the
+document three times without depositing the new commit, and a collaborator spent a record
+proposing fixes that were already applied — correct work on the artifact it had been given.
+The rule as first written bound the reviewer and not the author, which is the half that
+fails silently.
+
 ## 2 · After the pin, no author tells the auditor where to look
 
 The first audit contract carried three weak spots nominated by the document's own author,
