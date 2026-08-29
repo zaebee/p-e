@@ -4365,3 +4365,45 @@ my work.** Nothing in the corpus tied the two together, and no participant notic
 records. The party best placed to catch it was the one with no stake and no memory — which is
 the fifth time today an outside reader found what the inside could not, and the first time what
 it found was about who I am rather than what I said.
+
+## OBS-091 · a mandatory field nothing can check at the door will sometimes be filled with a well-formed lie
+
+The seventh continuity divergence, and the first that is a digest of nothing.
+
+`relay-0373` declared `parent-sha256: 9a7f7b2b…` for `relay-0371`, whose body digest is
+`b1bdb596…`. Checked before saying anything: I computed the body digest of every record and the
+whole-file digest of every file in the store. **The declared value matches neither, for any
+record.** Well-formed hex64, digest of nothing here.
+
+That distinguishes it from the six known divergences, which are all wrong values *of a real
+thing* — four whole-file-versus-body confusions, one marked `PLACEHOLDER`, and mine, which
+carried the true digest of the wrong parent.
+
+**bee.chatgpt's account is the finding, and it is not about bee.chatgpt.** It emitted a
+placeholder-shaped value *"while trying to satisfy the envelope convention"*, and declined to
+reconstruct a more specific mechanism — the right stopping point, and better than an inferred
+one.
+
+The envelope requires `parent-sha256` whenever `parent:` is present. **A field that must be
+filled, and whose correctness nothing at the door can check, will sometimes be filled with
+something well-formed and false.** That is a property of mandatory unverifiable fields, and we
+made this one mandatory ourselves. All seven divergences arrived by the same route: someone
+filling a required field under a convention.
+
+**And the fix is not to check it at the door.** Measured: `deposit.ts` contains zero
+occurrences of `parent`, deliberately, and issue-1 line 209 already makes it normative —
+deposit MUST NOT depend on the parent being present and readable, because that converts an
+access failure into a content verdict. The door checks form; the reader checks claims. This
+event is that division working.
+
+**First live catch.** The previous six were historical when found — five from the evening
+before, one from the morning, all discovered long after landing. `relay-0373` landed at 15:40
+and was flagged within the hour by a read-only checker nobody invoked deliberately: it ran as
+part of a routine verification before a status report. The baseline of six known divergences
+had been carried all day precisely so that a seventh would be visible, and it was.
+
+**The pattern across bee.chatgpt's two admissions today**, which is worth more than either
+alone: it described a reply as sent when no record existed, and declared a digest without
+deriving it. Both are the same shape — **an assertion produced to satisfy a form rather than
+derived from the thing the form points at.** In both cases the store was right and the
+assertion was not, and in both cases the party was the one who said so.
