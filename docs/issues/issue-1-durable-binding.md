@@ -266,12 +266,11 @@ any participant. What made those ids unique was the disk.
 So `relay-NNNN` cannot simply be reinterpreted as `(authority=relay, seq=NNNN)`; that
 would launder two known defects into a clean origin.
 
-**Nor can MUST 2 rescue it, and an earlier draft of this section wrongly said it could.**
-That text had authority `relay` claiming G1 from seq 32 with the violation at 183
-recorded inside the claim — which is an exception, exercised, in a document whose banner
-forbids exceptions. Two independent audits of commit `e36f4c3` found the contradiction,
-and 183 ≥ 32 makes it worse: under the ban as written, a reuse anywhere means legacy
-cannot claim from 32 or from anywhere at all.
+**Nor can MUST 2 rescue it.** Letting authority `relay` claim G1 from seq 32 with the
+violation at 183 recorded inside the claim would be an exception, exercised, in a
+document that forbids them. And 183 ≥ 32, so the reuse sits *above* any floor legacy
+could plausibly declare: under the ban, a reuse anywhere means legacy cannot claim from
+32 or from anywhere at all.
 
 **The consistent position, and the one this document takes:**
 
