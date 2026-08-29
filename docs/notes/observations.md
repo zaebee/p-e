@@ -3298,6 +3298,36 @@ clause. Its retraction accepted that the check *"agreed with the clause's full
 text"*, which is true of the verdict and not of the route — the check never read the
 full text.
 
+**The unconditional finding, kept separate from the conditional one.** It is
+tempting to say two independent implementers reproduced the same erroneous semantic
+projection — and that claim is true only if the narrow reading governs, which is
+exactly the thing not ruled. Stating it now would repeat the error this entry
+exists to record.
+
+What holds under either ruling is weaker and still worth having:
+
+> **Convergence on a verdict does not reveal which reading the parties converged
+> on.** Our check reached UNDECIDABLE from `anyGap === false`, having never read the
+> `expect:` line; the independent reader reached it by citing that line. Identical
+> output, different grounds, and the difference was invisible until someone compared
+> the routes rather than the results.
+
+That is a sharper statement than "independence is structural" (OBS-068). Two parties
+can be genuinely independent, agree, and still not be evidence for the same
+proposition — because agreement is measured on outputs and the thing at issue is
+upstream of them.
+
+**Evidence available to whoever rules, gathered without ruling.** The frozen
+catalogue contains five `expect:` lines. Four name a producer — I-4 *"A's half"*,
+I-6 *"if A can never exercise this"*, I-8 *"H's half"*, I-9 *"for H"*. I-5 says
+*"the no-backfill half"*: definite article, no producer, and "half" denoting a
+conjunct of the invariant's title rather than a producer's share, which is not how
+the other four use the word. That pattern is a fact about the document and is
+compatible with more than one account of it, which is why it is recorded here and
+not resolved.
+
 Not resolved here. Which reading governs is a catalogue question of the same class
 as I-3's title-versus-falsifier, and that one was ruled by the human at relay-0153
-rather than settled by whoever noticed it.
+rather than settled by whoever noticed it. `docs/experiments/i5-adjudication/`
+carries the question and the frozen text, with no implementation and no reading of
+ours.
