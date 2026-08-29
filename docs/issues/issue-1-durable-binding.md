@@ -17,9 +17,19 @@ separate issue, carrying one known open bug with them.
 > rewrite vector**, usable to retroactively excuse the very incident this issue exists
 > for.
 >
-> Anchoring the exception list would fix it and makes MUST 2 depend on witnessing,
-> which is MAY — reintroducing the MUST/MAY contradiction repaired above. No repair is
-> proposed here rather than one patched in under pressure.
+> **Proposed repair, not yet accepted** (relay-0245, from findings Gemini raised for a
+> different reason). Anchoring the exception list would work and would make MUST 2
+> depend on witnessing, which is MAY — reintroducing the contradiction repaired above.
+> The better fix removes the declaration entirely: if the ledger entry is
+> `(authority, seq, digest)`, append-only, then a rebind is **a second ledger entry for
+> the same seq**, so **the exception list is derived from the ledger, never declared by
+> the authority.** A reader computes it. Fabricating one would require a real second
+> binding; hiding one would require removing a ledger entry, which non-rewindability
+> already forbids. No witness needed, so MUST 2 stops depending on MAY.
+>
+> This holds for a *conforming* authority. One that binds without writing the ledger
+> entry is equivocating, which stays classified as detected-not-prevented. Awaiting
+> attack from hy3 and chatgpt before the blocker is cleared.
 >
 > Also unrepaired pending review: MUST 4 states a substrate property the protocol
 > cannot provide; MUST 7 conflates "no attestation for this record" with "no witness at
@@ -69,7 +79,12 @@ never held afterwards.
 ## MUST
 
 1. Each authority binds `(authority_id, seq)` uniquely, monotonically, and never
-   reuses a seq. This is G1, localised.
+   reuses a seq. This is G1, localised. **Allocation MUST be settled by an atomic
+   exclusive commit, never by reading the current maximum** — `max+1` cannot be made
+   safe by care, and an exclusive create already is. This matters even with one
+   authority: the legacy authority has three writers, and two of them collided twice
+   within two hours (`relay-0225`, `relay-0232`). `deposit.ts` writes with `flag: "wx"`,
+   so the commit is already correct and only the allocation is advisory.
 2. **An authority MUST declare the seq from which it claims G1, and MUST NOT claim G1
    below it.** Without this the contract has no vocabulary for an authority with a
    history, and every authority acquires one the moment it starts. See *Migration*.
@@ -83,7 +98,13 @@ never held afterwards.
    the same chain.
 6. Visibility state is exposed honestly: `PRESENT` / `KNOWN_MISSING` / `UNKNOWN`. A
    quiet window MUST NOT be reported as a failure, and a failure MUST NOT be reported
-   as absence.
+   as absence. Two cases the first draft left undefined, both raised by Gemini:
+   - **Deletion.** The ledger keeps `(authority, seq, digest)` and answers with it; the
+     payload reads `KNOWN_MISSING`. A client must never confuse *content removed* with
+     *no binding*.
+   - **Crash between ledger and payload.** Ledger committed, bytes never written: the
+     id is bound and the content unreachable. That state is `KNOWN_MISSING` — the
+     digest and the binding are known — not `UNKNOWN` and not an error.
 7. The absence of a witness is reported **as absence**, never as "no evidence found".
 
 ## MAY
