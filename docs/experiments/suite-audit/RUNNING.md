@@ -1,13 +1,23 @@
 # Running the suite
 
-TypeScript, run with [Bun](https://bun.sh) or Node 22+. No network access is needed
-or used.
+TypeScript, Node 22+ or Bun. **No network access is needed, and none should be
+used.**
+
+Lay the bundle out like this, then run:
 
 ```
-bun install          # vitest is the only dependency that matters
-npx vitest run suite/tests/reader-conformance.test.ts
-npx vitest run suite/tests/settled-rulings.test.ts
+mv suite src            # sources
+mkdir -p tests && mv src/tests/* tests/ && rmdir src/tests
+# corpus/ sits beside them, and node_modules/ must be provided offline
+npx vitest run
 ```
+
+Verified: laid out exactly like that with an existing `node_modules`, both test
+files run and 20 tests pass. `package.json` lists what is needed — `vitest`, and
+`viem`, which one check uses to decode ABI-encoded attestation payloads.
+
+You are expected to run things. Reading the tests is not the same as watching them
+execute, and one of the questions in `CONTRACT.md` says so explicitly.
 
 Layout: move `suite/` to `src/` and `suite/tests/` to `tests/`, alongside `corpus/`.
 Imports resolve unchanged from there — verified by doing exactly that in a scratch
