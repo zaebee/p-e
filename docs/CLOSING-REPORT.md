@@ -33,11 +33,24 @@ them.
 
 ## The answer
 
-**ADMITTED: 0 of 9.**
+**ADMITTED: 0 of 9 — and, since 2026-08-29, one falsified.**
 
 Run 01 admitted one — I-2, the recorded time is the occurrence. Run 06 withdrew
 it, after a defect was found in the check that had granted it. The count has been
 zero ever since, across every subsequent reading.
+
+For seven runs zero meant *nothing contradicted*. It no longer does. **I-3 /
+hivemark is settled as `VIOLATES`**, ruled at relay-0174 after two independent
+blind readers fired a falsifier our own reader had established the condition for
+and declined to fire. `admits()` short-circuits on a `VIOLATES` before counting any
+`CONFORMS`, so I-3 is sunk outright: debian-rb's `CONFORMS` on it survives as a
+finding and counts toward nothing, and no later evidence can undo it.
+
+The reports do not say this. `docs/reports/` ends at run 07 and every report there
+records I-3 / hivemark as `UNDECIDABLE`; `src/checks/i3.ts` still returns it. The
+gap between the settled finding and the emitted runs is open deliberately —
+closing it means repairing the reader and emitting a run, in that order, and never
+editing a report.
 
 Run 07, the current baseline — 18 findings over two producers, identical to run 06:
 
