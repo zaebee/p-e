@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { bearingFor } from "../src/conformance/bearing.js";
 import { watch } from "../src/conformance/fields.js";
+import { checkRationale, universalNegative } from "../src/conformance/rationale.js";
 import { loadCorpus } from "../src/manifest.js";
 
 /**
@@ -28,7 +29,9 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   "I-9/apex": "never opens health at all — OBS-061, erratum in relay-0165",
 };
 
-async function fieldsTouchedBy(invariant: string): Promise<Set<string>> {
+async function runInstrumented(
+  invariant: string,
+): Promise<{ seen: Set<string>; findings: { producer: string; reason: string }[] }> {
   const seen = new Set<string>();
   const files = await loadCorpus(".");
 
@@ -60,10 +63,12 @@ async function fieldsTouchedBy(invariant: string): Promise<Set<string>> {
   const name = `check${invariant.replace("-", "")}`;
   const check = mod[name] as ((f: Map<string, Uint8Array>) => unknown) | undefined;
   if (!check) throw new Error(`${name} is not exported by the module for ${invariant}`);
-  check(files);
+  const findings = check(files) as { producer: string; reason: string }[];
   vi.doUnmock("../src/adapters/apex.js");
-  return seen;
+  return { seen, findings };
 }
+
+const fieldsTouchedBy = async (i: string) => (await runInstrumented(i)).seen;
 
 describe("a check may not report a corpus limit it did not look for", () => {
   for (const invariant of ["I-1", "I-3", "I-5", "I-9"]) {
@@ -91,5 +96,51 @@ describe("a check may not report a corpus limit it did not look for", () => {
       const [invariant, producer] = key.split("/");
       expect(bearingFor(invariant as string, producer as string)).toBeDefined();
     }
+  });
+});
+
+/**
+ * Second rule: a reason may not assert a corpus-wide negative about a field the
+ * check never opened. Unlike the first rule this applies whatever the verdict
+ * is — I-9/apex is `UNDECIDABLE`, which is correct, attached to a sentence
+ * saying the mechanism "has never recorded a failure" while six of eight entries
+ * carry `ok: false`.
+ */
+describe("a reason may not claim more than the reading behind it", () => {
+  const ACCOUNTED_REASONS: Readonly<Record<string, string>> = {
+    "I-1/apex": "'never exercised' without opening entries[*].code — OBS-060",
+    "I-9/apex": "'has never recorded a failure' without opening health — OBS-061",
+  };
+
+  for (const invariant of ["I-1", "I-3", "I-5", "I-9"]) {
+    const bearing = bearingFor(invariant, "apex");
+    if (!bearing) continue;
+
+    it(`${invariant}/apex states nothing its reading cannot support`, async () => {
+      const { seen, findings } = await runInstrumented(invariant);
+      const apex = findings.find((f) => f.producer === "apex");
+      expect(apex, `${invariant} produced no apex finding`).toBeDefined();
+
+      const problem = checkRationale(invariant, "apex", apex?.reason ?? "", bearing.fields, seen);
+      const known = ACCOUNTED_REASONS[`${invariant}/apex`];
+
+      if (known) {
+        expect(problem, `${invariant}/apex was expected to overclaim (${known})`).not.toBeNull();
+      } else {
+        expect(problem).toBeNull();
+      }
+    });
+  }
+
+  it("recognises a universal negative and ignores a bounded one", () => {
+    expect(universalNegative("the field is never populated")).toBe("never");
+    expect(universalNegative("every one is zero")).toBe("every one is");
+    expect(universalNegative("4 of 8 hosts returned no status")).toBeNull();
+    expect(universalNegative("the pairing is exercised 8 times")).toBeNull();
+  });
+
+  it("passes a reason whose bearing fields were all opened", () => {
+    const seen = new Set(["health.entries[*].offSite", "health.entries[*].finalUrl"]);
+    expect(checkRationale("I-3", "apex", "no conclusion is positive", [...seen], seen)).toBeNull();
   });
 });
