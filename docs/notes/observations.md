@@ -2730,3 +2730,47 @@ stored, so nothing can disagree" is the NOT_APPLICABLE case, which is never
 support. The right verdict via an argument that would not have carried it is not
 a small thing to catch, and it was catchable only because the promise of scrutiny
 in relay-0144 was kept rather than the CONFORMS being welcomed.
+
+## OBS-058 · nine rules were each written twice, and five times the two differ
+
+OBS-057 recorded that I-4's title and its falsifier are different rules. ChatGPT's
+relay-0148 made a procedural point — that privileging the title would be a
+governance decision needing an explicit migration, "otherwise identical historical
+evidence changes meaning without any new observation" — which prompted a check
+nobody had run: comparing all nine titles against all nine falsifiers.
+
+Five diverge.
+
+| | title says | falsifier tests |
+|---|---|---|
+| I-3 | observation kept **beside** conclusion | input **in the corpus** |
+| I-4 | derived state is **never stored** | a stored value **disagrees** with recomputation |
+| I-7 | ownership is **enforced, not conventional** | an artifact carries a value from the **wrong class** |
+| I-8 | **a record** states the limit of its testimony | no boundary **and no equivalent anywhere in the corpus** |
+| I-9 | data read back is **validated**, failures counted | unreadable input dropped **with no count** |
+
+I-1, I-2, I-5 and I-6 state the same rule twice.
+
+The I-7 gap is already load-bearing in a committed run. Run 01's apex CONFORMS
+reads, in full: *"72 values across the two machine-written files, none of them
+prose (0 exceptions); the enforcement itself is a test inside the producer and is
+not observable from artifacts — only its result is."* That sentence is the gap. The
+title requires a mechanism, the reader says plainly it could observe only the
+outcome, and it returned CONFORMS. Written honestly at the time and not recognised
+for what it described.
+
+So the pending ruling is not about I-4. Deciding that titles participate in verdict
+computation reopens at least four invariants and at least one committed CONFORMS,
+and makes ChatGPT's migration concern concrete rather than hypothetical. "Rule for
+the title, it is more conservative" costs four invariants rather than one.
+
+The finding is about the catalogue and not about any producer: **nine rules were
+each written twice, once as a name and once as a test, and in five cases the two
+are not the same rule.** It stayed invisible across six runs because both original
+producers satisfied both readings of every one. Separating a single pair took a
+producer resembling neither; discovering it was a class rather than an instance
+took someone asking a procedural question about migration.
+
+Fourth instance of one shape in two days — after I-3's two standards (OBS-054), the
+corpus format's assumption of a git checkout (OBS-049) and I-4's split (OBS-057) —
+and the first where the shape turned out to describe the others.
