@@ -3670,3 +3670,100 @@ drawn.
 What it costs: "I-3/hivemark VIOLATES" is not a sentence v1 can honestly print. "Our reader
 over this manifest says VIOLATES; a second reader over a smaller one returned UNDECIDABLE"
 is, and it is longer for the reason that it is true.
+
+## OBS-078 · the guarded write path deletes correctly committed records, on the error path
+
+Found by an independent auditor reading `deposit.ts` cold, with no access to this
+project's reasoning. Twenty rounds of adversarial design, five outside readers and
+three of us had all read this file without seeing it.
+
+`deposit.ts:118-126` reads a deposit back through the store's own parser, and removes
+the file if the read fails:
+
+```ts
+try {
+  const after = await loadStore(root);
+  const found = after.get(id);
+  if (!found) throw new Error(`${id} was written and does not parse as a record`);
+  stored = found;
+} catch (error) {
+  await rm(path, { force: true });
+  throw error;
+}
+```
+
+The intent is right and is documented four lines above: an unparseable deposit left on
+disk takes every other record down with it, because `loadStore` refuses the whole
+store when any one record fails. So the write path undoes itself.
+
+**But `loadStore(root)` throws on ANY record in the directory, and the `catch` removes
+`path` — my own file — regardless of which record threw.** Demonstrated on a scratch
+store rather than asserted:
+
+```
+1. healthy store: relay-0002 written
+2. a NEIGHBOUR writes its own malformed relay-0003 (a space in `to:`)
+3. my deposit is REJECTED by the neighbour's file: header `to:` is present and unparseable: "b c"
+4. my correctly-formed relay-0004 still on disk? -> false
+```
+
+A correctly composed, successfully written record is deleted because somebody else
+wrote a bad file, and its id is freed.
+
+**Which is `relay-0183` — the incident this entire issue exists for — manufactured by
+the guard built to prevent it.** `deposit.ts:68` asks whether an id is *currently held*
+rather than *ever bound*, so a freed id is rebindable; this is a second, automated way
+to free one, inside the guarded path, requiring no human deletion at all.
+
+Two things worth separating from the bug:
+
+- **It lives on the error path.** Every reading that found nothing was a reading of the
+  happy path, including all of mine. For a store whose whole subject is what happens
+  when things go wrong, happy-path review is close to worthless.
+- **It is a real concurrency hazard here, not a hypothetical.** Three writers share this
+  directory — claude ×126, local ×66, mcp ×63 — and a malformed deposit from any of
+  them is exactly what the atomic-deposit work in OBS-046 was about.
+
+**Deliberately not fixed.** It is the first controlled failure this project has had that
+is executable rather than argued, and it is the baseline for a reproduction experiment:
+whether a third party, given only a procedure and no verdict, independently observes the
+same thing. Repairing it now would spend the baseline to save a one-line change.
+
+## OBS-079 · more context did not help the auditor, and may have hurt
+
+Two audits of the same pinned commit, same model, same bundle of artifacts, minutes
+apart. The only deliberate difference: the first contract carried three "weak spots"
+nominated by the document's own author, placed last with an instruction to form
+findings before reading them.
+
+That mitigation did not work and could not have: the contract is one file, so the steer
+was in front of the auditor from its first read. The auditor said so itself, unprompted,
+in its opening disclosure — which is the disclosure rule earning its place.
+
+| | top findings | the executable defect |
+|---|---|---|
+| steered auditor | found 3 of 3 | **missed** — saw only the weaker half of the same area |
+| blind auditor | found 3 of 3 | **found**, with the mechanism |
+
+The steered reader had strictly more information and produced the weaker result on the
+finding that mattered most. It reached `flag: "wx"` is overstated and stopped; the blind
+one reached the same place and kept going into the error path.
+
+**What this does not license.** n = 1, one run per condition, and the two runs differ in
+more than the steer. Ordinary variance is not excluded and the design cannot separate it.
+
+**What it does license**, and it is bee.chatgpt's formulation because it is the right
+one: *additional context is not monotonically beneficial to independent auditing.* The
+mechanism is anchoring — hand a reader three places to look and they audit the space
+someone else drew, which is a smaller space than the artifact.
+
+The consequence for how this project runs experiments is concrete: **knowledge sharing
+and audit independence are different needs and should not be served by the same
+bundle.** A rich-context analyst, a blind auditor, a blind reproducer and an adversarial
+reader should be given different material on purpose, and their results compared
+afterwards — rather than everyone receiving everything, which produces an information
+cascade in which every later reader sees through the first one's eyes.
+
+This is also the tenth instance in this project of what we hand a reader deciding the
+outcome, and the first where the deciding was measured against a control rather than
+noticed afterwards.
