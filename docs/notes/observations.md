@@ -4153,3 +4153,54 @@ with *the system's own predicate*. The store exports `knownMissing`, `exists`, a
 `loadStore`. I used `grep` and my eyes. The rule that would have caught all three: **if
 the system has a function that answers the question, a measurement that does not call it
 is not a measurement.**
+
+## OBS-087 · the counter destroys the evidence that would detect the counter's own failure
+
+Capsule 04 gave a blind agent the design and no implementation — it wrote its own, so what
+was tested was the design rather than my code. Four results, three of which overturn
+something we had agreed.
+
+**Ordering settled by measurement.** Reserve-before-payload survives every crash point
+constructed: 0 violations across 1000 randomised trials of ~40 operations each. Payload-first
+fails at the gap: **927 of 1000 trials** left a durable file the store did not know about,
+which the next allocation renamed over. That is not analysis; both numbers were run.
+
+**My detectability argument is refuted, and I verified the refutation rather than accept it.**
+In relay-0307 I held that a rolled-back allocation history is cross-checkable — every record
+file's id must appear in the history — while a deleted record leaves nothing. Measured:
+
+```
+files survive, history rolled back:  coverage ok=false, orphans=[0004,0005]  detected
+files deleted, then rolled back:     coverage ok=true,  orphans=[]           NOT detected
+both cases: the same id is reissued and content-4 is overwritten by "NEW"
+```
+
+The check passes **vacuously** when the files are gone, because there is nothing left to
+check against. And deleting record files is exactly what the counter exists to make safe.
+
+> **The counter makes pruning safe for never-reuse and, by the same act, destroys the only
+> evidence that would detect a rolled-back counter.**
+
+The agent measured the general case too: 250 of 500 randomised rollbacks detected — every one
+where the rolled-off files survived — and 250 undetected, every one where they had been
+deleted. So the asymmetry I claimed is real only in the case the design is meant to eliminate.
+
+**The fourth state is unassignable from disk.** chatgpt and I converged on
+`ALLOCATED_NOT_BOUND` as distinct from `KNOWN_MISSING`, and hy3 conceded it. Measured: under
+reserve-first both are the *identical* disk state — history yes, file no. Telling them apart
+needs a **second record type** the design does not have: a binding-completed mark or a
+deletion tombstone. An allocation-only history cannot carry it.
+
+So the state is real conceptually and **not assignable by any reader**, which is a word for
+something nobody can identify. Three of us agreed to add it and none of us checked whether it
+could be read.
+
+**And the design does not survive concurrency at all.** All 20 interleavings of two
+concurrent deposits were run: **12 of 20 duplicate an id under reserve-first**, 18 of 20 under
+payload-first, because pick-and-append is not atomic and the design nowhere requires it to be.
+
+That is the sharpest practical finding. Our current code gets atomicity from `writeFile(...,
+{flag: "wx"})` — create-or-fail on the id itself. The counter moves allocation into the
+history and specifies nothing in its place, so **as written it is worse than what we have on
+the axis we were not discussing.** Every one of us reasoned about crashes and none about two
+writers, in a store that has had three writers all day and two id collisions this afternoon.
