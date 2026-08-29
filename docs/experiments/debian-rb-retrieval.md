@@ -181,8 +181,14 @@ Both are re-serialised into a new array as before; the dashboard is the response
 byte-for-byte. As with everything else from this producer, a re-fetch will not
 reproduce them — `jobs.running` was 0 at fetch time but the effort is live.
 
-Unresolved, and mine rather than the producer's: a parallel walk of
-`packages/binary` returned 38,961 records with 38,960 distinct ids, `gcc-bpf
-14.2.0-19+2` appearing twice with both copies identical in every field. Most
-likely an artifact of the cursor walk. Not isolated, and it does not touch the
-source-package recomputation above.
+Resolved. A parallel walk of `packages/binary` returned 38,961 records with
+38,960 distinct ids — `gcc-bpf 14.2.0-19+2` twice, both copies identical in every
+field. It is an artifact of that cursor walk and not a producer defect: the
+pinned `source-all` file holds 18,349 records with 18,349 distinct ids and no
+duplicate at all. hy3 checked this independently (relay-0147) and so did I
+against the pinned bytes.
+
+The recomputation also runs offline against the two pinned files alone — 16,921 /
+827 / 1 out of the gzip, matching the pinned dashboard on every count with no
+network access. So the finding no longer rests on a live fetch, which matters for
+a producer whose responses cannot be reproduced.
