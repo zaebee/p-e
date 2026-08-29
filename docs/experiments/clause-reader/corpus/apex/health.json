@@ -1,0 +1,63 @@
+{
+  "checkedAt": "2026-08-14T10:51:39.082Z",
+  "ok": true,
+  "lastOkAt": "2026-08-14T10:51:39.082Z",
+  "entries": {
+    "aura.zae.life": {
+      "host": "aura.zae.life",
+      "ok": false,
+      "code": 502,
+      "finalUrl": null,
+      "offSite": false
+    },
+    "car.zae.life": {
+      "host": "car.zae.life",
+      "ok": false,
+      "code": null,
+      "finalUrl": null,
+      "offSite": false
+    },
+    "comics.zae.life": {
+      "host": "comics.zae.life",
+      "ok": false,
+      "code": null,
+      "finalUrl": null,
+      "offSite": false
+    },
+    "grani.zae.life": {
+      "host": "grani.zae.life",
+      "ok": true,
+      "code": 200,
+      "finalUrl": null,
+      "offSite": false
+    },
+    "chat.zae.life": {
+      "host": "chat.zae.life",
+      "ok": false,
+      "code": null,
+      "finalUrl": null,
+      "offSite": false
+    },
+    "crm.zae.life": {
+      "host": "crm.zae.life",
+      "ok": false,
+      "code": 502,
+      "finalUrl": null,
+      "offSite": false
+    },
+    "medicine.zae.life": {
+      "host": "medicine.zae.life",
+      "ok": true,
+      "code": 200,
+      "finalUrl": null,
+      "offSite": false
+    },
+    "quiz.zae.life": {
+      "host": "quiz.zae.life",
+      "ok": false,
+      "code": null,
+      "finalUrl": null,
+      "offSite": false
+    }
+  }
+}
