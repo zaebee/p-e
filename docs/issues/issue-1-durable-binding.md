@@ -58,6 +58,15 @@ comparable and must never be scored against each other.
 
 ## The trusted kernel — six conventions, one name deep
 
+> **This section and the one above it constrain no requirement below** (audit finding F10, pin
+> `6dfcce1`). Of K1–K6 only K3 reappears, in MUST 3; K4's manifest format is named and never
+> used; no MUST cites the kernel and the profile distinction never touches a clause. They are
+> here because they say what a verdict about this document would certify and what it would
+> not — which is a claim about *readers of the spec*, not about implementations of it. An
+> implementer can build from the MUST/MAY/MUST NOT sections alone and lose nothing. Left
+> unintegrated deliberately rather than welded shut, and marked so a reader is not left to
+> discover it.
+
 Everything above the kernel — evaluator logic, clause interpretation, attribution, witnesses,
 authority durability — is outside it and says so.
 
@@ -108,6 +117,21 @@ They are separate. G2a does not imply G1 — a perfectly durable store can still
 out a freed id. G2b is not a stronger G2a; it is a different party's problem.
 
 ## Capabilities, and their monotonicity
+
+**Capabilities of what.** An audit found these introduced with no stated subject, and
+`held` used in three senses within one document — the id "currently holds its second
+occupant", a record "witnessed and never held afterwards", and `deposit.ts`'s own variable for
+the set of *present* ids (finding F9, pin `6dfcce1`). On the axis the design turns on, that is
+not survivable. Fixed by naming the subject:
+
+| | is a capability of | and means |
+|---|---|---|
+| `bound` | an **id** | this id has been given to some content, ever |
+| `held` | a **record** | its bytes are here now |
+| `witnessed` | a **record or a head** | some party attested it, and the attestation is itself a record |
+
+An id is *bound*; a record is *held*; either can be *witnessed*. "The id holds an occupant" is
+loose and should read "the id is bound to a record which is held".
 
 `bound`, `held`, and `witnessed` are capabilities, not states, and **they differ in
 monotonicity** — which is the axis the whole design turns on:
@@ -218,7 +242,13 @@ already does with channels.
 
 Stated so that no implementation promises it:
 
-- Availability of any record.
+- Availability of any record. **This does not contradict the kernel's availability
+  requirement, and the two were stated loosely enough to look as if it did** (audit finding
+  F5). They are different objects: the kernel requires that *the bytes a verdict names* be
+  obtainable by the party asked to reproduce it, without which the kernel's own claim is
+  unevaluable rather than false. It does not require that any record be servable to anyone at
+  any time, which is what replication buys and what MAY covers. Named bytes for a reproduction,
+  yes; records in general, no.
 - A global order, or any statement about which of two concurrent records came first.
 - That two authorities are independent merely because there are two of them.
 - **That the binding survives the author (G2b).** v1 is the Append Log alone; G2b needs
@@ -228,6 +258,16 @@ Stated so that no implementation promises it:
   `UNATTRIBUTED`, and **equivocation evidence is not constructible here today**. The
   evidence for `relay-0183` is prose in `relay-0184`, trusted socially rather than
   mechanically (relay-0254).
+- **That there is any way to tell which authority made a binding.** Every guarantee here is
+  indexed by `(authority_id, seq)`, and this document never says what an authority *is*
+  operationally — no key, no signature, no identity scheme, and key rotation filed under MAY
+  as operational. Combined with the entry above, `authority` is a **namespace label and not an
+  identity**: it says which sequence space a binding belongs to and asserts nothing about the
+  party that wrote it. The consequence, printed rather than implied: **anyone who can write to
+  a namespace can append to it**, so G1 within one is only as strong as whatever access
+  control sits outside this protocol, and "the authority equivocated" is not a sentence v1 can
+  say — the observable fact is *two bindings in one namespace*, with no one to attribute them
+  to. (Audit finding F4, pin `6dfcce1`.)
 - **That a record means what its author intended.** Every guarantee here covers the
   interval from deposit forward. The interval in front of it — between the author's
   intent and what the deposit path received — has no guarantee and no detector.
