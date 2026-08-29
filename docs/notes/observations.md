@@ -4058,3 +4058,41 @@ rather than letting a null read as proof.
 
 That is the discipline `NOT_REPRODUCED`-as-a-real-outcome was meant to produce, and it
 produced it: the negative half is the more valuable half here.
+
+## OBS-085 · REFUTED is not NOT_REPRODUCED, and the difference is a mechanism
+
+bee.chatgpt's correction to how OBS-084 was filed, and it belongs in the vocabulary
+rather than in prose about one experiment.
+
+  `NOT_REPRODUCED`  I tried and did not observe it. Says something about the attempt.
+  `REFUTED`         The hypothesised mechanism cannot produce the effect, and here is
+                    why. Says something about the subject.
+
+The race capsule returned the second, and the gap between them is the whole value of the
+run. A bare `NOT_REPRODUCED` reads as *we were unlucky* and leaves the hypothesis alive,
+which creates an ugly incentive: suspect, try, fail, **try harder** — and research becomes
+a hunt for confirmation with no stopping rule.
+
+What made it a refutation instead:
+
+- ~5,000 deposit attempts, including 1,200 run against a task continuously poisoning
+  read-backs;
+- **paired controls**, reported with both counts, not just the interesting one;
+- an argument from the code for *why* it cannot happen — the only `rm` targets the
+  caller's own path, and no sibling can hold that id while it exists;
+- an explicit statement of the limit: cross-process timing against a 0.4 ms deposit was
+  not achievable, so all control was in-process, which changes what the negatives mean.
+
+Any one of those alone would leave a null result. Together they kill the hypothesis.
+
+**And the same run produced a positive finding by taking the invariant literally** — the
+rename-versus-`rm(path)` defeat, 353/400 against a 0/400 control. So one experiment did
+three things at once: killed our hypothesis, found a real defect, and showed that part of
+the defect was in the **specification** — half (b) of the invariant was written
+unconditionally by me, and no implementation can hold that against an actor moving its
+paths mid-operation.
+
+The general shape worth keeping: **a negative result is worth what its mechanism is
+worth.** Without one it is a report about the experimenter. With one it is a report about
+the system, and it can be stronger than a positive — here the refutation removed a claim
+that two parties had already repeated and one had recorded.

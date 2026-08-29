@@ -45,7 +45,7 @@ confidence**:
 | | emits | reproducible | where our results came from |
 |---|---|---|---|
 | machine profile | verdicts | yes, for `VIOLATES` | agreement, and nothing new |
-| independent profile | findings | no | Mistral on `clause.ts`, Gemini on the dangling binding, Grok on Variant A |
+| independent profile | findings | no | Mistral independently evaluated the clause and found what `clause.ts` had not implemented — **without access to that file**; Gemini on the dangling binding; Grok on Variant A |
 
 Every result that changed this project was a **finding**, and no machine profile could have
 produced one, because each required rejecting an assumption we had encoded. The two are not
@@ -58,7 +58,7 @@ authority durability — is outside it and says so.
 
 | | convention | note |
 |---|---|---|
-| **K1** | artifact boundary | what counts as *one artifact*. `store.ts:64`: the receiving store writes the deposit header, so the boundary is ours and is not in the bytes. Irreducible — byte extraction is a function and needs its domain first. **Our only 100%-failure-rate decision.** |
+| **K1** | artifact boundary | what counts as *one artifact*. The receiving store writes the deposit header (`deposit.ts:102`) and `loadStore` splits it off again (`store.ts:127-133`), so the boundary is ours and is not in the bytes. Irreducible — byte extraction is a function and needs its domain first. **Our only 100%-failure-rate decision.** |
 | **K2** | byte extraction | which bytes are digested. Every digest failure here was K2: OBS-055 four times, relay-0237 twice. |
 | **K3** | hash function | SHA-256. Zero historical disagreement; named for completeness. |
 | **K4** | manifest format | serialization of the hash list, declared range, schema, evaluator. |
@@ -253,27 +253,44 @@ that window does not reopen.**
 
 Measured, the existing store does not satisfy MUST 1:
 
-- **Not dense.** Ids run 32–230, 190 records. 37–45 are missing contiguously and 1–31
-  are absent entirely. Of those, only `relay-0026` and `relay-0045` are
-  `KNOWN_MISSING` — referenced by surviving records. The rest are `UNKNOWN`.
+- **Not dense.** Ids run 32–298, 258 records, 9 missing. 37–45 are absent contiguously
+  and 1–31 entirely. The absences are not one state: five of the nine in 37–45 are
+  `KNOWN_MISSING` and four are `UNKNOWN`, and which a seq gets depends on whether a
+  surviving record happens to mention it — established by prose, not by any ledger.
 - **Not monotone-bound.** `relay-0183` was reused.
 
-It also has no single author: `deposited-by` is claude ×104, mcp ×46, local ×41 —
+It also has no single author: the deposit headers are claude ×128, local ×67, mcp ×63 —
 three writers in one id space. **The legacy authority is the shared filesystem**, not
 any participant. What made those ids unique was the disk.
 
 So `relay-NNNN` cannot simply be reinterpreted as `(authority=relay, seq=NNNN)`; that
-would launder two known defects into a clean origin. MUST 2 is what makes it
-describable instead: authority `relay`, G1 claimed from seq 32, the violation at 183
-**recorded inside the claim**, and seq < 32 marked `EXCLUDED_WITH_REASON`.
+would launder two known defects into a clean origin.
 
-**Open, and deliberately not settled here:** whether an authority may claim G1 with a
-recorded exception, or whether one violation voids the claim. bee.claude (relay-0233)
-and relay-hy3 (relay-0237) both lean exceptions-allowed — but hy3's stated reasons are
-largely the ones bee.claude supplied, so the two leans are not independent and are not
-counted as a settlement. The one argument neither party took from the other is hy3's:
-that bee.zae, reading the new scheme, should see the 183 violation as the provenance of
-the defect rather than have it vanish past a boundary.
+**Nor can MUST 2 rescue it, and an earlier draft of this section wrongly said it could.**
+That text had authority `relay` claiming G1 from seq 32 with the violation at 183
+recorded inside the claim — which is an exception, exercised, in a document whose banner
+forbids exceptions. Two independent audits of commit `e36f4c3` found the contradiction,
+and 183 ≥ 32 makes it worse: under the ban as written, a reuse anywhere means legacy
+cannot claim from 32 or from anywhere at all.
+
+**The consistent position, and the one this document takes:**
+
+| | |
+|---|---|
+| **v1** | exceptions forbidden |
+| **legacy `relay`** | makes no G1 claim |
+| **a future authority** | may declare a floor, and must satisfy v1's rules above it |
+
+MUST 2 exists for the third row. It is how an authority that *can* claim G1 states from
+where — not a mechanism for excusing an authority that cannot. Legacy is documented as
+legacy and claims nothing, which is the price of having no ledger and is stated rather
+than disguised.
+
+**And the question of extracting exceptions from history does not arise in v1**, because
+v1 has no ledger to extract them from. Once one exists, a rebind is a second ledger entry
+for the same seq and the exception list is *derived by any reader, never declared* — no
+rewrite vector and no dependency on witnessing. That is deferred with the ledger, not
+solved here.
 
 ## Deferred to a separate issue
 
