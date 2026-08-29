@@ -153,6 +153,12 @@ describe("the live store", () => {
       // was carried all day to make possible. chatgpt's, a digest of nothing, erratum
       // designated by its author in relay-0389.
       "relay-0373",
+      // Eighth, and malformed rather than wrong: 63 hex characters, one short of a
+      // sha-256, a single `2` dropped from relay-0405's digest. Held `as-received`,
+      // so where it was lost is not determinable from inside this store. The list
+      // lives here as well as in `check-continuity.ts` on purpose — a new divergence
+      // has to be acknowledged twice, and this is the second acknowledgement.
+      "relay-0408",
     ]);
   });
 });

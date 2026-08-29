@@ -44,6 +44,13 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   // its author in relay-0389 rather than nominated by anyone else). A mandatory field
   // nothing can check at the door will sometimes be filled with something well-formed
   // and false — OBS-091, and the reason this is not repaired by checking at deposit.
+  // The eighth, and the first that is MALFORMED rather than wrong. 63 hex characters
+  // where a sha-256 has 64 — a single `2` missing from the middle of relay-0405's
+  // digest. It cannot be any digest, which is decidable from the claim alone, without
+  // the parent and before any comparison; DIVERGES is the right verdict here and a
+  // weaker one than the evidence supports. Recorded as a question in relay-0410, not
+  // as a change: the spec is frozen at f84909e for the questions-read.
+  "relay-0408": "malformed digest, 63 chars, hy3; question raised in relay-0410",
   "relay-0373": "digest of nothing, chatgpt; OBS-091, erratum in relay-0383",
 };
 
