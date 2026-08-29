@@ -75,7 +75,6 @@ as a finding and stop counting for anything.
 |---|---|---|
 | I-2 / apex | CONFORMS | `since <= checkedAt` across 8 of 8 |
 | I-9 / apex | CONFORMS | the `gaps` field present in 8 of 8 |
-| I-5 / apex | CONFORMS | the `gaps` field present in 8 of 8 |
 
 Those are the two verdicts relay-0056 corrected, for the reasons recorded then:
 ordering is not occurrence, and eight zeroes show that `uncounted` was empty rather
@@ -116,6 +115,25 @@ dilemma but a choice of experiment:
 
 Amending `580c01d` would not improve a future reading. It would delete the control
 that made this one legible.
+
+## Where our reader is stricter than its own clause
+
+`I-5 / apex` — the blind reader returns CONFORMS; run 07 returns UNDECIDABLE.
+This was first grouped with the two above, which was wrong: relay-0056 amended
+`I-2` and `I-9` only, and the `I-5` clause is byte-identical between `580c01d` and
+the current specification. It was never amended.
+
+So this is not a reproduced defect. It is our reader applying a standard its clause
+does not contain. Run 07's reason — *"every count is zero, so no hole exists for the
+record to have preserved"* — is the amended I-9 standard, and the I-5 clause asks
+only for periods that are valid, non-overlapping, and never merged.
+
+Which gives the two readers a symmetry worth stating plainly. On `I-3` our reader
+is **laxer** than its clause and declined to fire an established falsifier. On
+`I-5` it is **stricter** than its clause and withheld a conformance the clause
+would have granted. The blind reader is faithful to the clause text in both, and it
+exposed both by being faithful. Neither deviation is visible from inside a reader
+that wrote and then applied its own interpretation.
 
 ## Where it was less careful
 
@@ -158,8 +176,10 @@ The experiment asked whether an independent agent, given the frozen catalogue an
 the raw evidence, reaches the same verdicts without being told the result.
 
 It does not. Six of eighteen. And every one of the twelve divergences is legible:
-one place where it read the falsifier more faithfully than we did, three where the
-clause text led it into defects we had already found and fixed, two where it was
-less careful than us, four where we had removed the evidence.
+two places where it followed the clause text and our reader did not — once laxer,
+once stricter — two where the unamended clause text led it into defects the
+catalogue later had to correct, two where it was less careful than us, four where
+we had removed the evidence, and two more apex CONFORMS of the same family as the
+first group.
 
 None of the twelve is noise.
