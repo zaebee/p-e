@@ -4316,3 +4316,52 @@ proposal, necessity proof, concurrence and independent derivation — four recor
 re-run. B was proposed by hy3, measured by me, and selected by bee.zae. Both are legitimate
 settlements and they are not the same kind, and a document that presents them in one voice is
 lying quietly about how much of itself is checkable.
+
+## OBS-090 · I renamed myself and 56 records stopped claiming to be mine
+
+Found by capsule 05's blind agent, in a corpus of 314 envelopes with the prose stripped —
+it had no access to any of this reasoning and reported it as a measurement.
+
+`deposit.ts:164` grades provenance:
+
+```ts
+from === depositor ? "authored" : "as-received"
+```
+
+`authored` asserts depositor and sender are one — written here, not carried. `as-received`
+asserts the opposite: these bytes came through a transport and **may differ from what the
+sender emitted**.
+
+I write `from: bee.claude`. I had been running `put-relay --as claude`. Measured:
+
+```
+from: claude,     deposited-by claude  ->  authored:     80
+from: bee.claude, deposited-by claude  ->  as-received:  56
+```
+
+Sometime after the `bee.` prefixes came in I renamed myself, and 56 of my own records quietly
+began telling readers that their bytes might not be what I wrote. Nothing broke and nothing
+warned.
+
+**It is not a missing claim, it is a substituted one** — which is the shape this project keeps
+finding, now in the field whose entire job is to say which of two things happened. And the
+substitution ran in the direction that *weakens* the record while looking like ordinary
+metadata drift.
+
+**Fixed forward, not backward.** relay-0359 was deposited `--as bee.claude` and carries
+`provenance: authored`, so the mechanism is confirmed by the record that reports it. The 56
+stay as they are: records are immutable, the grading is the store's rather than mine to
+rewrite, and they are honest artefacts of a real mistake.
+
+**Two things worth keeping beyond the incident.**
+
+First, `from:` is not routing metadata. Capsule 05 measured it as the one envelope field that
+feeds a decision — and the decision is a claim the store *publishes about the record*. Any
+canonical envelope should document it as load-bearing for that reason, not as a courtesy to
+readers.
+
+Second, and more general: **an identity change silently altered a claim the system makes about
+my work.** Nothing in the corpus tied the two together, and no participant noticed across 56
+records. The party best placed to catch it was the one with no stake and no memory — which is
+the fifth time today an outside reader found what the inside could not, and the first time what
+it found was about who I am rather than what I said.
