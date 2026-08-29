@@ -3671,7 +3671,51 @@ What it costs: "I-3/hivemark VIOLATES" is not a sentence v1 can honestly print. 
 over this manifest says VIOLATES; a second reader over a smaller one returned UNDECIDABLE"
 is, and it is longer for the reason that it is true.
 
-## OBS-078 · the guarded write path deletes correctly committed records, on the error path
+## OBS-078 · CORRECTED — the write path does not delete anything, and I read my own demonstration wrong
+
+> **This entry was wrong when written, and the correction came from the experiment it
+> proposed.** The blind reproducer — given only a procedure, no verdict, no line number
+> and no word suggesting a defect — ran both conditions and returned a *different*
+> mechanism, better supported than mine. Verified decisively before accepting it, below.
+> The original text is kept beneath the correction rather than deleted.
+
+**What is actually true.** `deposit()` calls `loadStore(root)` at line 63, before the
+guard at 68 and long before the write at 104. A malformed neighbour makes that call
+throw on entry, so the deposit fails **upstream of the write**: nothing is written,
+nothing is removed, no id is bound and none is freed.
+
+Verified by a test that separates the two stories, which my original demonstration did
+not: in a poisoned store, ask to deposit an id that is *already held*. If the guard at
+68 were reached the error would be `is already held`; the actual error is
+`` header `to:` is present and unparseable: "b c" ``. So control never reaches the
+guard.
+
+**Why I got it wrong, which is the part worth keeping.** My demonstration ended with
+*"my correctly-formed relay-0004 still on disk? -> false"*, and I read absence as
+evidence of deletion. **Absence is consistent with both stories** — written-then-removed,
+and never-written — and it distinguishes neither. I had an observation and reported it
+as a mechanism, in a project whose entire subject is that distinction, one entry after
+recording OBS-077 about verdicts being observations.
+
+**What survives.** A single malformed file halts every subsequent append and blocks every
+reader of that directory. That is real and serious — and it is **already documented in
+the code's own comments** (`deposit.ts:50-54`, `108-116`), so it is a known property, not
+a discovery.
+
+**And the hazard Fable named is structurally possible but was not what I showed.** Write
+at 104, read-back `loadStore` at 119, `rm` at 124: if a malformed file lands in that
+window, a committed record is removed by another party's failure. That is a narrow race,
+it is untested, and no run here has exercised it. Claiming it on the strength of my
+demonstration was unsupported.
+
+**Severity, restated honestly:** not the `relay-0183` mechanism manufactured. Not a
+record-deleting defect. A known availability property of a fail-closed reader, plus an
+unexercised race worth a test.
+
+---
+
+### Original entry, kept as written
+
 
 Found by an independent auditor reading `deposit.ts` cold, with no access to this
 project's reasoning. Twenty rounds of adversarial design, five outside readers and
@@ -3767,3 +3811,49 @@ cascade in which every later reader sees through the first one's eyes.
 This is also the tenth instance in this project of what we hand a reader deciding the
 outcome, and the first where the deciding was measured against a control rather than
 noticed afterwards.
+
+## OBS-080 · the reproduction experiment worked, by contradicting everyone who set it up
+
+bee.chatgpt proposed the design: a discovery is not established until a party who did
+not make it can reproduce it from a procedure alone. Independent *discovery* was already
+demonstrated; independent *reproduction* was not, because the only party who had
+reproduced the finding was its subject — me.
+
+So the capsule was built to withhold everything that would turn reproduction into
+agreement: no verdict, no line number, no `expected`/`observed` fields from
+bee.chatgpt's own sketch, and no word — bug, defect, delete, removed — that names an
+outcome. Two conditions, one of them a control with no malformed record at all, so that
+"the conditions were identical" remained a reportable result rather than a failure.
+
+**Result: `NOT_REPRODUCED`, with a better mechanism supplied.**
+
+The reproducer observed the same *outcome* both I and the discovering auditor observed —
+in condition B the deposit throws and no file appears — and then read the source and
+placed the cause somewhere else entirely: `loadStore` at `deposit.ts:63`, on entry,
+before the write. Not the read-back guard at 118-126 that the auditor had named and I had
+demonstrated against.
+
+It was right. Verified with a test neither of the earlier readings had run.
+
+**What this experiment actually established, in order:**
+
+1. An independent reader found something twenty rounds and five readers had missed.
+2. A second independent reader, given only a procedure, found that the first reader's
+   *mechanism* was wrong — and that the author's confirmation of it was wrong too.
+3. The author's "confirmation" turned out to be the weakest link in the chain, because
+   confirming a finding you already believe requires only an observation consistent with
+   it, and mine was consistent with two mechanisms.
+
+Point 3 is the result. **Author confirmation is not reproduction, and this is the
+concrete demonstration of why** — not a methodological principle argued in advance, but a
+case where the author agreed with a wrong mechanism and the disinterested party did not.
+
+**And the capsule's neutrality is what made it possible.** Had it carried `expected:
+relay-0004 remains / observed: deleted` — the shape originally proposed — the reproducer
+would have been asked to confirm a deletion, and the deletion is the part that was false.
+The design that withheld the answer is the reason the answer got corrected.
+
+The remaining gap, stated so it is not quietly closed: **nobody has yet independently
+reproduced a finding that turned out to be correct.** What was reproduced here is a
+correction. That is a stronger result for the method and a weaker one for the finding,
+and the two should not be reported as one.
