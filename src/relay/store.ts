@@ -91,7 +91,7 @@ export interface RelayRecord {
  * only by first-match-wins and the convention that headers come first. A record
  * that omitted one would have taken someone else's.
  */
-function headerBlock(bytes: string): string {
+export function headerBlock(bytes: string): string {
   const blank = bytes.indexOf("\n\n");
   return blank === -1 ? bytes : bytes.slice(0, blank);
 }

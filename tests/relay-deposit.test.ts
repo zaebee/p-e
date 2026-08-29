@@ -155,3 +155,29 @@ describe("the id of a record the store named itself", () => {
     expect((await loadStore(root)).size).toBe(1);
   });
 });
+
+describe("header-like lines quoted in a body", () => {
+  // Audit-03 F4. `store.ts` learned this on the read path and grew `headerBlock()`;
+  // the write path had not, and scanned the whole record with /^field:/m. Two live
+  // defects followed, both reproduced before the fix and pinned here so neither can
+  // return: a quoted `id:` refused a well-formed deposit, and a quoted `from:`
+  // fabricated an `authored` provenance for a record whose header names no sender.
+  const quoting = (line: string, header = "from: a\nto: b\nkind: note\ndate: 2026-08-29") =>
+    `@p-e/x0\n${header}\n\nquoting someone else:\n${line}\nend of quote\n`;
+
+  it("does not read a quoted id: as the record's own declaration", async () => {
+    const root = scratch();
+    const r = await appendRelay(quoting("id: relay-0007"), undefined, root);
+    expect(r.id).toBe("relay-0002");
+  });
+
+  it("does not fabricate `authored` from a quoted from:", async () => {
+    const root = scratch();
+    // No `from:` in the header at all; the only one is quoted in the body.
+    const r = await depositLocal(quoting("from: claude", "to: b\nkind: note\ndate: 2026-08-29"), "claude", undefined, root);
+    const held = await loadStore(root);
+    const stored = held.get(r.id);
+    expect(stored?.provenance).toBe("as-received");
+    expect(stored?.from).toBeNull();
+  });
+});

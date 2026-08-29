@@ -1,6 +1,6 @@
 import { rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { STORE_ROOT, loadStore } from "./store.js";
+import { STORE_ROOT, headerBlock, loadStore } from "./store.js";
 
 /**
  * The one write path, and it records what it can observe rather than what it is
@@ -79,7 +79,12 @@ async function deposit(
   }
 
   const id = proposedId ?? nextFree(new Set(held.keys()));
-  const declared = /^id:\s*(\S+)\s*$/m.exec(bytes)?.[1];
+  // Scoped to the header block, not the whole record. store.ts learned this on the
+  // read path — a record quoting header-like lines at column 0 could adopt them — and
+  // this path had not: a body quoting `id: relay-0007` was refused as though the record
+  // declared it, and a body quoting `from:` fabricated an `authored` provenance for a
+  // record whose header names no sender. Audit-03 F4, reproduced before fixing.
+  const declared = /^id:\s*(\S+)\s*$/m.exec(headerBlock(bytes))?.[1];
   if (declared !== undefined && declared !== id) {
     throw new Error(`the record declares id: ${declared} and would be stored as ${id}`);
   }
@@ -157,7 +162,7 @@ export async function depositLocal(
   proposedId?: string,
   root = STORE_ROOT,
 ): Promise<DepositResult> {
-  const from = /^from:\s*(\S+)\s*$/m.exec(bytes)?.[1];
+  const from = /^from:\s*(\S+)\s*$/m.exec(headerBlock(bytes))?.[1];
   return deposit(
     bytes,
     depositor,
