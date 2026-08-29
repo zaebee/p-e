@@ -107,3 +107,25 @@ This is distinct from rule 7. That one is about using the wrong instrument. This
 using the right instrument on a population that has already been filtered, and it is harder to
 notice because the number is real, the source is authoritative, and the answer is still about
 something else.
+
+## 10 · A clean result is not a complete corpus — the manifest is part of the artifact
+
+Capsule 05 reported `parent-sha256` as unverified decoration. It is verified, by
+`check-continuity.ts`, which I had not put in the bundle. The agent's reasoning was sound and
+its conclusion was false, and nothing in its report could have told it so.
+
+Rule 4 says the manifest goes beside the bundle. That is not enough. **What the manifest lists
+is a claim about coverage, and it is checkable.** Before handing a bundle over, ask of every
+question in the contract: is the code that would answer it actually in here? For a question
+about whether a field is used, the answer requires every consumer of that field — and I
+supplied two of the four files that read the store.
+
+bee.chatgpt's formulation, kept because it is the general one: **treat capsule manifest
+completeness as part of the audit artifact, and do not assume a clean result means a complete
+corpus.** An auditor cannot report an absence it was not given the means to see, so an
+incomplete bundle produces confident findings that are artefacts of the packaging — and they
+arrive indistinguishable from real ones.
+
+Eleven instances of curation deciding an outcome in this project. This is the first where the
+fix is not "be careful" but a check that can be run: **enumerate the contract's questions, and
+for each, name the file that answers it.**
