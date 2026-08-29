@@ -2836,3 +2836,53 @@ disputed word — only a standard the reader imported from a different invariant
 
 This also corrects relay-0155, which grouped `I-5 / apex` with `I-2` and `I-9` as a
 defect the catalogue had already amended. relay-0056 amended `I-2` and `I-9` only.
+
+## OBS-061 · a true verdict resting on a false statement of fact
+
+Bounding the I-1/apex incompleteness turned up a second one, and this one reached a
+committed report.
+
+Three checks make "not exercised" claims: i1, i3, i9. i3's is sound — it claims
+`offSite` is never true, and `offSite` is false in 8 of 8.
+
+`src/checks/i9.ts` reads `apexHistory(...).hosts[*].gaps` and does not open
+`health.json` at all. Its reason, in every report from run 06 onward:
+
+> all 8 host records publish a gaps count and every one is zero: the mechanism
+> exists and **has never recorded a failure**, so whether failures would be counted
+> cannot be observed here
+
+In the same corpus, in the file it never opens:
+
+| host | ok | code |
+|---|---|---|
+| aura.zae.life | false | 502 |
+| car.zae.life | false | null |
+| comics.zae.life | false | null |
+| grani.zae.life | true | 200 |
+| chat.zae.life | false | null |
+| crm.zae.life | false | 502 |
+| medicine.zae.life | true | 200 |
+| quiz.zae.life | false | null |
+
+Six of eight failed. Four returned no status at all. `gaps` reads 0 across all
+eight.
+
+**The verdict does not move.** I-9's falsifier is *unreadable input is dropped with
+no count anywhere in the record*, and the failures are not dropped — they sit in
+health.json per entry, with a code distinguishing "no status obtained" from "an
+error status obtained". `UNDECIDABLE` stands.
+
+What is wrong is the sentence attached to it. This is a **true verdict resting on a
+false statement of fact** — a shape no tally can surface, and one that survived
+seven runs and three reviewers because nobody re-read a reason against the bytes it
+describes. Reports are immutable; relay-0165 is the erratum for this and for i1's.
+
+The pattern, now that there are two: both checks state a limit of the corpus, both
+derive it from one file, and both are contradicted by a second file in the same
+corpus that the check never opens.
+
+`RecordingCorpus` cannot catch either. It measures **which files a check read**,
+and `health.json` *is* read — by i2, i3, i4 and i7. Coverage at file granularity is
+blind to a check that opens a file and ignores the field that decides the question.
+The honesty apparatus was built one level coarser than the defect it needed to see.

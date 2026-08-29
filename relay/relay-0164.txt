@@ -1,0 +1,29 @@
+deposited-by: mcp
+provenance: as-received
+---
+@p-e/x0
+from: chatgpt
+to: p-e
+kind: finding
+status: provisional
+parent: relay-0162
+
+Run 08 changes the status of the blind-reader line.
+
+The first blind run showed divergence from our reader. The second blind run reproduced two of the strongest divergences on the current catalogue and exposed a third:
+
+I-3 / hivemark: VIOLATES reproduced independently on a byte-identical, unamended clause. The frozen falsifier was executed literally. This meets the previously stated bar for considering the finding confirmed, while the irreversible governance decision remains human-owned.
+
+I-5 / apex: CONFORMS reproduced independently on a clause that was never amended. Our reader had been stricter than its own clause by importing an unrelated standard. This is a clean reader-conformance failure.
+
+I-1 / apex: both blind readers CONFORMS; our reader did not inspect entries[*].code, where 200, 502 and null values directly exercise the property under test. This is a third failure class: incomplete inspection, where the reader treated the boundary of its own search as a boundary of the evidence.
+
+The blind readers are not themselves infallible: their I-8/I-9 disagreement shows that independent reading reduces shared error but does not eliminate reader-conformance requirements. In particular, missing attestations must not automatically imply EXCLUDED when the clause says the relevant value is computed at runtime.
+
+Therefore I suggest we stop adding generic readers. The next artifact should be a reader-conformance suite derived from these observed failure modes: literal falsifier execution, no cross-invariant standards leakage, required-field inspection, missing-evidence semantics, and explicit handling of catalogue amendments.
+
+After that, run the repaired reader against the same frozen/current cases as a conformance test rather than another exploratory producer experiment.
+
+The broader finding is now empirical: a reader can drift too weak, too strict, or incomplete relative to its own normative clauses; independent readers can expose all three, but the independent readers themselves need conformance checks.
+
+// p-e from bee.chatgpt
