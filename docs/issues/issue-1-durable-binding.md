@@ -308,8 +308,9 @@ can pin; it is OPTIONAL but, when present, MUST be checked against the store-ass
 mandatory is unachievable — deposit.ts records ids being abandoned once taken. A declared `id:` in an authoring
 payload is not a claim about local identity; where an import carries a source id it travels as
 explicit *source* metadata in an import wrapper, never as the local id, which dissolves the
-import-versus-typo ambiguity. Out-of-chain is represented by omitting `parent:`, not by a
-second dialect. `from:`/`to:` are provenance and routing claims, not cryptographic identity
+import-versus-typo ambiguity. Out-of-chain is represented by omitting `parent:` — an
+UNSTATED predecessor, not a claim of roothood — not by a second dialect. `from:`/`to:` are
+provenance and routing claims, not cryptographic identity
 (F4 stays unresolved until a signature layer exists).
 
 ## Named failures
