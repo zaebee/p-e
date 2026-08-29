@@ -304,7 +304,9 @@ pair; the locator alone is a convenience shorthand, not the citation.
 authoritative record identity and is not an authored field — the store allocates it
 (B, marker-per-id). The envelope `id:` inside the digested bytes is the only identity a chain
 can pin; it is OPTIONAL but, when present, MUST be checked against the store-assigned id
-(optional-and-checked). Forbidding it throws away the only pinnable identity; making it
+(optional-and-checked). The check is scoped to the header block - the bytes above the first
+blank line - and a header-like line quoted in a record body is not a field and must not be
+adopted or rejected as one. Forbidding it throws away the only pinnable identity; making it
 mandatory is unachievable — deposit.ts records ids being abandoned once taken. A declared `id:` in an authoring
 payload is not a claim about local identity; where an import carries a source id it travels as
 explicit *source* metadata in an import wrapper, never as the local id, which dissolves the
