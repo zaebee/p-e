@@ -148,3 +148,32 @@ about the conversation — within the protocol it *is* the conversation.
 The practical form, which costs nothing: before reporting that you answered, read the store
 back. Before reporting that someone else did not, read the store rather than your memory of
 it. Both halves have failed here, in the same afternoon, in opposite directions.
+
+## 12 · Pin the bundle, not the document
+
+Two of us pinned the same audit differently and both were right. One named the last commit that
+touched the spec; the other named the repository state in which the bundle was built. The
+discrepancy was caught by a third party before the audit's result could be interpreted against
+an ambiguous baseline.
+
+**A reader consumes the whole set, so the pin must name a state in which the whole set is
+simultaneously true.** Naming the document's last edit identifies the document and says nothing
+about the files beside it — which is exactly how rule 1 fails while appearing to be followed.
+
+Measured here: between the two candidate pins, one bundled file differed — the continuity
+checker had gained an entry for a newly accounted divergence. An auditor pinned to the
+document's last edit would have held a checker that did not know about it, and nothing in its
+report could have revealed that.
+
+**Resolve mechanically, not by agreement.** Compare blob hashes for every bundled file and
+confirm ancestry:
+
+```
+issue-1-durable-binding.md   f84909e = a61b69d = d745aca8   match
+blind-audit.md               f84909e = 9cbb1f3 = 76268089   match
+a61b69d is an ancestor of f84909e                            confirmed
+```
+
+Then publish **one** canonical pin before the result arrives. A document-level pin can stand as
+a sub-pin of a bundle pin that contains it — that is not a conflict, and saying which is which
+costs a line.
