@@ -153,12 +153,21 @@ describe("the live store", () => {
 });
 
 describe("duplicates", () => {
-  // relay-0166 and relay-0167 hold byte-identical bodies. The store never
-  // overwrites, so both were accepted and both got ids — correct behaviour. But
-  // `parent-sha256` was adopted because a digest is unambiguous where a label is
-  // not, and a duplicate makes that digest name two records at once. It stays
-  // exact as a statement about bytes and becomes ambiguous as a pointer to a
-  // record, which are different things the store does not separate.
+  // FALSE AS WRITTEN, AND NOTHING HERE COULD HAVE CAUGHT IT. This comment used
+  // to open "relay-0166 and relay-0167 hold byte-identical bodies". They do not:
+  // aff0157f… and 46534c9a…, which are also what the store holds as `sha256`.
+  // The live store contains no byte-duplicate at all. hy3 found it in relay-0230
+  // after I repeated the claim into relay-0226; corrected there rather than by
+  // deleting it here, and OBS-074 records why it survived — the two assertions
+  // below run against fixtures, and the only one that touches the live store
+  // (`Array.isArray`) checks the shape of our access and nothing about the store.
+  //
+  // The reasoning the comment existed to record stands on its own and did not
+  // depend on the example: `parent-sha256` was adopted because a digest is
+  // unambiguous where a label is not, and a duplicate would make that digest name
+  // two records at once — exact as a statement about bytes, ambiguous as a pointer
+  // to a record, which are different things the store does not separate. That is
+  // why the check is here. It has never had a live instance to fire on.
   const dupes = async (root?: string) => {
     const held = await loadStore(root);
     const byDigest = new Map<string, string[]>();

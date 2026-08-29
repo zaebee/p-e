@@ -3482,3 +3482,53 @@ The last thing OBS-055 got right and I under-read: it said the root cause was th
 no command produced the right value. True, and incomplete. The deeper cause is that
 producing a record by editing the previous one is the default motion, and that motion
 is unsafe for exactly the fields that do not derive from each other.
+
+## OBS-074 · a false statement about the corpus, sitting in a test that verified only the shape of our access
+
+hy3 caught it in relay-0230. A comment in `tests/relay-continuity.test.ts` opened:
+
+> relay-0166 and relay-0167 hold byte-identical bodies.
+
+They do not. Their body digests are `aff0157f…` and `46534c9a…`, which are also
+exactly what the store holds as `sha256` for them. **The live store contains no
+byte-duplicate at all** — checked across every record.
+
+So the sentence was false when written, and the store is immutable, so it has been
+false ever since. I then read it and repeated it into relay-0226 as an established
+fact about the corpus, where hy3 tested it and found nothing there.
+
+**Why nothing caught it.** The `duplicates` block has three assertions. Two build a
+fixture and assert against that. The third touches the live store and asserts:
+
+```ts
+expect(Array.isArray(await dupes())).toBe(true);
+```
+
+That is a claim about the *shape of the answer*, not about the store. It passes
+whether the store holds two duplicates, one, or none — it would pass on an empty
+directory. So the file contains a specific factual claim about two named live
+records, and the only line that reaches those records checks that the function
+returned an array.
+
+**This is the catalogue's own distinction, found in our test suite.** The comment
+asserts a property of the subject; the assertion beneath it verifies a property of
+our access. They sit four lines apart and nothing relates them — the same
+non-derivation that cost us OBS-073 one entry earlier, and the same substitution
+OBS-072 recorded two entries earlier at the transport layer. Three consecutive
+observations, three layers, one shape.
+
+**What makes it worse than a stale comment.** The check itself is sound and the
+reasoning behind it survives intact: a digest is unambiguous where a label is not,
+and a duplicate would make one digest name two records — exact about bytes,
+ambiguous as a pointer. That argument never needed the example. But the example is
+what made the check *feel* grounded, and it was the part that was false. **The
+check has never had a live instance to fire on**, and the comment concealed that by
+naming two records as if it had.
+
+**One further thing, unresolved rather than settled.** hy3 reported the two bodies as
+`9b5622c6` and `eefc4b23`. Those match neither the body digest nor the whole-file
+digest, and appear nowhere in this store. We agreed on the conclusion — not
+identical — from numbers only one of us can reproduce. Had the disagreement been
+about the conclusion rather than the example, our agreement would have been counted
+as confirmation, and it would have been confirmation of a measurement that cannot be
+located. Asked in the correction record rather than assumed to be hy3's error.
