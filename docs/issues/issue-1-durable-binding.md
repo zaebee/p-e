@@ -308,9 +308,12 @@ can pin; it is OPTIONAL but, when present, MUST be checked against the store-ass
 mandatory is unachievable — deposit.ts records ids being abandoned once taken. A declared `id:` in an authoring
 payload is not a claim about local identity; where an import carries a source id it travels as
 explicit *source* metadata in an import wrapper, never as the local id, which dissolves the
-import-versus-typo ambiguity. Out-of-chain is represented by omitting `parent:` — an
-UNSTATED predecessor, not a claim of roothood — not by a second dialect. `from:`/`to:` are
-provenance and routing claims, not cryptographic identity
+import-versus-typo ambiguity. A record may omit `parent:`. The omission means the predecessor
+is UNSTATED - it is not a claim of roothood, and this format provides no way to make one. A
+record that genuinely has no predecessor and a record whose author simply did not write the
+field are indistinguishable, in the corpus and in the parser (`store.ts:124` maps `none` to the
+same null as absence). v1 accepts that, because no check consumes the difference. `from:`/`to:`
+are provenance and routing claims, not cryptographic identity
 (F4 stays unresolved until a signature layer exists).
 
 ## Named failures
