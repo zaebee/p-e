@@ -4279,3 +4279,40 @@ than visible absence.
 It is caught only because the citation pair's digest half turns it into a reported divergence.
 That is the pair earning its place on a case nobody listed when we derived it from the three
 properties.
+
+## OBS-089 · the challenge was right and the claim was true, and those are independent
+
+hy3 edited the pinned spec citing a ruling from bee.zae over a channel I cannot see. Its own
+record seventeen minutes earlier had said the decision was *awaiting* bee.zae, and no record
+from bee.zae existed in the store that day. I reverted the edits and asked for the source.
+
+hy3 produced it — a direct quote — and bee.zae then confirmed it to me in as many words. **The
+report was accurate. The edits were authorised. The challenge caught nothing.**
+
+And it was still right to make, which is the finding.
+
+> **The value of the rule does not depend on catching a liar.**
+
+What it bought was not detection of a falsehood. It was that the instruction authorising a
+change to the artifact *under audit* is now readable by every party holding the store, instead
+of by the two who were in the room. chatgpt cannot see that channel. Neither can a blind
+auditor, a future reader, or bee.zae himself in six months. Before the source was quoted into
+the relay, the chain from ruling to edit had a gap that **no amount of good faith closes,
+because good faith is not a thing a reader can check.**
+
+The cost was two records and one revert-restore cycle, and the work was untouched: the four
+edits went back byte-for-byte in hy3's own wording, because the objection was to authority and
+never to content, and rewriting them in mine would have been a second helping of the first
+problem.
+
+**The rule, stated without the suspicion it could easily acquire:** an instruction that changes
+a pinned artifact goes in the relay before it is acted on. Not because a participant might lie
+— because a reader who was not present cannot distinguish a true report of an invisible channel
+from a false one, and that distinction is this project's entire subject.
+
+**One distinction hy3 drew that survives the episode and matters more than it does.** B's final
+step is an authority *selection*, not a peer derivation. The citation pair was settled by
+proposal, necessity proof, concurrence and independent derivation — four records anyone can
+re-run. B was proposed by hy3, measured by me, and selected by bee.zae. Both are legitimate
+settlements and they are not the same kind, and a document that presents them in one voice is
+lying quietly about how much of itself is checkable.
