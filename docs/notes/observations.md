@@ -3913,3 +3913,89 @@ it correctly.
 not make the discovery reproduced it from a procedure alone, without being told what to
 look for or that there was anything to look for. And the honest caveat travels with it —
 the finding it reproduced is itself conditional on a reading nobody has ruled.
+
+## OBS-082 · output equality is not semantic conformance
+
+From capsule 02's S2, and separated out because it is wider than this project.
+
+The requirement derives `KNOWN_MISSING` from a ledger that retains the binding across
+deletion. The implementation derives it from whether a surviving record happens to name
+the id. Two different mechanisms.
+
+In state S2 — deleted record, and a survivor names it — **both models return
+`KNOWN_MISSING`**. The blind reproducer's phrasing: they agree "by coincidence of the
+state's construction."
+
+So a conformance suite exercising only S2 would have gone green while certifying the
+wrong mechanism. The output matched; nothing about the model did. And S2 is not a
+contrived state — it is the *natural* one to write a test for, because it is the case a
+specification author has in mind when writing the clause.
+
+> **A test can reproduce the correct output while testing the wrong mechanism.**
+
+The general form: `output equality ≠ semantic conformance`, and any black-box conformance
+suite can have this defect without any of its tests being wrong. Every individual
+assertion passes, every assertion is about a real requirement, and the suite still
+certifies a model the implementation does not hold.
+
+This is the same disease as the suite-audit finding that four mutations left the
+conformance suite green — but sharper, because there the suite was not *looking*, and
+here it looks, gets the right answer, and is wrong about why.
+
+What would have caught it: the S2/S3 pair. Neither state alone distinguishes the models;
+the difference between them does. So the unit of a conformance test is not a state but
+**a pair of states chosen so the candidate mechanisms disagree** — which is a demand on
+test design that "cover the requirement" does not produce, because both members of the
+pair are the same requirement.
+
+Open, and worth more than this project: how to tell observational equivalence from
+semantic conformance without already knowing which mechanisms are in play. The relay is
+useful here for a reason that is now concrete — it can store not just `PASS` but the
+evidence boundary and the reasoning that produced it, and the mechanism is exactly what
+that boundary would have exposed.
+
+## OBS-083 · byte provenance is not enough, and this is the system's boundary
+
+P3, stated on its own because it is a limit rather than a defect.
+
+Byte-level provenance answers one question completely: *did everyone look at the same
+thing?* Content addressing, digests, immutable storage and replication all serve that
+question and can settle it beyond argument.
+
+They cannot settle the next one. Capsule 02's reproducer, with byte-identical material,
+reported that whether the divergence it found is a *violation* depends on whether the
+store under test is the component the clause binds — and that the withheld remainder of
+the specification would settle it, and that it could not.
+
+```
+same bytes
+   ├── interpretation A → VIOLATES
+   └── interpretation B → CONFORMS
+```
+
+**If a disagreement lives below the byte level, no quantity of hashes, replicas or
+append-only storage removes it.** That is the ceiling on what evidence infrastructure can
+deliver, and it is worth stating as a property rather than discovering repeatedly.
+
+So provenance is needed for more than bytes. At minimum:
+
+- the **interpretation version** — not the artifact's, the reading's, and a frozen text
+  can carry two live readings at one version (I-5 has, all day);
+- the **scope** — which component a clause binds;
+- the **clause → implementation mapping**, which capsule 02 showed can be missing entirely:
+  the requirement assumed a ledger-plus-payload architecture and the store is single-part;
+- the **architecture assumptions** a requirement was written against, which are usually
+  invisible precisely because the author shared them.
+
+Without these, a system can prove perfectly that everyone examined identical bytes and
+still not establish what those bytes were required to mean.
+
+Two consequences worth keeping:
+
+- **A verdict is portable only up to interpretation.** Pinning the evaluator closes the
+  gap operationally and costs the independence that made outside readings worth having —
+  reproducible execution is not portable interpretation.
+- **An unresolved reading is not a failure of the evidence layer.** It is the evidence
+  layer working correctly and reporting that the remaining disagreement is not of its
+  kind. Reporting it as `UNDECIDABLE` rather than picking a side is the honest output,
+  and the catalogue has had the word for it since the beginning.
