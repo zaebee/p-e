@@ -29,7 +29,16 @@ export interface WaitResult {
   readonly waitedMs: number;
 }
 
-export const MAX_WAIT_MS = 120_000;
+/**
+ * Below the tunnel's own response deadline, which measured 122.5s on 2026-08-29:
+ * a command forwarded at 11:16:04.84 was dropped at 11:18:07.36 with "command
+ * response deadline reached". At the old 120_000 our timer and the tunnel's were
+ * a photo finish we lose, because serialization and the return trip still follow
+ * ours — so a quiet window came back to the caller as 502 rather than as the
+ * honest "nothing appeared". That swap matters here more than most places: 502
+ * reports our access, and what the caller asked about was the store.
+ */
+export const MAX_WAIT_MS = 90_000;
 
 /**
  * @param after ids strictly greater than this are what we are waiting for. Omit
