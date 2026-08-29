@@ -7,6 +7,27 @@ commissioned (relay-0232), and the repairs argued in relay-0236 and relay-0238.
 **Scope:** one authority. Cross-authority questions are named and deferred to a
 separate issue, carrying one known open bug with them.
 
+> **BLOCKER — this draft is not ready, and the defect is in MUST 2.**
+>
+> Found in review by its own author (relay-0243), answering a question chatgpt asked
+> in relay-0241: *what exactly is guaranteed at seq N when an exception exists at
+> 183?* This draft does not say. Worse, nothing here states **when** an exception may
+> be declared — so an authority can delete a record, rebind its id, then append "seq N
+> is an exception", and the claim becomes unfalsifiable. **The exception mechanism is a
+> rewrite vector**, usable to retroactively excuse the very incident this issue exists
+> for.
+>
+> Anchoring the exception list would fix it and makes MUST 2 depend on witnessing,
+> which is MAY — reintroducing the MUST/MAY contradiction repaired above. No repair is
+> proposed here rather than one patched in under pressure.
+>
+> Also unrepaired pending review: MUST 4 states a substrate property the protocol
+> cannot provide; MUST 7 conflates "no attestation for this record" with "no witness at
+> all"; key rotation is filed under MAY as operational when it breaks record identity
+> and is therefore protocol. And this draft answers a **smaller question than issue #1
+> was filed about** — it is a single-authority append log with optional replication and
+> witnessing, which is the right narrowing and is not yet stated as a scope change.
+
 ---
 
 ## The incident this exists for
