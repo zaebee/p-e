@@ -17,37 +17,67 @@ operation — partition, merge, key rotation, partial visibility — is deferred
 separate issue and carries one known open bug with it. The narrowing is deliberate;
 stating it is not optional.
 
-> **BLOCKER — resolved for v1 by removing the clause, not by repairing it.**
+> **Twenty rounds settled this; relay-0294 is where it converged.** One edit, as promised
+> in relay-0257 — the draft was deliberately frozen while the vocabulary moved, because
+> editing a live document under review is what OBS-076 records.
 >
-> MUST 2 let an authority declare exceptions, and nothing said *when*. So: delete a
-> record, rebind its id, then append "seq N is an exception", and the G1 claim becomes
-> unfalsifiable — a rewrite vector aimed at the very incident this issue exists for
-> (found by its author, relay-0243, answering a question chatgpt asked in relay-0241).
->
-> **v1 forbids exceptions.** An authority claims G1 only if it has never reused a seq;
-> a violation costs the claim. Proposed by Grok, and hy3 (relay-0249) showed it is not
-> a preference but the only honest option: without a ledger, past reuse cannot be
-> *shown*, and an authority cannot claim what it cannot show. Verified — `relay-0183`
-> leaves no structural trace, and its first occupant's digest survives only in the prose
-> of two records. **A guarantee that depends on someone having written prose is not a
-> guarantee.**
->
-> **Consequence, printed rather than implied: v1's normative content applies to zero
-> currently existing authorities.** Legacy `relay` claims no G1, and no other authority
-> exists. v1 defines the guarantee for future authorities and documents the legacy store
-> as legacy. MUST 2 survives, scoped to authorities that do claim.
->
-> **Deferred, not discarded.** Once a ledger exists, a rebind becomes *a second ledger
-> entry for the same seq*, so the exception list is **derived by any reader, never
-> declared** — no rewrite vector, and no dependency on witnessing. Legacy `relay` could
-> then be described with `EXCLUDED_WITH_REASON` without falsifying anything. That needs
-> the migration bee.zae cleared for discussion only.
->
-> **Open — layer audit pending chatgpt's synthesis** (relay-0250/0251). Under the
-> Append Log / Gossip / Transparency split, three MUSTs below are not Append Log: MUST 5
-> is vacuous with one authority, MUST 6's `UNKNOWN` is a Gossip state (a complete log has
-> no UNKNOWN — ours does only because it has no ledger), and MUST 7 is pure Transparency
-> and should move out of v1.
+> The blocker that stood here is resolved by removing the clause it was about. MUST 2 let an
+> authority declare exceptions and said nothing about *when*, so delete → rebind → "seq N is
+> an exception" made the claim unfalsifiable. **v1 forbids exceptions**: an authority claims
+> G1 only if it has never reused a seq. hy3 (relay-0249) showed this is not a preference —
+> without a ledger, past reuse cannot be *shown*, and an authority cannot claim what it
+> cannot show. Legacy `relay` therefore makes **no G1 claim at all**, and v1's normative
+> content applies to zero currently existing authorities: it defines the guarantee for future
+> ones and documents the present store as legacy.
+
+## What this document certifies, and what it cannot
+
+**A portable machine verdict certifies reproducibility, not correctness.** It asserts that
+anyone running evaluator E over manifest M under kernel version K obtains V. It asserts
+nothing about whether V is the right reading of the rule. A reader who obtains V and
+disagrees about what V *means* has contradicted nothing — `I-5` is the standing instance:
+our check and an independent reader both returned `UNDECIDABLE` for apex on incompatible
+grounds, and the question is still unruled.
+
+So this issue has **two profiles, producing different kinds of output rather than different
+confidence**:
+
+| | emits | reproducible | where our results came from |
+|---|---|---|---|
+| machine profile | verdicts | yes, for `VIOLATES` | agreement, and nothing new |
+| independent profile | findings | no | Mistral on `clause.ts`, Gemini on the dangling binding, Grok on Variant A |
+
+Every result that changed this project was a **finding**, and no machine profile could have
+produced one, because each required rejecting an assumption we had encoded. The two are not
+comparable and must never be scored against each other.
+
+## The trusted kernel — six conventions, one name deep
+
+Everything above the kernel — evaluator logic, clause interpretation, attribution, witnesses,
+authority durability — is outside it and says so.
+
+| | convention | note |
+|---|---|---|
+| **K1** | artifact boundary | what counts as *one artifact*. `store.ts:64`: the receiving store writes the deposit header, so the boundary is ours and is not in the bytes. Irreducible — byte extraction is a function and needs its domain first. **Our only 100%-failure-rate decision.** |
+| **K2** | byte extraction | which bytes are digested. Every digest failure here was K2: OBS-055 four times, relay-0237 twice. |
+| **K3** | hash function | SHA-256. Zero historical disagreement; named for completeness. |
+| **K4** | manifest format | serialization of the hash list, declared range, schema, evaluator. |
+| **K5** | evaluator semantics | deterministic execution. **Untested here**: two `bun` runs are byte-identical at 531 bytes, and `node v22` will not start the reader at all (`ERR_MODULE_NOT_FOUND` — our `.js` specifiers resolve to `.ts` under bun's resolver alone). Unestablished, not broken. |
+| **K6** | spec version | names K1–K5 together so an amendment cannot silently reinterpret an old root. |
+
+**The version recursion terminates at exactly one externally agreed name.** The kernel spec is
+itself an artifact, hashed under version N to identify N+1 — which works for every N but
+zero. Version 0 cannot identify itself, because doing so needs the kernel it defines. Ours is
+already visible and is a name: **`p-e/core 0.1`**, agreed out of band and derived from
+nothing. Every system claiming no such root has hidden it rather than removed it.
+
+**Availability of the named bytes is inside the kernel**, not a higher layer. A
+content-addressed root *names* artifacts; it does not produce them. For a party who cannot
+obtain them the kernel's claim is not false but *unevaluable*, which looks like a guarantee
+and delivers nothing. This is not replication — the requirement is that the named bytes be
+obtainable by the party asked to reproduce. OBS-076 was exactly this failure, and hivemark's
+anchor publishes all 1,864 leaves rather than proofs for the independent reason that an
+author must not be able to withhold what verification needs.
 
 ---
 
