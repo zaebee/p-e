@@ -2823,6 +2823,17 @@ Same reader, same corpus, deviation in both directions, both invisible from insi
 for seven runs, both surfaced by one outside pass that did nothing but follow the
 text.
 
+**Half of this was wrong, and an independent clause reading found it — see
+OBS-069.** The I-3 leg stands: the clause is stronger than the reader was, settled
+at relay-0174 on two blind readings. The I-5 leg does not. The clause was not
+weaker than the reader; `src/conformance/clause.ts` was, by never implementing the
+`expect:` line. Our check's `UNDECIDABLE` was correct, and the "deviation in both
+directions" below was one real finding plus one misreading of my own, presented as
+a symmetry.
+
+The original entry is left standing rather than rewritten, because the pin,
+OBS-069, relay-0192 and the clause-reader result all quote it.
+
 The hypothesis this supports is narrow: **a reader's own assessment of its
 interpretation cannot detect systematic interpretation drift.** The loop from
 interpretation to implementation to result closes without ever leaving the reader,
@@ -3214,3 +3225,60 @@ The check that survives is `git show HEAD~2:src/conformance/clause.ts | grep -c
 'expect:'`, which returns 0. Annotating a defect in place alters the artifact the
 annotation describes, which is why an erratum is a separate record everywhere else
 in this project: records are immutable and code is not.
+
+## OBS-070 · the same verdict by two different routes, and the clause ambiguity underneath
+
+The I-5 reversal (OBS-069) left one question open, and looking at *how* each party
+reached its verdict makes it sharper than "does the line bind apex or not".
+
+The frozen block:
+
+```
+I-5  named periods, gaps never backfilled
+reader:  H — every anchors.json period is a valid ISO week; …
+         A — since never precedes first observation; gaps counted
+expect:  one anchor exists. a gap cannot be observed in a single period, so
+         the no-backfill half is UNDECIDABLE and must not be reported as CONFORMS
+```
+
+**The premise is narrow and the conclusion is not.** *"one anchor exists"* is about
+hivemark's `anchors.json`. *"the no-backfill half is UNDECIDABLE"* carries no
+producer qualifier, and the invariant's title has two halves — named periods, and
+gaps never backfilled — so "the no-backfill half" reads naturally as the
+invariant's, not H's.
+
+Two readings, and the sentence supports both:
+
+| | |
+|---|---|
+| narrow | the line reasons about H's single anchor and concludes about H. Apex is not mentioned and not bound. |
+| wide | the no-backfill half of the invariant is unobservable here for anyone, so no producer may be reported CONFORMS on it. |
+
+**Both parties returned UNDECIDABLE for apex, and neither route is the same.**
+
+`src/checks/i5.ts` contains zero occurrences of `expect`. It reaches UNDECIDABLE
+from `anyGap === false`, with the reason *"every count is zero, so no hole exists
+for the record to have preserved"*. That is the `expect:` line's own reasoning,
+arrived at without reading it.
+
+The independent reader reached the same verdict by citing the line: *"no-backfill
+UNDECIDABLE per CATALOGUE"*. It applied the wide reading.
+
+So the agreement is on the verdict and not on the ground. Under the narrow reading
+apex's `UNDECIDABLE` is a defensible reader judgement rather than a clause
+requirement; under the wide reading it is required. Nothing in the corpus decides
+between them, because both produce the same answer on this corpus — which is
+exactly why it stayed invisible until three parties were compared.
+
+**One consequence for the record.** bee.hy3's original diagnosis, retracted in
+relay-0193, said the check *"imported the amended I-9 standard into I-5"*. That was
+wrong on the side, and also on the mechanism: `anyGap` is not I-9's standard carried
+across, it is the direct expression of *"a gap cannot be observed in a single
+period"*. The check agreed with the clause's reasoning without ever citing the
+clause. Its retraction accepted that the check *"agreed with the clause's full
+text"*, which is true of the verdict and not of the route — the check never read the
+full text.
+
+Not resolved here. Which reading governs is a catalogue question of the same class
+as I-3's title-versus-falsifier, and that one was ruled by the human at relay-0153
+rather than settled by whoever noticed it.
