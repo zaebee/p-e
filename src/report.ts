@@ -83,6 +83,21 @@ export interface ReportMeta {
  */
 const RUN_NOTES: Record<string, string> = {
   "01": "First run. No prior run to differ from.",
+  "07": `The governance baseline, ruled at relay-0153: **the \`falsifier:\` clause
+is the normative test and the title is a description**, for all nine invariants.
+
+Five of the nine — I-3, I-4, I-7, I-8, I-9 — were two rules written as one, and
+stayed invisible across six runs because both producers in this corpus satisfy
+both readings of every one. It took a producer resembling neither to separate a
+single pair.
+
+**No verdict should change, and that is the point of running this.** The reader
+has always executed the falsifier; the ruling states what it was already doing.
+If this run differs from run 06 on any finding, something here was being decided
+by a title without anyone noticing, and the diff is the evidence.
+
+No corpus change, no apparatus change, no producer added. Debian reproducible
+builds remains outside this corpus and outside these reports.`,
   "06": `Three falsifier corrections, decided at relay-0056. **Two verdicts
 change.**
 

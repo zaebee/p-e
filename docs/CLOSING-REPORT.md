@@ -1,12 +1,11 @@
 # p-e — closing report
 
-2026-08-29. Written after six conformance runs, three readers and one candidate
-third producer.
+2026-08-29. Written after seven conformance runs, three readers, one candidate
+third producer, and one governance ruling.
 
-This is not run 07. It sits outside `docs/reports/`, where every `.md` is pinned
-immutable at the commit that introduced it, because one ruling is still
-outstanding and this document will need amending when it lands. The numbered runs
-are evidence and do not change; this is a summary and will.
+It sits outside `docs/reports/`, where every `.md` is pinned immutable at the
+commit that introduced it. The numbered runs are evidence and do not change; this
+is a summary and does.
 
 ## What was attempted
 
@@ -40,7 +39,7 @@ Run 01 admitted one — I-2, the recorded time is the occurrence. Run 06 withdre
 it, after a defect was found in the check that had granted it. The count has been
 zero ever since, across every subsequent reading.
 
-Run 06, 18 findings over two producers:
+Run 07, the current baseline — 18 findings over two producers, identical to run 06:
 
 | | |
 |---|---|
@@ -100,9 +99,9 @@ It is **not in the corpus** and no run has been emitted. Admitting it is a forma
 change before it is a decision: `corpus/manifest.json` has no shape for an
 artifact fetched over HTTP from a producer with no checkout and no revision.
 
-## The one question still open
+## The question that was open, and the ruling
 
-I-4's title and I-4's falsifier are two different rules:
+I-4's title and I-4's falsifier turned out to be two different rules:
 
 ```
 title:      derived state is never stored
@@ -121,8 +120,37 @@ The outcomes are not symmetric:
   outright: the catalogue moves from *0 admitted, nothing contradicted* to
   *0 admitted, one falsified*, which no later evidence can undo
 
-Same bytes. Ruling for the title is not the conservative option, though it reads
-like one. Both readers applied the falsifier and both declined to rule.
+Same bytes. Ruling for the title was not the conservative option, though it read
+like one — checking the other eight showed that **five of the nine invariants are
+written twice and differ**: I-3, I-4, I-7, I-8 and I-9. One of those gaps was
+already carrying weight in a committed run: run 01's I-7 finding says outright
+that *"the enforcement itself is a test inside the producer and is not observable
+from artifacts — only its result is"*, and returns CONFORMS anyway.
+
+**Ruled 2026-08-29, at relay-0153, once and for all nine:**
+
+```
+verdict semantics:
+  normative test  =  the falsifier: clause
+  title           =  human-readable description only
+```
+
+No frozen text was rewritten, no past evidence reinterpreted, no producer added.
+Run 07 was then emitted as the baseline, and its only job was to change nothing:
+
+```
+diff-runs 06 07   ->  no verdict changed
+ADMITTED: 0 of 9  ->  ADMITTED: 0 of 9
+```
+
+That null result is the evidence rather than the anticlimax. The reader had always
+executed the falsifier; had run 07 differed anywhere, something had been decided by
+a title without anyone noticing, and the diff would have named it.
+
+**The ruling does not admit I-4.** Under the falsifier, hivemark and debian-rb both
+conform on it — two distinct producers — but debian-rb is not in the corpus, no run
+has read it, and admitting it is a manifest format change before it is a decision.
+I-4 stands at the threshold and has not crossed it.
 
 ## What the project actually produced
 
@@ -134,19 +162,19 @@ property of the subject* versus *a property of our access to it*. `cold` and
 `EXCLUDED_WITH_REASON`. `KNOWN_MISSING` and `UNKNOWN`. A green test suite. It is
 not a rule the project imposed; it is what kept being found.
 
-**54 observations**, most of them the apparatus catching itself making that exact
+**55 observations**, most of them the apparatus catching itself making that exact
 substitution — a guard that checked whether a condition was *visible* when the
 condition destroyed the ability to look; a formatter that could not tell source
 from evidence; a staleness check that vouched for another agent's process; a
 digest whose correct value no command produced.
 
-**Three catalogue words that carried two meanings each**, each invisible while
-two producers satisfied both readings at once, each surfacing on the first
-producer that did not: I-3's corpus-membership versus recomputable-from-published;
-the corpus format's unstated assumption that a producer is a git checkout; I-4's
-title versus its falsifier.
+**Rules written twice and differing.** Five of the nine invariants state one rule
+in their title and another in their falsifier — I-3, I-4, I-7, I-8, I-9 — and the
+corpus format carried a further unstated assumption, that a producer is a git
+checkout. Every one stayed invisible while two producers satisfied both readings at
+once, and surfaced on the first producer that resembled neither.
 
-**A working three-agent relay.** 107 append-only records over three transports —
+**A working three-agent relay.** 113 append-only records over three transports —
 MCP tunnel, SSH stdio, local — with one guarded write path, immutable records, and
 three read-only checks: `check-continuity` over the digest chain,
 `check-references` over what nothing points at, `relay-digest` because the obvious
@@ -173,6 +201,6 @@ inside. It needs somebody else's.
 
 ---
 
-*Repository: [github.com/zaebee/p-e](https://github.com/zaebee/p-e). Six immutable
-runs in `docs/reports/`. Evidence and digests in `docs/experiments/`. The record
-of the project catching itself is `docs/notes/observations.md`.*
+*Repository: [github.com/zaebee/p-e](https://github.com/zaebee/p-e). Seven
+immutable runs in `docs/reports/`. Evidence and digests in `docs/experiments/`. The
+record of the project catching itself is `docs/notes/observations.md`.*

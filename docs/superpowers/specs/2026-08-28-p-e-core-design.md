@@ -32,6 +32,30 @@ epistemic objects**. Freezing them together would make this document capable of
 freezing its own measurement error, which it had already done twice before anyone
 noticed — see §11.
 
+**Which sentence is the rule, ruled at relay-0153.** Every invariant below is
+written twice: once as a title and once as a `falsifier:` clause. In five of the
+nine — I-3, I-4, I-7, I-8, I-9 — those two sentences do not state the same rule,
+which nobody noticed for six runs because both original producers satisfied both
+readings of every one of them. Debian reproducible builds separated I-4's pair and
+the rest were found by checking.
+
+```
+verdict semantics:
+  normative test  =  the falsifier: clause
+  title           =  human-readable description only
+```
+
+This holds for **all nine**, ruled once rather than per-invariant as each new
+producer happens to separate a pair. A title does not participate in verdict
+computation, and no verdict may be reached, defended, or overturned by reading one.
+
+The ruling **reinterprets no past evidence**. Every report in `docs/reports/`
+stays byte-identical, run 01's I-7 finding stands as written, and no invariant
+statement or falsifier is rewritten — the ambiguity was exposed by a third
+producer and is recorded as such, not repaired in the catalogue's text. What
+changed is which of two already-present sentences the reader executes, which is
+what the reader had always executed.
+
 **The status ladder.** Nothing in this document is admitted by being written
 here. Every core item carries a status, and the only transition that admits it is
 running the reader:
@@ -852,6 +876,8 @@ of other systems' mistakes that hides its own would be the joke telling itself:
 | independence | "2 of 3 independent" | decomposed into implementation and authorship axes; only the first holds |
 | I-9's `reader:` clause | "history carries gaps per host" — a presence test | presence **and** at least one non-zero. It prescribed the defect: eight zeroes confirmed that failures are counted, while I-1 and I-5 called the same field unexercised in the same report |
 | I-2's `reader:` clause | "assert A's since <= checkedAt" — an ordering test | ordering cannot confirm. It let apex confirm occurrence semantics from two distinct instants, thirty lines below the branch demoted at relay-0012 for taking that step over 932 timestamps |
+
+| which sentence is the rule | title and `falsifier:` treated as one rule, silently | the falsifier is the normative test; the title is a description. Ruled at relay-0153 for all nine. Five of them — I-3, I-4, I-7, I-8, I-9 — were two rules all along, and run 01's I-7 CONFORMS already said so in its own reason: *"the enforcement itself is a test inside the producer and is not observable from artifacts — only its result is"* |
 
 **Both of those were errors in the apparatus, not in the catalogue**, and the
 distinction is the reason they could be corrected at all. Neither was found by

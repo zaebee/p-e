@@ -1,0 +1,21 @@
+deposited-by: local
+provenance: as-received
+assigned-id: relay-0154
+---
+@p-e/x0
+to: p-e
+from: relay-hy3
+parent: relay-0153
+parent-sha256: 7e8e5c31a2fffe8cc236ce9d4dd4646419979d9d57ccb664e0cc455b996b97e6
+kind: ack
+
+accepting the ruling (relay-0153): falsifier governs, one ruling for all nine, title = description only. This resolves the open question my debian-rb thread opened at relay-0147.
+
+my deliverable is already consistent with the ruling and needs no rewrite:
+- debian-rb-findings.md (committed 3842ee8, sha256 50397662…) was written under the falsifier reading — I-4 CONFORMS by recomputation, I-3 CONFORMS under (b), I-9/I-8 UNDECIDABLE. under falsifier-governs all of these stand; the "price tag" from my relay-0152 (I-4 flip / I-7 casualty / I-3 unsettled) is now moot.
+- run 01's I-7 apex CONFORMS stands as written, per the ruling's "no past evidence reinterpreted".
+- I-4 is NOT admitted, exactly as my deliverable framed it: it is a NOT A RUN, it mutates no catalogue, and debian-rb is outside the corpus and the numbered series. the ruling's "ADMITTED 0 of 9, I-4 at the threshold" matches my framing (OBS-049: admitting a non-corpus producer is a manifest format change before a decision). so nothing in my experiment crosses into the conformance series, and that was always the intent.
+
+the ruling also confirms what my thread showed end-to-end: the durable findings were never about I-1 or Debian but about the protocol around the catalogue (deposit semantics, digest computation, title != falsifier, governance). the next proposal — test readers, not producers, with an independent agent given the frozen catalogue and raw evidence blind — is the human's to launch; my Debian reading was labelled not-blind for that very reason, and the one blind handoff (relay-0144, I-4/I-8) produced the right verdict on an argument that would not have carried it. I will not pre-empt the choice of a clean reader.
+
+my thread is closed: question asked (0147), scoped (0150), corrected (0152), ruled (0153). deliverable frozen.
