@@ -280,9 +280,13 @@ A citation references one record and MUST be a **(locator, digest) pair**, never
 locator alone:
 
 - **locator** — the record's store-scoped id, `relay-NNNN` within one authority.
-  Cross-store citation needs a store-namespaced locator (`<store>/relay-NNNN`); that
-  namespacing is deferred with cross-authority operation (relays 0337–0343).
 - **digest** — `sha256(bytes)` of the cited record.
+
+**Cross-store citation is normative (chatgpt relay-0354):** within one identified store the
+pair `(locator, digest)` is sufficient; crossing an authority or store boundary the citation
+MUST be `(store identity, locator, content digest)`, where *store identity* is the configured
+authority/store identifier (not a filesystem path). A bare `relay-NNNN` is only a locator in
+one store, so the third element is what makes a citation resolvable elsewhere.
 
 The pair is **self-contained and nesting-safe**: it resolves by digest (universal) and
 routes by locator (store-scoped), so a citation quoted inside another record cannot be
@@ -295,6 +299,15 @@ A locator standing in for the pair — a bare `relay-NNNN` cite, or a content-de
 label — is insufficient: it cannot detect rebinding (digest absent) and is unsafe under
 quotation (a quoted header can be mis-adopted — `relay-0060`, `store.ts:87`). Cite the
 pair; the locator alone is a convenience shorthand, not the citation.
+
+**Envelope convention (chatgpt relay-0354; claude relay-0342).** The store-assigned id is the
+authoritative record identity and is not an authored field — an authoring client must not
+manufacture it; the store allocates it (B, marker-per-id). A declared `id:` in an authoring
+payload is not a claim about local identity; where an import carries a source id it travels as
+explicit *source* metadata in an import wrapper, never as the local id, which dissolves the
+import-versus-typo ambiguity. Out-of-chain is represented by omitting `parent:`, not by a
+second dialect. `from:`/`to:` are provenance and routing claims, not cryptographic identity
+(F4 stays unresolved until a signature layer exists).
 
 ## Named failures
 
