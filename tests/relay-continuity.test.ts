@@ -128,6 +128,17 @@ describe("the live store", () => {
     // `bun run relay-digest` now exists: the obvious command produced the wrong
     // value and nothing produced the right one. The store is immutable, so this
     // pins what is there; a sixth would be new.
+    //
+    // A sixth was new. relay-0200 is mine and it is NOT that mistake: its
+    // declared value is neither the body digest nor the whole-file digest of
+    // relay-0199. It is byte-identical to relay-0199's own `parent-sha256:`,
+    // which is relay-0198's body. So I copied the header block from the record
+    // above, advanced `parent:` to relay-0199, and left the digest pointing at
+    // its parent. Corrected in relay-0223, never edited in place. This is
+    // OBS-063 with a cost attached: `parent:` is a label and `parent-sha256:`
+    // is bytes, neither derives from the other, so nothing objected when I
+    // moved one and not the other — and `deposit.ts` contains zero occurrences
+    // of `parent`, so only this check was ever going to catch it.
     const findings = checkContinuity(await loadStore());
     const diverging = findings.filter((f) => f.state === "DIVERGES").map((f) => f.id);
     expect(diverging).toEqual([
@@ -136,6 +147,7 @@ describe("the live store", () => {
       "relay-0123",
       "relay-0138",
       "relay-0141",
+      "relay-0200",
     ]);
   });
 });

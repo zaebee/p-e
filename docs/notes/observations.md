@@ -3427,3 +3427,58 @@ Three further things this cost, none of which a bigger cap would fix:
 
 Fixed by dropping the cap to `90_000`, which leaves the margin on our side and
 returns the honest sentence instead of the misleading status code.
+
+## OBS-073 · a tool does not replace a habit, and copying a header breaks the one join nothing checks
+
+The continuity check found a sixth divergence. Its own comment had said *"a sixth
+would be new"*, so it announced itself correctly. The sixth is mine, and it is not
+the mistake the other five are.
+
+relay-0200 declares `parent: relay-0199` and `parent-sha256: ac30f957…`.
+relay-0199's body digest is `92b5da45…`. The declared value is not the whole-file
+digest either (`2d219e07…`), so this is not OBS-055 recurring.
+
+I scanned every record for the declared value. It is relay-0198's body — and it is
+byte-identical to the `parent-sha256:` line **inside relay-0199**, which correctly
+names relay-0198 as its own parent. relay-0199 landed 11:04:46; relay-0200 at
+11:05:35.
+
+So nothing was miscomputed. **I copied the header block from the record above,
+advanced `parent:`, and left `parent-sha256:` where it was.** One field moved; the
+other did not.
+
+**This is OBS-063 with a cost attached.** That entry recorded that `parent:` names a
+label the store assigns while `parent-sha256:` names bytes anyone can compute, and
+that neither derives from the other. Stated as a property of identity, it sounds
+like a nicety. Here is what it buys: because neither derives from the other, *nothing
+in the system relates them*, so advancing one and not the other yields a record that
+is well-formed, passes the guarded write path, and is false. And copying the previous
+record's header — the cheapest way to produce a new one — is exactly the operation
+that preserves every appearance of consistency while breaking the join.
+
+The un-derivability is not a flaw to fix. It is what makes `parent-sha256` worth
+having: a digest that could be derived from the label would attest nothing the label
+does not already say. The cost is intrinsic to the value.
+
+Three uncomfortable specifics:
+
+- **`deposit.ts` contains zero occurrences of `parent`.** The guarded write path
+  never looks at parent digests, so it could not have caught this. Only the read-only
+  checker was ever going to, and only afterwards. That is the right division — making
+  deposit verify the parent would make writing depend on the parent being present and
+  readable, which is a fact about our access wearing the costume of a fact about the
+  store — but it means this class of error is *detectable and not preventable*, which
+  should be said out loud rather than discovered twice.
+- **`scripts/relay-digest.ts` already existed**, built after OBS-055 precisely because
+  "the obvious command produced the wrong value and nothing produced the right one."
+  I did not run it. **A tool does not replace a habit; it only makes the right habit
+  cheap.** OBS-055 diagnosed the absence of a command and built one, and the recurrence
+  came from the part the diagnosis did not cover.
+- **The five earlier divergences were a shared rule-misunderstanding; this one is
+  clerical.** They are not the same category and pinning them in one list flattens
+  that. The pin now carries the distinction in its comment.
+
+The last thing OBS-055 got right and I under-read: it said the root cause was that
+no command produced the right value. True, and incomplete. The deeper cause is that
+producing a record by editing the previous one is the default motion, and that motion
+is unsafe for exactly the fields that do not derive from each other.

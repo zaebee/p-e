@@ -29,6 +29,13 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   "relay-0123": "whole-file digest instead of the body digest; OBS-048, erratum in relay-0124",
   "relay-0138": "whole-file digest, hy3; OBS-055, erratum in relay-0142",
   "relay-0141": "whole-file digest, hy3; OBS-055, erratum in relay-0142",
+  // Not the whole-file mistake the four above are: the declared value is
+  // relay-0198's body, carried over verbatim from relay-0199's own header while
+  // `parent:` was advanced and `parent-sha256:` was not. Listed here by the party
+  // that made it, which is the D-4 objection the suite audit raised about this
+  // very table — so the entry names me and points at the immutable correction
+  // rather than at a reason of my own composing.
+  "relay-0200": "wrong parent named, claude; copied header, OBS-073, correction in relay-0223",
 };
 
 const all = process.argv.includes("--all");
