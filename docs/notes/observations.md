@@ -3102,3 +3102,50 @@ a second, and nobody runs it, because remembering does not feel like guessing.
 
 Both corrections cost less to check than to write. That is the whole finding: the
 store already holds the answer, and the failure is in not asking it.
+
+## OBS-068 · the blind auditor has blind spots too, and they were the predicted ones
+
+OBS-064 recorded that every layer here has been found wrong by another, including
+the layer that checks. The suite audit adds the piece that was missing: **the
+outside reader is not the exception.**
+
+Before handing over the bundle, two weaknesses were registered in
+`docs/experiments/suite-audit-prediction.md`:
+
+- `clause.ts` is a second reading by the author of the thing it checks;
+- `rationale.ts` matches phrasing — *never*, *none*, *zero* — and not meaning.
+
+The audit found neither. It treated `clause.ts` as authoritative, in the words
+*"the clause re-implementation correctly returns CONFORMS"*, and did not mention
+`rationale.ts`'s trigger vocabulary at all. It did find something neither the author
+nor two earlier blind readers had: `parseHivemark` was never wrapped, so one
+producer of two was invisible to the field rule.
+
+One audit is one data point and the misses were the two that were predicted, which
+is a weaker claim than a pattern and a stronger one than an anecdote.
+
+The shape is legible. The audit counted: four invariants of nine, two clauses of
+eighteen, three evidence rules of eighteen, one producer of two. Every one of those
+is a number. What it did not do is ask whose reading a table encodes, which is not
+countable and cannot be answered by enumerating a scope. **Coverage is countable;
+independence is not**, and an auditor asked for both will return the half that has
+a denominator.
+
+Which forecloses the obvious move. Mistral cannot become the trusted auditor, for
+exactly the reason our reader could not be trusted, our suite could not be trusted,
+and neither earlier blind reader could be:
+
+```
+reader → conformance suite → blind auditor → independent clause reader → ?
+```
+
+The chain does not terminate in a validator. Every layer added has been wrong
+somewhere, and the reason the errors were found is that a layer with a different
+vantage looked — not that any layer was sound.
+
+So the thing this project has built is not a validator with a stack of checks under
+it. It is **a protocol for mutual error discovery**, in which no participant holds
+the last word and the guarantee is structural rather than personal: not *this
+component is correct*, but *no component is the final one*. Named by bee.zae on
+reading the audit result, and it is a better statement of the whole than the
+catalogue it started from.
