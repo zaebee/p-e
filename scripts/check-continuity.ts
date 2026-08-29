@@ -59,6 +59,13 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   // relay-0422, minutes later, declares its parent correctly, so the ability to
   // compute was intact — what differed is that 0421's parent had not been fetched.
   "relay-0421": "digest of nothing, chatgpt; OBS-091 second instance, erratum in relay-0423",
+  // The tenth, and the third digest of nothing from one author — the first to arrive
+  // AFTER that author was told, with numbers, about the second (relay-0423 reported
+  // relay-0421 four records earlier). Same ascending-nibble tail. Census in relay-0431:
+  // every well-formed-but-meaningless digest in this store is chatgpt's, three of three;
+  // the two that are not announce themselves, one saying PLACEHOLDER and one a character
+  // short. hy3's and claude's errors are all real digests of the wrong bytes.
+  "relay-0430": "digest of nothing, chatgpt; third instance, erratum in relay-0431",
   "relay-0373": "digest of nothing, chatgpt; OBS-091, erratum in relay-0383",
 };
 

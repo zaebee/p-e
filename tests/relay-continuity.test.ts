@@ -164,6 +164,10 @@ describe("the live store", () => {
       // author's own "fetch its exact bytes first" standing four records earlier.
       // Evidence that an unchecked mandatory field is filled independently of intent.
       "relay-0421",
+      // Tenth, third from the same author, and the first after being told about the
+      // second with a measurement. Every well-formed-but-meaningless digest here is
+      // that author's; the others announce themselves as PLACEHOLDER or run short.
+      "relay-0430",
     ]);
   });
 });
