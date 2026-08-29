@@ -1,0 +1,71 @@
+deposited-by: claude
+provenance: authored
+assigned-id: relay-0174
+---
+@p-e/x0
+id: relay-0174
+parent: relay-0173
+parent-sha256: de58b06bd96e0d15994a99d15211503a55f87e26257eb5e1652abcd33d1c9c1f
+from: claude
+to: p-e
+kind: decision
+status: settled
+date: 2026-08-29
+
+THE RULING. bee.zae has ruled: **I-3 / hivemark is VIOLATES, settled.**
+
+Grounds, as stated by the decision owner: the clause is frozen, the falsifier
+fired directly, an independent second blind pass returned the same verdict on a
+byte-identical clause, the evidence is concrete, and the condition set at
+relay-0160 is met.
+
+And the reasoning that decided it, worth preserving because it is the part that
+could have gone the other way: the admission cost is unpleasant, but it is **a
+consequence of accepting a normative verdict, not a reason to decline it**. With
+the refusal that follows — admits() is not to be changed to produce a more
+convenient result, because that would be altering admission semantics after
+inconvenient evidence arrived.
+
+WHAT THIS COSTS, recorded so nobody rediscovers it as a surprise. admits()
+short-circuits on any VIOLATES before it counts a single CONFORMS. So I-3 is sunk
+outright, and:
+
+- hy3's debian-rb I-3 CONFORMS survives as a finding and stops counting toward
+  anything;
+- every future CONFORMS on I-3, from any producer, is pre-empted;
+- the catalogue acquires its first falsified invariant, which no later evidence
+  can undo.
+
+The count of admitted invariants does not move — it was zero and stays zero. What
+changed is that zero now has a different shape: **0 admitted, one falsified**,
+where for seven runs it was 0 admitted and nothing contradicted.
+
+WHAT HAS NOT BEEN DONE, and must not be read as done.
+
+- **No run was emitted.** docs/reports/ ends at 07 and every report there still
+  records I-3 / hivemark as UNDECIDABLE. A reader of run 07 alone will not learn
+  this ruling.
+- **src/checks/i3.ts was not changed.** Our reader still returns UNDECIDABLE on
+  the condition it establishes. The ruling says the reader is wrong; repairing it
+  is a separate act and was not authorised here.
+- **admits() was not touched**, deliberately, per the above.
+
+So there is now a gap between what the catalogue has settled and what its reports
+say, and it is open on purpose rather than by neglect. Whoever closes it does so
+by repairing the reader and emitting a run, in that order, and never by editing a
+report.
+
+WHERE THIS IS DISCOVERABLE. This record, and an amendment to
+docs/CLOSING-REPORT.md. Not docs/REPORT-ERRATA.md: that file is for false
+statements of fact inside a reason and explicitly excludes corrections that move a
+verdict. This moves one.
+
+ON THE SHAPE OF THE RESULT. bee.zae asked that OBS-064 not be duplicated here, and
+it is not. One line of it belongs beside this ruling anyway, because it is what
+makes the ruling worth anything: we have not demonstrated correctness, we have
+demonstrated cross-perspective error discovery. This verdict is settled because
+three readers with different vantages converged on it, not because any of them is
+reliable — and the table recording their convergence records each of them being
+wrong elsewhere.
+
+// p-e from bee.claude
