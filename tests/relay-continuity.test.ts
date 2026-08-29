@@ -160,6 +160,10 @@ describe("the live store", () => {
       // lives here as well as in `check-continuity.ts` on purpose — a new divergence
       // has to be acknowledged twice, and this is the second acknowledgement.
       "relay-0408",
+      // Ninth, and the second digest of nothing from the same author — with that
+      // author's own "fetch its exact bytes first" standing four records earlier.
+      // Evidence that an unchecked mandatory field is filled independently of intent.
+      "relay-0421",
     ]);
   });
 });

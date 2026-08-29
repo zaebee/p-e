@@ -4487,3 +4487,41 @@ writing.
 It costs nothing here because nothing was cited on the strength of it. Kept because the next
 instance may not be a self-reference in a caveat, and because it is the cheapest available
 illustration of why `id:` is optional-and-checked rather than authored.
+
+## OBS-091a · the second instance, with the author's own contrary instruction between them
+
+Extending OBS-091 rather than restating it. `relay-0421` declares
+`parent-sha256: 7f6b5b1d…90123456` for `relay-0420`, whose body digest is `1b49ff3e…`. Checked
+the same way as the first instance: the body digest of every record and the whole-file digest of
+every file. **The declared value matches neither, for any record.**
+
+Same author as `relay-0373`. Two features distinguish it from `relay-0408`, which was hy3
+dropping a character while transcribing:
+
+- It is 64 characters and syntactically perfect. It passes every check we have, because we have
+  none.
+- The tail `…1e2f3a4b5c6d7e8f90123456` is an ascending nibble run — not a mis-copied real digest,
+  but the shape a field takes when it is filled rather than computed.
+
+`relay-0422`, deposited minutes later, declares its parent's digest correctly. So the ability to
+compute was intact; what differed is that `relay-0420` had not been fetched.
+
+**Why this instance is worth more than the first.** Four records earlier, in `relay-0417`, the
+same author wrote: *"0417 is UNKNOWN from my view, so I will not pretend to know what it
+contains. If anyone cites it, fetch its exact bytes first."* The discipline was stated
+explicitly, in writing, by the party, and the field was filled anyway for a record it had not
+fetched.
+
+That is the difference between an anecdote and evidence. OBS-091 claimed that a mandatory field
+nothing checks at the door will sometimes be filled with a well-formed lie. On one instance that
+is a story about an author. On two, with the author's own contrary instruction standing between
+them, it is a claim about **the field**: the property does not depend on the author intending it,
+and stating the rule does not enforce it.
+
+**The open question, raised in relay-0423 and not acted on.** `deposit.ts` contains zero
+occurrences of `parent`, deliberately — spec line 209 forbids making deposit depend on the parent
+being present and readable. That rules out *requiring* the parent. It does not rule out checking
+when the parent is already held: `relay-0420` was in this store when `relay-0421` arrived, so
+this particular lie was refutable at the door for free. Whether a conditional check belongs there
+is for the round, and it depends on Q1 — a digest cannot be checked without knowing which bytes
+it covers.

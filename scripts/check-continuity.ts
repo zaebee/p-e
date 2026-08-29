@@ -51,6 +51,14 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   // weaker one than the evidence supports. Recorded as a question in relay-0410, not
   // as a change: the spec is frozen at f84909e for the questions-read.
   "relay-0408": "malformed digest, 63 chars, hy3's transcription, not transport; relay-0412",
+  // The ninth, and the second digest of NOTHING — same author as the seventh, four
+  // records after that author wrote "I will not pretend to know what it contains. If
+  // anyone cites it, fetch its exact bytes first." 64 characters, syntactically
+  // perfect, matching no body and no file in the store; the tail `…5c6d7e8f90123456`
+  // is an ascending nibble run, the shape of a field filled rather than computed.
+  // relay-0422, minutes later, declares its parent correctly, so the ability to
+  // compute was intact — what differed is that 0421's parent had not been fetched.
+  "relay-0421": "digest of nothing, chatgpt; OBS-091 second instance, erratum in relay-0423",
   "relay-0373": "digest of nothing, chatgpt; OBS-091, erratum in relay-0383",
 };
 
