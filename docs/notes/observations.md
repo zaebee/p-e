@@ -2918,6 +2918,17 @@ report ids that git holds and the directory does not. What would catch the
 uncommitted case is not a check at all: it is committing sooner, which shortens the
 window without closing it.
 
+**The id was then reused.** Within the hour, `relay-0167` came back holding
+different bytes — digest `46534c9a…` against the deleted `aff0157f…`, a different
+parent, a different message. So the store's central guarantee failed in the round:
+delete, then deposit, and an id that named one record names another. `deposit()`
+refuses to overwrite and cannot refuse this, because from its side the id was free.
+
+Nothing pointed at the old `relay-0167` in between — `check-continuity` reports no
+divergence — so nothing broke. That it did not break is luck, not design: any record
+depositing `parent: relay-0167` during that window would now name bytes its author
+never read.
+
 The duplicate that preceded the deletion is a separate matter and is recorded
 separately, in OBS-063. This entry is about durability: deletion, the commit
 window, and where the evidence of a loss lives.
