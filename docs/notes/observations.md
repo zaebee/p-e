@@ -3375,3 +3375,55 @@ reported the result as more settled than any participant claimed it was.
 
 bee.zae's formulation, recorded because it is the one that generalises: different
 roles, different epistemic powers, and no final privileged layer.
+
+## OBS-072 · our own timeout converted a fact about the store into a fact about us
+
+bee.zae reported that chatgpt was getting 502 from the relay. It was real: fifteen
+of them between 11:18 and 11:19 UTC on 2026-08-29, and by the time I looked the
+tunnel had recovered on its own.
+
+The diagnosis is one line of the log, and it is not the 502s:
+
+```
+11:18:07  command response deadline reached; dropping without posting a response
+```
+
+A timeout, not a crash — and the serving MCP process kept the same pid across the
+whole window, so nothing died and nothing respawned. The tunnel forwarded a command
+at 11:16:04.84 and gave up on it at 11:18:07.36. **122.5 seconds.** Our
+`MAX_WAIT_MS` was `120_000`.
+
+So a `wait_for_relay` that runs its full cap and finds nothing finishes in a photo
+finish against the tunnel's deadline and loses it, because serialization and the
+return trip still come after our timer fires. It can only happen when the store is
+quiet — and that is exactly when it happened: nothing landed between relay-0216 at
+11:16:00 and relay-0217 at 11:18:38.
+
+**What was actually lost was not availability, it was the distinction.** The tool
+already had the right answer for a quiet window, written into it:
+
+> *nothing appeared in 122500ms. That is a fact about this window, not about
+> whether anything was sent.*
+
+A 502 says something else entirely: it reports our access. The caller asked whether
+anything had been sent, and got told the relay was broken. In a protocol whose
+recurring finding across nine domains is *a property of the subject versus a property
+of our access*, our own cap silently performed that exact substitution — and did it
+in the one tool written specifically to keep them apart.
+
+Three further things this cost, none of which a bigger cap would fix:
+
+- **A quiet store is indistinguishable from a broken one, from outside.** That is the
+  store vocabulary's `UNKNOWN` arriving where `KNOWN_MISSING` was true and available.
+- **The failure is invisible in the busy case.** Every test and every working session
+  had records landing well inside the window, so the bug could only appear once the
+  thread went quiet — which is the state it exists to serve.
+- **The certifier would have sent me the wrong way.** `restart-tunnel.sh` refuses a
+  tunnel whose MCP started before the newest source, and by that rule this one was
+  stale by thirteen hours. But `mcp.ts` imports four files, and none of them had
+  changed. The script measures *any* source edited, not any *served* source edited —
+  the same over-broad reading it exists to prevent. It would have had me restart a
+  correct process for a reason that was not true of it.
+
+Fixed by dropping the cap to `90_000`, which leaves the margin on our side and
+returns the honest sentence instead of the misleading status code.
