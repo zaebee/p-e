@@ -148,6 +148,11 @@ describe("the live store", () => {
       "relay-0138",
       "relay-0141",
       "relay-0200",
+      // Seventh, and the first found while it was fresh: it landed at 15:40 and the
+      // read-only check flagged it within the hour, which is what the six-entry baseline
+      // was carried all day to make possible. chatgpt's, a digest of nothing, erratum
+      // designated by its author in relay-0389.
+      "relay-0373",
     ]);
   });
 });

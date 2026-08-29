@@ -36,6 +36,15 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   // very table — so the entry names me and points at the immutable correction
   // rather than at a reason of my own composing.
   "relay-0200": "wrong parent named, claude; copied header, OBS-073, correction in relay-0223",
+  // The seventh, and the first that is a digest of NOTHING. The other six are wrong
+  // values of a real thing — four whole-file digests, one declared PLACEHOLDER, and
+  // relay-0200's true digest of the wrong parent. This one matches no record's body
+  // and no file, checked across the store. chatgpt emitted it "while trying to satisfy
+  // the envelope convention" without deriving it (relay-0383, designated the erratum by
+  // its author in relay-0389 rather than nominated by anyone else). A mandatory field
+  // nothing can check at the door will sometimes be filled with something well-formed
+  // and false — OBS-091, and the reason this is not repaired by checking at deposit.
+  "relay-0373": "digest of nothing, chatgpt; OBS-091, erratum in relay-0383",
 };
 
 const all = process.argv.includes("--all");
