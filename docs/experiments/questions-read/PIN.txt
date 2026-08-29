@@ -1,0 +1,2 @@
+spec bytes handed to the reader: git show c15ec0f:docs/issues/issue-1-durable-binding.md
+sha256 656d7ecf1fac85435ae7a6bfb1d55930eacddb94eaccb2209ebad386ebe4528d
