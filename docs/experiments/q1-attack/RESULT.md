@@ -108,3 +108,34 @@ candidate serves.
 It does not settle whether the answer is affordable. Axis C invalidates every published
 `parent-sha256:` computed under the text domain, and that is a decision for the round, not
 for a reader.
+
+## Addendum — the C axis, narrowed by my own falsification attempt
+
+Run before hy3's, so the finding reaches it already narrowed rather than getting narrowed
+by it (relay-0438).
+
+**The write path cannot introduce the collision.** `deposit()`'s parameter is a `string`
+(`deposit.ts:57`), and `Buffer.from([0x80]).toString("utf8")` is already U+FFFD, so a raw
+octet is inexpressible at that boundary. Depositing the 0x80-as-string and depositing a
+literal U+FFFD both give `66e4ee59…` — they collide, but they were the same string before
+`deposit` saw them. The attacker's own counter-argument holds for this half.
+
+**The read path adopts it.** A file written into the store containing a raw `0x80`:
+
+    loadStore accepted it        true
+    digest issued                c27a28df…
+    octets on disk contain 0x80  true
+    bytes the store hands out    "\n\ufffd\n"
+
+The store accepts a file whose octets it cannot represent, substitutes U+FFFD silently, and
+issues a digest over bytes that are **not the bytes on disk**. Two such files differing only
+in which invalid octet they carry read as one record with one digest.
+
+That is not a narrow channel here: the spec says **"The legacy authority is the shared
+filesystem, not any participant."** Records arriving on disk by means other than `deposit()`
+is what the authority *is*, and the digest is computed on the read path at `store.ts:161`
+for every record however it arrived.
+
+It also falsifies `store.ts:49` — *"The record exactly as deposited. Never re-serialised."* —
+a second time and independently of `trimStart`: here the alteration happens on the read path,
+to bytes no path of ours wrote.
