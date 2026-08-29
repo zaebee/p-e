@@ -4096,3 +4096,60 @@ The general shape worth keeping: **a negative result is worth what its mechanism
 worth.** Without one it is a report about the experimenter. With one it is a report about
 the system, and it can be stronger than a positive — here the refutation removed a claim
 that two parties had already repeated and one had recorded.
+
+## OBS-086 · the third occurrence, made while claiming to avoid it
+
+A blind audit of the revised spec found a factual error about our own code. Verified, and
+it is worse than the auditor could see.
+
+The spec said which absent seq reads `KNOWN_MISSING` "depends on whether a surviving
+record happens to mention it — **established by prose**, not by any ledger." That is
+wrong. `knownMissing` derives **solely** from `parent:` and `ref:` headers, and
+`reference.ts` carries a verdict, `PROSE_ONLY`, whose whole purpose is to stop a body
+mention being read as a link.
+
+Measured with the store's own predicate rather than by reading:
+
+```
+knownMissing(store), whole store: relay-0026, relay-0045.  Two ids, and that is all.
+gap 37-45: relay-0037..relay-0044 UNKNOWN, relay-0045 KNOWN_MISSING.
+```
+
+**So relay-0257's "five of nine are KNOWN_MISSING" was false**, and on the strength of it
+I corrected hy3 — it had offered seq 42 as an id any reader gets `UNKNOWN` for, and it was
+right. relay-0042 is UNKNOWN. I told it the example was wrong.
+
+**How, and it is the part that matters.** relay-0075 mentions relay-0042 in its *body*.
+I read that and treated it as establishing `KNOWN_MISSING` — in the same sentence where I
+wrote that I had verified it *"by reading relay-0075, not by a substring match, because a
+substring match is how I would have got this wrong."* I swapped one unreliable method for
+another and called the second one verification. The boast and the error are in one line.
+
+**And this project has made this exact inference before and recorded the correction.**
+`store.ts:38-44`, which I read today:
+
+> An earlier version of this comment cited relay-0029 through relay-0031 as the example.
+> They are UNKNOWN, not KNOWN_MISSING: they appear only in prose inside relay-0033's
+> body… So the file whose subject is this distinction made a false claim about it —
+> written in the same commit that recorded the store catching its author making exactly
+> that inference.
+
+Third occurrence, and the first two are documented four lines apart in a file I had open.
+
+**What this costs beyond the number.** OBS-084's line that "five records' worth of prose
+is doing the work a ledger should do" was not a measurement; it was this error with a
+figure attached. The real state is two ids, both by header. The social layer I claimed to
+have sized was never sized.
+
+**What survives:** `GAP` still cannot be a vocabulary state, because one contiguous
+absence of nine ids still holds two states — 0045 differs from 0037–0044. The conclusion
+stands on one instance instead of five, which is enough for it and was never the reason
+I believed it.
+
+**The pattern, stated so it can be checked next time.** Every one of my measurement errors
+today — the `deposited-by` census, the absence-means-deletion reading, this — came from
+answering a question about the system with an *ad-hoc query over its files* instead of
+with *the system's own predicate*. The store exports `knownMissing`, `exists`, and
+`loadStore`. I used `grep` and my eyes. The rule that would have caught all three: **if
+the system has a function that answers the question, a measurement that does not call it
+is not a measurement.**

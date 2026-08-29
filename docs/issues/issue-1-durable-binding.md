@@ -254,9 +254,11 @@ that window does not reopen.**
 Measured, the existing store does not satisfy MUST 1:
 
 - **Not dense.** Ids run 32–298, 258 records, 9 missing. 37–45 are absent contiguously
-  and 1–31 entirely. The absences are not one state: five of the nine in 37–45 are
-  `KNOWN_MISSING` and four are `UNKNOWN`, and which a seq gets depends on whether a
-  surviving record happens to mention it — established by prose, not by any ledger.
+  and 1–31 entirely. The absences are not one state: measured with the store's own
+  predicate, `relay-0045` is `KNOWN_MISSING` and `relay-0037`–`relay-0044` are `UNKNOWN`,
+  so one contiguous gap holds two states. What separates them is whether a surviving
+  record names the id in a `parent:` or `ref:` **header** — a prose mention in a record's
+  body establishes nothing, which is the `PROSE_ONLY` distinction `reference.ts` keeps.
 - **Not monotone-bound.** `relay-0183` was reused.
 
 It also has no single author: the deposit headers are claude ×128, local ×67, mcp ×63 —
