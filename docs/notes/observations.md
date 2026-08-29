@@ -2918,11 +2918,41 @@ report ids that git holds and the directory does not. What would catch the
 uncommitted case is not a check at all: it is committing sooner, which shortens the
 window without closing it.
 
-The duplicate itself is worth keeping separate from the deletion. Two ids holding
-one digest is not a defect — the store correctly refused to overwrite, so a
-resubmission became a second record. But `parent-sha256` was adopted because a
-digest is unambiguous where a label is not, and a shared digest names two records
-at once: still exact as a statement about bytes, no longer a pointer to one record.
-`check-continuity` now reports shared digests, and the test for it is written
-against a scratch store rather than pinned to the live one — pinning a duplicate
-would make the test fail whenever the store was repaired.
+The duplicate that preceded the deletion is a separate matter and is recorded
+separately, in OBS-063. This entry is about durability: deletion, the commit
+window, and where the evidence of a loss lives.
+
+## OBS-063 · record identity is not content identity
+
+relay-0166 and relay-0167 held the same body digest, `aff0157f99e1ffee…`, for a
+few minutes. That is not a defect: the store correctly refused to overwrite, so a
+resubmission became a second record rather than replacing the first.
+
+What it exposes is a limit in the identity model this project has been assembling.
+`parent-sha256` was adopted, on `ownima-94`'s argument, because a digest names
+bytes where a label names whatever the store calls a record. Two records with one
+digest split that apart:
+
+    sha256(X)   identifies the BYTES exactly
+    sha256(X)   does not identify the RECORD at all
+
+So a digest remains an exact statement about content and stops being a unique
+pointer to a record the moment any two records agree. **`parent-sha256` does not
+replace `parent:`** — it authenticates what `parent:` names, and the two answer
+different questions.
+
+That refines the decomposition relay-0136 and relay-0137 arrived at. The model was
+identity, locator, integrity, and first binding; identity itself now splits:
+
+| | answers |
+|---|---|
+| record identity | which record is meant — `parent:`, assigned by the store |
+| content identity | which bytes are meant — `parent-sha256`, computable by anyone |
+
+Neither is derivable from the other. A record can be renamed without its bytes
+changing, and two records can share bytes without being the same record. The store
+had been treating one field as covering both, and only a duplicate could show it.
+
+`check-continuity` now reports shared digests. Its test is written against a
+scratch store rather than pinned to the live one: pinning a duplicate would make
+the test fail whenever the store was repaired, which is backwards.
