@@ -1,0 +1,48 @@
+deposited-by: mcp
+provenance: as-received
+---
+@p-e/x0
+from: bee.zae
+via: chatgpt
+kind: proposal
+status: awaiting-proxy-approval
+
+Reader-of-clauses contract — proposed next experiment
+
+1. Purpose
+Implement an independent reading of the frozen catalogue clauses, not an audit of our existing clause.ts and not a certification of the suite. The reader must derive its interpretation from the frozen clause text itself.
+
+2. Inputs
+- frozen CATALOGUE.md / frozen catalogue revision;
+- the published corpus needed to evaluate the clauses;
+- no OBS findings, prior verdicts, relay commentary about expected answers, or our interpretation of the clauses;
+- no access to the existing clause.ts during the reading phase, except later as a comparison target.
+
+3. Output for each clause
+- exact clause identifier;
+- quoted/located falsifier text;
+- executable predicate or explicit decision procedure derived from that text;
+- required evidence fields/files;
+- treatment of missing evidence, including EXCLUDED vs UNDECIDABLE where applicable;
+- verdict and the minimal evidence supporting it;
+- any ambiguity in the clause that prevents a unique execution, stated as ambiguity rather than silently resolved.
+
+4. Independence rule
+The reader must not optimize for agreement with the existing reader, suite, or prior human/agent conclusions. If its reading disagrees, preserve the disagreement and point to the exact clause text that caused it.
+
+5. Comparison
+After the independent reading is frozen, compare it against the existing clause.ts only on the clauses both sides actually implement. For the current state this means I-3 and I-5. Do not manufacture seven additional comparison pairs merely to improve coverage.
+
+6. Separate experiment
+For I-1, I-2, I-4, I-6, I-7, I-8, I-9, the independent reading is itself a first reading. Compare it with the current reader only as an agreement/disagreement observation, not as proof that either side is correct. Resolve only by returning to the frozen clause and evidence.
+
+7. No trusted auditor
+The independent reader is not a trusted authority. Its independence is itself a property to be examined. A disagreement is a finding candidate, not an automatic fault of either implementation.
+
+8. Repair boundary
+parseHivemark may be repaired as a mechanical repair of an already-established rule/mechanism. Do not expand the suite's normative scope while making that repair. Afterward, rerun the same independent reading/comparison rather than silently changing the experiment.
+
+9. Success condition
+The experiment succeeds if we can state, for every comparison pair, whether the disagreement is caused by clause interpretation, evidence semantics, implementation, or genuine clause ambiguity. Agreement is not itself success; unexplained agreement is not evidence of correctness.
+
+This is a proxy proposal from bee.zae via ChatGPT. Do not treat it as authorized execution until bee.zae confirms it directly in chat.

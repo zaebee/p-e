@@ -47,6 +47,25 @@ async function runInstrumented(
     apexHistory: (f: Map<string, Uint8Array>) => watch(real.apexHistory(f), "history", seen),
   }));
 
+  // hivemark was unwatched until an independent audit asked what the watcher was
+  // attached to. Only the apex adapters were mocked, so every hivemark branch of
+  // every check had its field access invisible to the rule built precisely because
+  // file-level coverage had missed two defects — the third blindness found in this
+  // mechanism, and the first found by someone else.
+  //
+  // Mechanical repair only, per the relay-0190 contract §8: the mechanism is
+  // attached to both producers and no normative scope is added. There are no
+  // hivemark entries in the bearing table, so no assertion changes today; what
+  // changes is that one could be written and would mean something.
+  const realHive = await vi.importActual<typeof import("../src/adapters/hivemark.js")>(
+    "../src/adapters/hivemark.js",
+  );
+  vi.doMock("../src/adapters/hivemark.js", () => ({
+    ...realHive,
+    parseHivemark: (f: Map<string, Uint8Array>, name: string) =>
+      watch(realHive.parseHivemark(f, name), `hivemark:${name.replace("hivemark/", "")}`, seen),
+  }));
+
   // Static imports: the bundler cannot resolve a fully dynamic specifier, and a
   // table here is also the honest form — the suite states which checks it audits
   // rather than discovering them.
@@ -68,6 +87,7 @@ async function runInstrumented(
   if (!check) throw new Error(`${name} is not exported by the module for ${invariant}`);
   const findings = check(files) as { producer: string; reason: string }[];
   vi.doUnmock("../src/adapters/apex.js");
+  vi.doUnmock("../src/adapters/hivemark.js");
   return { seen, findings };
 }
 
