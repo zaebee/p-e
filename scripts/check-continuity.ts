@@ -15,7 +15,7 @@ import { loadStore } from "../src/relay/store.js";
 /**
  * Divergences that exist and can never be repaired.
  *
- * Records are immutable, so these three stay wrong forever and a check that
+ * Records are immutable, so these stay wrong forever and a check that
  * failed on them would be red forever — and a permanently red check is one
  * nobody reads, in which a fourth divergence would arrive invisibly. So the
  * signal is "a divergence nobody has accounted for", not "a divergence".
@@ -106,7 +106,7 @@ if (unaccounted.length > 0) {
 }
 
 // Say this out loud rather than exiting silently. Green here means "no
-// divergence beyond the three we cannot repair", which is a weaker statement
+// divergence beyond those we cannot repair", which is a weaker statement
 // than "the store's continuity claims all hold", and the difference is the sort
 // of thing a summary line quietly loses.
 console.log(
