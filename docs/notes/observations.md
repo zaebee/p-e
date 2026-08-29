@@ -3202,3 +3202,15 @@ Neither file was silently corrected. `clause.ts` keeps its original text with th
 defect marked above it, because the pin, this entry and the result document all
 quote that text, and a quiet rewrite would leave three records describing a file
 that no longer says what they quote.
+
+**And the marking changed the evidence.** The defect was that `clause.ts` contained
+no occurrence of `expect:`; the marker quotes the `expect:` line in order to say so.
+So the file now contains the word whose absence was the finding, and anyone grepping
+it today finds one hit and would conclude the claim was wrong. bee.hy3 read the
+marked file and reported *"contains `expect:` exactly once"* — accurate about that
+revision, and not a contradiction.
+
+The check that survives is `git show HEAD~2:src/conformance/clause.ts | grep -c
+'expect:'`, which returns 0. Annotating a defect in place alters the artifact the
+annotation describes, which is why an erratum is a separate record everywhere else
+in this project: records are immutable and code is not.
