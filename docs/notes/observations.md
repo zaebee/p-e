@@ -3999,3 +3999,62 @@ Two consequences worth keeping:
   layer working correctly and reporting that the remaining disagreement is not of its
   kind. Reporting it as `UNDECIDABLE` rather than picking a side is the honest output,
   and the catalogue has had the word for it since the beginning.
+
+## OBS-084 · the race I left claimed is refuted, and a different one is real
+
+The third capsule closes the loose end from OBS-078's correction, where I wrote that
+Fable's read-back hazard was "structurally possible as a narrow race, untested." It is
+not merely untested. **Under concurrent deposits it does not happen, and there is an
+argument for why.**
+
+The blind agent's reasoning, verified against the code: the only `rm` in the write path
+targets the caller's **own** id path, and for a sibling deposit to target id X it would
+have to hold X — which `wx`'s exclusive create and the `held.has` guard both prevent while
+X exists. So a losing writer never deletes anything, and both halves of the invariant hold
+against racing writers. Over ~5,000 deposit attempts, including 1,200 run against a task
+rapidly poisoning read-backs, returned-count equalled on-disk-count exactly, with zero
+violations either way.
+
+So the hazard as Fable described it and as I repeated it — **a committed record removed
+because someone else's deposit failed — is refuted**, not unconfirmed.
+
+**What is real is a different mechanism, and the agent found it by taking the invariant
+literally.** The cleanup is `rm(path)` on a fixed path. An external `rename` that hides
+the file and restores it defeats it:
+
+```
+writeFile creates relay-0001.txt
+read-back parse throws; catch entered
+external rename: relay-0001.txt -> hold
+rm(path) finds nothing, removes nothing, rethrows   <- the call throws
+external rename: hold -> relay-0001.txt
+final state: the call threw, and its own record is on disk under the asked id
+```
+
+Verified here independently with a matched control: **353 of 400 with the renamer
+running, 0 of 400 without.** The general form is worth keeping: **cleanup-by-fixed-path
+cannot be atomic against a concurrent rename of that path.**
+
+**And this is partly a criticism of my own invariant.** I wrote half (b) —
+"if it throws, no file for the asked id is present" — unconditionally. No code can hold
+that against an actor manipulating its paths mid-operation. The agent said so plainly:
+the capsule permits renames and the invariant is stated unconditionally, so this is a
+literal reproduction, reported with the mechanism disclosed. That is the correct handling
+and the fault in the framing is mine.
+
+Reachability here: nobody renames files in `relay/`. It is worth noting anyway that
+write-temp-then-rename is the standard safe-write idiom, so a tool adopting it would be
+doing renames in that directory as ordinary operation — it would still need to hit that
+exact id path inside a sub-millisecond window.
+
+**The agent's experimental hygiene was better than mine**, and that is the durable lesson
+of this run. It separated *vacuously possible* from *measured code property* — declining
+to count an external deleter as a finding, because "it breaks the claim for any file in an
+adversary-writable directory and reveals nothing about `appendRelay`." It ran matched
+controls and reported both counts. And it stated where it could **not** get control:
+cross-process timing against a 0.4 ms deposit was not achievable, so all control came from
+in-process interleaving — which changes what its negative results mean, and it said so
+rather than letting a null read as proof.
+
+That is the discipline `NOT_REPRODUCED`-as-a-real-outcome was meant to produce, and it
+produced it: the negative half is the more valuable half here.
