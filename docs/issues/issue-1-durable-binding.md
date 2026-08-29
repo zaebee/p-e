@@ -188,6 +188,17 @@ never held afterwards.
      id is bound and the content unreachable. That state is `KNOWN_MISSING` — the
      digest and the binding are known — not `UNKNOWN` and not an error.
 7. The absence of a witness is reported **as absence**, never as "no evidence found".
+8. **Every write that establishes a binding MUST be crash-atomic AND create-or-fail.**
+   Crash-atomic: a crash leaves either no record at that id or a complete one, and the
+   bytes are durable before the name that points at them appears — which requires
+   flushing the record and the directory entry that names it, not only the record.
+   Create-or-fail: a write to an id already held FAILS rather than replacing what is
+   there. Both properties are named because they are separable and a mechanism can
+   satisfy one while destroying the other: `rename` is atomic and replaces silently,
+   so an implementer reading "atomic" alone reaches for the call that reopens the
+   `relay-0183` rebinding path while closing the durability hole (measured, relay-0407;
+   resolution hy3, relay-0409). This is the MUST that G2a — *the binding survives a
+   crash* — was promised by the title of this document and left without (audit-03 F1).
 
 ## MAY
 

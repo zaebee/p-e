@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -174,10 +174,57 @@ describe("header-like lines quoted in a body", () => {
   it("does not fabricate `authored` from a quoted from:", async () => {
     const root = scratch();
     // No `from:` in the header at all; the only one is quoted in the body.
-    const r = await depositLocal(quoting("from: claude", "to: b\nkind: note\ndate: 2026-08-29"), "claude", undefined, root);
+    const r = await depositLocal(
+      quoting("from: claude", "to: b\nkind: note\ndate: 2026-08-29"),
+      "claude",
+      undefined,
+      root,
+    );
     const held = await loadStore(root);
     const stored = held.get(r.id);
     expect(stored?.provenance).toBe("as-received");
     expect(stored?.from).toBeNull();
+  });
+});
+
+// F1, audit-03: the title promises G2a — the binding survives a crash — and no MUST
+// backed it. hy3 proposed temp + fsync + rename in relay-0406; measured in relay-0407,
+// `rename` succeeds over an existing target and destroys it, while `wx` is
+// create-or-fail, so that fix would have repaired the crash and removed the
+// exclusivity MUST 1 runs on. The agreed resolution (hy3, relay-0409) is `link`,
+// which is atomic and fails EEXIST.
+//
+// A power-loss crash is not reproducible in this suite and these tests do not claim
+// to reproduce one. They pin the properties the durable path must not lose.
+describe("the durable write path", () => {
+  it("still refuses an id that is already held", async () => {
+    const root = scratch();
+    await expect(depositLocal(body("relay-0001"), "alice", "relay-0001", root)).rejects.toThrow();
+    const held = await readFile(join(root, "relay-0001.txt"), "utf8");
+    expect(held).toContain("first");
+  });
+
+  it("leaves no temporary file behind on success", async () => {
+    const root = scratch();
+    await depositLocal(body("relay-0002"), "alice", undefined, root);
+    expect(readdirSync(root).filter((f) => !/^relay-\d+\.txt$/.test(f))).toEqual([]);
+  });
+
+  it("leaves no temporary file behind when the id is taken", async () => {
+    const root = scratch();
+    await depositLocal(body("relay-0001"), "alice", "relay-0001", root).catch(() => {});
+    expect(readdirSync(root).filter((f) => !/^relay-\d+\.txt$/.test(f))).toEqual([]);
+  });
+
+  it("stores the same bytes the non-durable path stored", async () => {
+    const root = scratch();
+    const r = await depositLocal(body("relay-0002"), "alice", undefined, root);
+    const raw = await readFile(join(root, "relay-0002.txt"), "utf8");
+    expect(
+      raw.startsWith(
+        "deposited-by: alice\nprovenance: as-received\nassigned-id: relay-0002\n---\n",
+      ),
+    ).toBe(true);
+    expect(r.sha256).toBe(sha256(Buffer.from(raw.slice(raw.indexOf("\n---\n") + 5), "utf8")));
   });
 });

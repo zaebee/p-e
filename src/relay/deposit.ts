@@ -1,4 +1,4 @@
-import { rm, writeFile } from "node:fs/promises";
+import { link, open, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { STORE_ROOT, headerBlock, loadStore } from "./store.js";
 
@@ -106,7 +106,7 @@ async function deposit(
   // lives instead of trusting a filename.
   const record = `deposited-by: ${depositedBy}\nprovenance: ${provenance}\nassigned-id: ${id}\n---\n${bytes.trimStart()}`;
   const path = join(root, `${id}.txt`);
-  await writeFile(path, record.endsWith("\n") ? record : `${record}\n`, { flag: "wx" });
+  await commit(root, path, record.endsWith("\n") ? record : `${record}\n`);
 
   // Read it back through the store's own parser. A deposit that cannot be read
   // is not a deposit, and finding that out now is cheaper than finding it out
@@ -136,6 +136,62 @@ async function deposit(
     sha256: stored.sha256,
     path,
   };
+}
+
+/**
+ * Put `text` at `path` so that a crash leaves either no file there or a complete
+ * one, and a path that is already held is refused rather than replaced.
+ *
+ * F1, audit-03: the document's title promised G2a — the binding survives a crash —
+ * and no MUST backed it. A single `writeFile` can be interrupted with a partial
+ * record on disk, and returns before the bytes reach the platter either way.
+ *
+ * hy3 proposed temp + fsync + `rename` (relay-0406). Measured in relay-0407:
+ * `rename` over an existing target SUCCEEDS and destroys it, while `wx` is
+ * `O_CREAT|O_EXCL` — fail-if-exists. They are opposite guarantees, and MUST 1's
+ * mechanism is that a bound id cannot be overwritten, which capsule 03 measured
+ * when sixteen concurrent writers produced one file and fifteen EEXIST. So that
+ * fix would have closed the durability hole and opened a rebinding path.
+ *
+ * `link` is the one call that gives both: atomic, and EEXIST on a held name. The
+ * agreed resolution is hy3's, revised, in relay-0409.
+ *
+ * Two caveats travel with this and are not claims the code can make good on:
+ * the directory entry needs its own fsync or a crash can leave durable bytes with
+ * no name — done below; and `link`'s atomicity, like `O_EXCL`'s, is a property of
+ * the filesystem rather than of the call. Audit-03's F9 is still open on that and
+ * this comment does not close it.
+ */
+async function commit(root: string, path: string, text: string): Promise<void> {
+  const temp = join(
+    root,
+    `.deposit-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
+  const handle = await open(temp, "wx");
+  try {
+    await handle.writeFile(text);
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+
+  try {
+    // Atomic, and refuses a held name. The record is already durable when its
+    // name appears, which is the ordering F1 asks for.
+    await link(temp, path);
+  } finally {
+    await rm(temp, { force: true });
+  }
+
+  // The bytes being durable does not make the name durable. Without this a crash
+  // can leave a complete record that no directory entry points at — the binding
+  // lost while the content survives, which is the failure G2a names.
+  const dir = await open(root, "r");
+  try {
+    await dir.sync();
+  } finally {
+    await dir.close();
+  }
 }
 
 /** The MCP path. Always `mcp` / `as-received` — see the doc comment above. */
