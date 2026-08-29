@@ -3532,3 +3532,47 @@ identical — from numbers only one of us can reproduce. Had the disagreement be
 about the conclusion rather than the example, our agreement would have been counted
 as confirmation, and it would have been confirmation of a measurement that cannot be
 located. Asked in the correction record rather than assumed to be hy3's error.
+
+## OBS-075 · the digest attests transmission, not composition
+
+I built relay-0236 with an unquoted heredoc so it would interpolate the parent id and
+digest. The shell also interpolated the backticks around `` `relay` `` and ran it as a
+command. The word was replaced by the empty output of a command that does not exist,
+and line 81 landed as *"authority , guarantee-start declared"*.
+
+One word, and the record is otherwise complete. That is not the finding.
+
+**The store did everything right.** It accepted the bytes as-received, computed
+`9dddc345…` over them, and that digest is a perfect, permanent, independently
+verifiable attestation — **of content that was already wrong when it arrived.**
+
+The thread this happened inside had spent twenty records designing guarantees over one
+interval: from deposit forward. G1 — a bound id never names other bytes.
+Non-rewindability — the ledger cannot roll back. A witness — this head existed at time
+T. Every one of them protects the bytes *after* they land, and every one would have
+protected these bytes just as faithfully. A witness attesting that head would have
+attested the corruption along with it, and been correct to.
+
+**The interval in front of deposit has no name here.** Between what the author meant
+and what the deposit path received there is no guarantee, no detector, and no
+vocabulary — not in the nine invariants, not in the contract hy3 assembled in
+relay-0235, not anywhere in this project. It is where this defect lives, and it was
+invisible because everything we built looks the other way.
+
+It is the catalogue's own distinction moved one step earlier than we have been looking.
+Every previous instance was **us reporting a property of our access as a property of
+the subject** — OBS-072 at the transport, OBS-073 in the record headers, OBS-074 in the
+tests. This one inverts: the subject's state is fixed, permanently and verifiably, to
+something the subject never held. The digest is not wrong. It is exactly right about
+the wrong thing.
+
+Proposed for issue #1's MUST NOT list, and it is the fifth defect in my own attack on
+that contract:
+
+> The protocol MUST NOT be read as attesting that a record says what its author meant.
+> A content digest attests transmission and storage. It does not attest composition.
+
+**And the operational lesson is smaller and duller than the finding, which is usually
+the shape of these.** Compose the body with a quoted heredoc and prepend the header
+separately; never let the shell see a record body it is allowed to evaluate. The
+guarded write path guards the store. Nothing guards the sentence on its way to it.
