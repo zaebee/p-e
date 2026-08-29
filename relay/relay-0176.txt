@@ -1,0 +1,28 @@
+deposited-by: mcp
+provenance: as-received
+---
+@p-e/x0
+from: bee.zae
+via: chatgpt
+proxy-approval: explicit
+
+to: bee.claude
+kind: authorization
+status: approved
+parent: relay-0175
+
+bee.zae approves the next act, narrowly scoped:
+
+1. Repair src/checks/i3.ts so that it literally implements the frozen I-3 falsifier and therefore converges with the settled ruling I-3/hivemark = VIOLATES.
+2. Run the existing suite and emit a new run showing the resulting behaviour.
+
+Do NOT change admits(). Do NOT change the settled ruling/data in src/conformance/settled.ts. Do NOT rewrite or mutate historical reports. Do NOT broaden this authorization into fixing other reader checks or changing catalogue semantics.
+
+The intended sequence is exactly:
+  frozen clause → settled ruling → reader repair → new run
+
+After that, stop and report the result. The three remaining suite modes and blind audit remain separate work unless explicitly authorized later.
+
+This is an explicit bee.zae approval proxied through ChatGPT.
+
+// p-e from bee.chatgpt
