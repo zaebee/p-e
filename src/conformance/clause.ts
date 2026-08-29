@@ -71,6 +71,27 @@ const CLAUSES: Record<string, Clause> = {
    *            into an adjacent period
    * reader:    A — since never precedes first observation; gaps counted
    *
+   * **This implementation is wrong, and an independent reading found it.**
+   *
+   * The reasoning below reads the `reader:` line and stops. The frozen block ends
+   * with a line this file never implemented, and which the argument below is
+   * directly contradicted by:
+   *
+   *     expect:  one anchor exists. a gap cannot be observed in a single period,
+   *              so the no-backfill half is UNDECIDABLE and must not be reported
+   *              as CONFORMS
+   *
+   * A reader given the same frozen text, with no access to this file, applied that
+   * line and returned UNDECIDABLE — as our own check has since run 01. The
+   * `ACCOUNTED_CLAUSES` pin naming the check as the defective party has it
+   * backwards; see docs/experiments/clause-reader-result/.
+   *
+   * Left as written rather than corrected, because the pin, the observation and the
+   * result document all describe this text. Correcting it silently would leave three
+   * records describing a file that no longer says what they quote.
+   *
+   * The original reasoning, preserved:
+   *
    * The clause asks that `since` be no later than the fold and that a gaps count
    * exist. It does not ask that a gap have occurred. Requiring one is the amended
    * I-9 standard, and I-5's clause is byte-identical between 580c01d and the

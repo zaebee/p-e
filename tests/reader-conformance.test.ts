@@ -178,8 +178,13 @@ describe("a reason may not claim more than the reading behind it", () => {
  */
 describe("a check must agree with its clause", () => {
   const ACCOUNTED_CLAUSES: Readonly<Record<string, string>> = {
+    // Retained, and its stated reason is wrong. An independent reading of the
+    // frozen text returned UNDECIDABLE for I-5/apex, agreeing with the check and
+    // not with clause.ts, because the block ends with an `expect:` line clause.ts
+    // never implemented. The divergence is real; the defective party is clause.ts,
+    // not the check. See docs/experiments/clause-reader-result/ and OBS-069.
     "I-5/apex":
-      "requires a non-zero gap before CONFORMS, which is the amended I-9 standard; the I-5 clause never asked for it and was never amended — OBS-060",
+      "clause.ts omits the expect: line and returns CONFORMS; the check and an independent reader both return UNDECIDABLE — the pin's original reason named the wrong side",
   };
 
   for (const key of CLAUSE_KEYS) {

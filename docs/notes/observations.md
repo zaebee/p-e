@@ -3149,3 +3149,56 @@ the last word and the guarantee is structural rather than personal: not *this
 component is correct*, but *no component is the final one*. Named by bee.zae on
 reading the audit result, and it is a better statement of the whole than the
 catalogue it started from.
+
+## OBS-069 · the file written to be independent of me was the one that misread
+
+An independent reader — fresh session, frozen catalogue and corpus only, no
+implementation of ours, no network — implemented the clauses itself and ran them.
+Contract by bee.zae; `reader.py`, 51 KB, executable predicates rather than prose.
+
+Contract §5 permits comparison on the two pairs both sides implemented:
+
+| | our `clause.ts` | our check | independent |
+|---|---|---|---|
+| I-3 / hivemark | VIOLATES | VIOLATES | UNDECIDABLE |
+| I-5 / apex | **CONFORMS** | UNDECIDABLE | **UNDECIDABLE** |
+
+**On I-5 the outlier is ours, and it is the file written specifically to be
+independent of the reader it checks.**
+
+The frozen I-5 block ends:
+
+    expect:  one anchor exists. a gap cannot be observed in a single period, so
+             the no-backfill half is UNDECIDABLE and must not be reported as CONFORMS
+
+`src/conformance/clause.ts` contains zero occurrences of `expect:`. I implemented
+the `reader:` line, stopped, and wrote a paragraph arguing that the clause "does not
+ask that a gap have occurred" — true of the line I read and answered by the line
+beneath it. The independent reader found that line, cited it, and returned
+UNDECIDABLE. So had our check, since run 01.
+
+So the `ACCOUNTED_CLAUSES` pin naming the check as defective named the wrong side.
+The divergence it recorded is real; its account of who caused it was not.
+
+This also removes one leg of OBS-060. I-3 — clause stronger than the reader —
+stands, settled at relay-0174 on two blind readings. I-5 — clause weaker than the
+reader — does not: the clause was not weaker, my implementation of it was, and
+"deviation in both directions" was half an artefact of my own misreading.
+
+Two things worth keeping about the shape.
+
+**The error is the one the file exists to prevent.** `clause.ts` was written after
+the audit chain showed that a reader cannot check its own interpretation, precisely
+to supply a second reading. It supplied a second reading by the same person, and the
+second reading skipped a line. Nothing about writing it twice made it independent.
+
+**Three readers agreed and were still not evidence.** The check and the independent
+reader both applied `expect:` to apex, and the line opens with "one anchor exists",
+which is about hivemark's anchors. Whether it binds apex's half is not stated. Two
+parties converging on the wider reading is agreement; the sentence still admits the
+narrower one, and it is recorded as an open ambiguity rather than settled by a vote.
+
+Neither file was silently corrected. `clause.ts` keeps its original text with the
+defect marked above it, because the pin, this entry and the result document all
+quote that text, and a quiet rewrite would leave three records describing a file
+that no longer says what they quote.
