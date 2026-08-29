@@ -55,8 +55,11 @@ export const RULINGS: readonly Ruling[] = [
  * today and what closing the gap requires. It is not permission to leave it open.
  */
 export const NOT_YET_IMPLEMENTED: Readonly<Record<string, string>> = {
-  "I-3/hivemark":
-    "src/checks/i3.ts returns UNDECIDABLE on the condition it establishes. Closing this means repairing the check and emitting a run, in that order — never editing a report. relay-0174.",
+  // Empty, and the emptying is the point. `I-3/hivemark` sat here from the
+  // ruling at relay-0174 until the check was repaired: `src/checks/i3.ts` now
+  // fires the falsifier on the condition it establishes, the reader returns
+  // VIOLATES, and the pinned divergence failed — which is how this entry came to
+  // be removed rather than remembered.
 };
 
 export function rulingFor(invariant: string, producer: string): Ruling | undefined {

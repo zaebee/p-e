@@ -14,9 +14,36 @@ describe("I-3", () => {
     expect(apex?.reason).toMatch(/never exercised/);
   });
 
-  it("reports hivemark UNDECIDABLE: inputs are pinned by digest but not published", async () => {
+  // This asserted UNDECIDABLE for runs 01 through 07, on the reading that inputs
+  // pinned by digest and not published settle nothing. The catalogue had said
+  // otherwise before the reader existed — I-3's `watch:` line reads "if so H
+  // fails its own I-3 at the artifact level, and that is a finding, not a bug in
+  // the reader" — and two independent blind readers fired the falsifier on the
+  // same bytes. Settled as VIOLATES by bee.zae at relay-0174.
+  it("reports hivemark VIOLATES: a conclusion is published and its input is not", async () => {
     const h = checkI3(await loadCorpus(".")).find((f) => f.producer === "hivemark");
-    expect(h?.verdict).toBe("UNDECIDABLE");
-    expect(h?.reason).toMatch(/digest/);
+    expect(h?.verdict).toBe("VIOLATES");
+    expect(h?.reason).toMatch(/absent from the published corpus/);
+  });
+
+  it("would report CONFORMS if every pinned input were published", () => {
+    // The other branch, which this corpus cannot exercise: the check must be able
+    // to return CONFORMS, or the falsifier is unfalsifiable in the direction that
+    // matters. i1 has no VIOLATES branch at all and that is a recorded defect.
+    const files = new Map<string, Uint8Array>();
+    const enc = new TextEncoder();
+    files.set(
+      "hivemark/provenance.json",
+      enc.encode(
+        JSON.stringify({ source: "x", sha256: "y", files: [{ path: "in.json", sha256: "z" }] }),
+      ),
+    );
+    files.set("hivemark/in.json", enc.encode("{}"));
+    files.set(
+      "apex/health.json",
+      enc.encode(JSON.stringify({ checkedAt: "2026-01-01T00:00:00Z", ok: true, entries: {} })),
+    );
+    const h = checkI3(files).find((f) => f.producer === "hivemark");
+    expect(h?.verdict).toBe("CONFORMS");
   });
 });

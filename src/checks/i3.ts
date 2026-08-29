@@ -12,19 +12,38 @@ export function checkI3(files: Map<string, Uint8Array>): Finding[] {
   const findings: Finding[] = [];
 
   // hivemark publishes provenance.json, which pins each input of the derivation
-  // by digest. The inputs themselves are not in the corpus — they live in
-  // another repository entirely. So integrity is checkable given the files, and
-  // the derivation is not checkable without them. That is neither conformance
-  // nor violation: the published record does not settle it. A third state,
-  // between "kept beside" and "absent": pinned but not presented.
+  // by digest, and publishes the derived conclusions. The inputs are not in the
+  // corpus — they live in another repository entirely.
+  //
+  // This branch returned UNDECIDABLE for runs 01 through 07, on the reasoning
+  // that the record is "pinned but not presented" and so settles nothing. That
+  // was wrong, and the catalogue said so before the reader existed. I-3's own
+  // `watch:` line reads:
+  //
+  //   "dist/provenance.json pins corpus.json by digest, but corpus.json may not
+  //    itself be published. if so H fails its own I-3 at the artifact level, and
+  //    that is a finding, not a bug in the reader"
+  //
+  // H fails. The falsifier is `a producer publishes a conclusion whose input is
+  // not in the corpus`, and this branch established that condition in its own
+  // reason — five inputs pinned, zero published — and then declined to fire it.
+  // Two independent blind readers fired it on a byte-identical clause, and
+  // bee.zae settled I-3/hivemark as VIOLATES at relay-0174.
+  //
+  // The falsifier governs and the title is a description, ruled at relay-0153,
+  // so the vaguer word "beside" offers no route back.
   const provenance = parseHivemark(files, "hivemark/provenance.json") as ProvenanceManifest;
   const present = provenance.files.filter((f) => files.has(`hivemark/${f.path}`));
+  const absent = provenance.files.length - present.length;
   findings.push({
     invariant: "I-3",
     producer: "hivemark",
-    verdict: present.length === provenance.files.length ? "CONFORMS" : "UNDECIDABLE",
+    verdict: absent > 0 ? "VIOLATES" : "CONFORMS",
     evidence: "OBSERVED",
-    reason: `provenance.json pins ${provenance.files.length} derivation inputs by digest; ${present.length} of them are in the published corpus, so the conclusion cannot be recomputed from what is published — the observation is pinned but not presented`,
+    reason:
+      absent > 0
+        ? `provenance.json pins ${provenance.files.length} derivation inputs by digest and ${absent} of them are absent from the published corpus, so the producer publishes a conclusion whose input is not in the corpus — the falsifier's condition, stated`
+        : `provenance.json pins ${provenance.files.length} derivation inputs by digest and every one is in the published corpus, so each conclusion is accompanied by what it was drawn from`,
     projections: [],
   });
 

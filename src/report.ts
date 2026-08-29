@@ -83,6 +83,38 @@ export interface ReportMeta {
  */
 const RUN_NOTES: Record<string, string> = {
   "01": "First run. No prior run to differ from.",
+  "08": `The first run in which an invariant is falsified.
+
+**I-3 / hivemark: UNDECIDABLE → VIOLATES.** Not a new observation — every run from
+01 stated the condition in its own reason: five derivation inputs pinned by digest,
+zero of them in the published corpus. The falsifier reads *a producer publishes a
+conclusion whose input is not in the corpus*. The reader established that and
+declined to fire it, seven times.
+
+I-3's own \`watch:\` line had said so before any reader existed: *"if so H fails its
+own I-3 at the artifact level, and that is a finding, not a bug in the reader."*
+
+What changed is not the corpus and not the clause. Two independent blind readers,
+given the frozen catalogue and no access to our results, fired the falsifier on a
+byte-identical clause — see docs/experiments/blind-reader/. bee.zae settled it at
+relay-0174, on the ground that the admission cost is a consequence of accepting a
+normative verdict rather than a reason to decline it.
+
+**The consequence, accepted rather than avoided.** \`admits()\` short-circuits on any
+VIOLATES before counting a single CONFORMS, so I-3 is sunk outright and permanently:
+debian-rb's CONFORMS on it survives as a finding and counts toward nothing, and no
+later evidence can undo it. \`admits()\` was deliberately not changed — altering
+admission semantics after inconvenient evidence would be the wrong repair.
+
+The admitted count does not move. It was zero and stays zero. Its shape does: for
+seven runs zero meant *nothing contradicted*, and it no longer does.
+
+Scope: only the hivemark branch of I-3 was repaired. The apex branch, every other
+check, the corpus and the envelope are untouched, and no historical report was
+edited. Runs 01-07 stand as written and still say UNDECIDABLE.
+
+Not to be confused with docs/experiments/blind-reader/run-08/, which is the second
+blind reading and is not a conformance run.`,
   "07": `The governance baseline, ruled at relay-0153: **the \`falsifier:\` clause
 is the normative test and the title is a description**, for all nine invariants.
 
