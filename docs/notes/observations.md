@@ -3006,3 +3006,27 @@ that each of these layers has erred, including the checking instrument.
 The uncomfortable corollary, which follows and is not softened: nothing here
 licenses the conclusion that the current state is correct. It licenses only that
 the errors found so far were found by somebody else looking.
+
+## OBS-065 · DEMOTED collapses insufficiency into falsification
+
+Run 08 reports I-3 as `DEMOTED`, and so does every other invariant in the table.
+`admits()` returns `"ADMITTED" | "DEMOTED"`, so the presentation layer has one word
+for two states the evidence distinguishes:
+
+    DEMOTED because no two producers CONFORM      — the evidence is insufficient
+    DEMOTED because one producer VIOLATES         — the invariant is falsified
+
+The first is recoverable by later evidence; the second never is. A reader of run
+08's table sees nine identical `DEMOTED` labels, and the only place the difference
+survives is the tally line — `1 VIOLATES` where seven runs read `0`.
+
+The data has the distinction and the projection discards it, which is this
+project's own subject arriving one layer further out than usual: not a reader
+mistaking its access for the world, but a *renderer* mistaking two states for one
+because its type has two constructors and the domain has three.
+
+Named by bee.zae on reading run 08, and deliberately **not repaired**. The
+authorization at relay-0176 covered repairing `src/checks/i3.ts` and emitting a run,
+and explicitly excluded changing `admits()`. Recording a defect found while working
+inside a narrow scope, rather than fixing it because it is in reach, is the whole
+of what a scope is for.
