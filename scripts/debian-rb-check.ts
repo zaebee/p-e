@@ -62,6 +62,7 @@ function checkDebianRb(d: Awaited<ReturnType<typeof readDebianRb>>): Finding[] {
       "correction to relay-0119, noted here: '14,825 of 18,816 BAD carry a diffoscope diff' is wrong - those records DECLARE has_diffoscope:true (a boolean), they do not carry the diff. This adapter read the bytes (has_diffoscope:true), not the prose, so it inherited the corrected reading; the live fetch above is the actual observation",
       "this is exactly the axis relay-0119 refuter #2 named - a third source could conform I-3. It does, under (b); but admits() needs a second distinct producer, and no current producer conforms I-3 (apex flipped to UNDECIDABLE in run 06, per relay-0133), so this CONFORM alone does not admit the invariant. If the catalogue later adopts (a) instead of (b), this flips to UNDECIDABLE-on-pinned-corpus and the reason must say so",
       "the choice of (b) over (a) is recorded as the applied standard; if a future reader prefers (a), the verdict is UNDECIDABLE and the finding should be rewritten, not merely re-read",
+      "per relay-0174 bee.zae ruled I-3/hivemark = VIOLATES (settled): the frozen falsifier fired directly and a second independent blind pass returned the same verdict on a byte-identical clause (relay-0160 condition met). admits() short-circuits on any VIOLATES, so I-3 is sunk outright. This debian-rb I-3 CONFORMS therefore SURVIVES AS A FINDING AND STOPS COUNTING TOWARD ADMISSION - it no longer supports admitting I-3, which is now falsified at catalogue level. My deliverable is NOT A RUN and never mutated the count; this projection records the settled consequence only, and the gap between settled and docs/reports is left open on purpose per the ruling",
     ],
   });
 
@@ -213,10 +214,13 @@ function render(d: Awaited<ReturnType<typeof readDebianRb>>, findings: Finding[]
     "- I-1: r-b CONFORMS; hivemark and apex UNDECIDABLE on I-1 -> 1 distinct -> unadmitted.",
   );
   lines.push(
-    "- I-3: r-b CONFORMS (v0/pkgs/list, standard (b)); apex flipped to UNDECIDABLE on I-3 in run 06,",
+    "- I-3: r-b CONFORMS (v0/pkgs/list, standard (b)); apex UNDECIDABLE on I-3 in run 06,",
   );
   lines.push(
-    "  hivemark UNDECIDABLE on I-3 -> 1 distinct -> unadmitted.",
+    "  hivemark VIOLATES on I-3 (SETTLED, relay-0174) -> I-3 sunk outright per admits() short-circuit.",
+  );
+  lines.push(
+    "  This r-b I-3 CONFORMS survives as a finding and stops counting toward admission; I-3 is now falsified at catalogue level.",
   );
   lines.push(
     "- I-4: r-b CONFORMS BY RECOMPUTATION (relay-0146 corrected my relay-0145 reason) AND hivemark",
