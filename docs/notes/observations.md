@@ -3331,3 +3331,47 @@ as I-3's title-versus-falsifier, and that one was ruled by the human at relay-01
 rather than settled by whoever noticed it. `docs/experiments/i5-adjudication/`
 carries the question and the frozen text, with no implementation and no reading of
 ours.
+
+## OBS-071 · finding a defect and settling it are different capabilities
+
+Three readers were asked about one sentence, and what separated them was not
+accuracy but **which job they were good at**.
+
+**Mistral** implemented the clauses from the frozen text — 51 KB of working
+predicates — and found something nobody inside this project had: `clause.ts` never
+implemented I-5's `expect:` line. Excellent as an implementer. Then, asked to
+adjudicate the scope of that same line, it argued from two false statements about
+the document: that I-4 is the only producer-named `expect:` line, when there are
+four, and that I-1 has an `expect:` block, which it does not.
+
+**Gemini** was asked only to adjudicate. It ruled, reported that the alternative
+reading survives, gave the wording that would settle each way, and found unaided
+the strongest textual evidence — the shift in how `half` is used — which had been
+deliberately withheld from its bundle. It also produced a ground nobody in this
+project had: apex's `history.json` is likewise a single folded snapshot, so *"a gap
+cannot be observed in a single period"* transfers to A on its own merits.
+
+**Grok**, never previously exposed to the catalogue, ruled crisply and supplied the
+producer-bifurcation ground, all of it verifiable and verified.
+
+So: **an independent implementation can find a problem it cannot settle.** The
+reader that discovered the omission was the least reliable about what the omission
+means, and the reader that produced the best account of the question was not the
+one that found it. Independent implementer and norm-adjudicator are different roles
+with different epistemic powers, and nothing about being good at the first predicts
+the second.
+
+That was invisible while one party did both. `clause.ts` was written to be a second
+implementation *and* an arbiter of the reader's fidelity, by the same author, and
+its failure was in the second role — it did not misimplement what it read, it read
+less than the clause said.
+
+**And this is the concrete reason a vote would have been wrong**, beyond the general
+one. Counting 2:1 for the narrow reading requires counting Gemini as a narrow vote.
+Gemini's answer was *"narrow on the strict reading, and genuinely ambiguous"* — and
+the ambiguity is the part carrying information. A tally would have discarded
+precisely the half of the most careful answer that no other reader produced, and
+reported the result as more settled than any participant claimed it was.
+
+bee.zae's formulation, recorded because it is the one that generalises: different
+roles, different epistemic powers, and no final privileged layer.
