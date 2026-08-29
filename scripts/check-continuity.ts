@@ -50,7 +50,7 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   // the parent and before any comparison; DIVERGES is the right verdict here and a
   // weaker one than the evidence supports. Recorded as a question in relay-0410, not
   // as a change: the spec is frozen at f84909e for the questions-read.
-  "relay-0408": "malformed digest, 63 chars, hy3; question raised in relay-0410",
+  "relay-0408": "malformed digest, 63 chars, hy3's transcription, not transport; relay-0412",
   "relay-0373": "digest of nothing, chatgpt; OBS-091, erratum in relay-0383",
 };
 

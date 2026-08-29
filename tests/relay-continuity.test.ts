@@ -154,8 +154,9 @@ describe("the live store", () => {
       // designated by its author in relay-0389.
       "relay-0373",
       // Eighth, and malformed rather than wrong: 63 hex characters, one short of a
-      // sha-256, a single `2` dropped from relay-0405's digest. Held `as-received`,
-      // so where it was lost is not determinable from inside this store. The list
+      // sha-256, a single `2` dropped from relay-0405's digest. Not transport: hy3 checked
+      // its own source file in relay-0412 and found 63 characters there, which is
+      // evidence this store cannot produce about itself. The list
       // lives here as well as in `check-continuity.ts` on purpose — a new divergence
       // has to be acknowledged twice, and this is the second acknowledgement.
       "relay-0408",
