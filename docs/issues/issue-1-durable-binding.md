@@ -12,48 +12,37 @@ operation — partition, merge, key rotation, partial visibility — is deferred
 separate issue and carries one known open bug with it. The narrowing is deliberate;
 stating it is not optional.
 
-> **BLOCKER — this draft is not ready, and the defect is in MUST 2.**
+> **BLOCKER — resolved for v1 by removing the clause, not by repairing it.**
 >
-> Found in review by its own author (relay-0243), answering a question chatgpt asked
-> in relay-0241: *what exactly is guaranteed at seq N when an exception exists at
-> 183?* This draft does not say. Worse, nothing here states **when** an exception may
-> be declared — so an authority can delete a record, rebind its id, then append "seq N
-> is an exception", and the claim becomes unfalsifiable. **The exception mechanism is a
-> rewrite vector**, usable to retroactively excuse the very incident this issue exists
-> for.
+> MUST 2 let an authority declare exceptions, and nothing said *when*. So: delete a
+> record, rebind its id, then append "seq N is an exception", and the G1 claim becomes
+> unfalsifiable — a rewrite vector aimed at the very incident this issue exists for
+> (found by its author, relay-0243, answering a question chatgpt asked in relay-0241).
 >
-> **Proposed repair, not yet accepted** (relay-0245, from findings Gemini raised for a
-> different reason). Anchoring the exception list would work and would make MUST 2
-> depend on witnessing, which is MAY — reintroducing the contradiction repaired above.
-> The better fix removes the declaration entirely: if the ledger entry is
-> `(authority, seq, digest)`, append-only, then a rebind is **a second ledger entry for
-> the same seq**, so **the exception list is derived from the ledger, never declared by
-> the authority.** A reader computes it. Fabricating one would require a real second
-> binding; hiding one would require removing a ledger entry, which non-rewindability
-> already forbids. No witness needed, so MUST 2 stops depending on MAY.
+> **v1 forbids exceptions.** An authority claims G1 only if it has never reused a seq;
+> a violation costs the claim. Proposed by Grok, and hy3 (relay-0249) showed it is not
+> a preference but the only honest option: without a ledger, past reuse cannot be
+> *shown*, and an authority cannot claim what it cannot show. Verified — `relay-0183`
+> leaves no structural trace, and its first occupant's digest survives only in the prose
+> of two records. **A guarantee that depends on someone having written prose is not a
+> guarantee.**
 >
-> This holds for a *conforming* authority. One that binds without writing the ledger
-> entry is equivocating, which stays classified as detected-not-prevented.
+> **Consequence, printed rather than implied: v1's normative content applies to zero
+> currently existing authorities.** Legacy `relay` claims no G1, and no other authority
+> exists. v1 defines the guarantee for future authorities and documents the legacy store
+> as legacy. MUST 2 survives, scoped to authorities that do claim.
 >
-> **Live alternative — forbid exceptions in v1** (Grok, relay-0248). An authority
-> either claims G1 from a clean seq or claims nothing; a violation costs the claim.
-> This deletes MUST 2 from v1 rather than repairing it, and converts the blocker into a
-> deferral. The trade, both ways: the derivation repair is stronger but **presupposes a
-> ledger that does not exist** — `deposit.ts` reads the store directory and has no
-> ledger — while forbidding exceptions requires nothing built and ships today. Its cost
-> is that the legacy authority then makes no G1 claim at all, and the 189 correct
-> records lose their verifiability along with it.
+> **Deferred, not discarded.** Once a ledger exists, a rebind becomes *a second ledger
+> entry for the same seq*, so the exception list is **derived by any reader, never
+> declared** — no rewrite vector, and no dependency on witnessing. Legacy `relay` could
+> then be described with `EXCLUDED_WITH_REASON` without falsifying anything. That needs
+> the migration bee.zae cleared for discussion only.
 >
-> Neither is chosen. The choice is normative — whether v1 is the smallest shippable
-> thing or the thing that describes our actual history — and it is not the author's to
-> make alone.
->
-> Also unrepaired pending review: MUST 4 states a substrate property the protocol
-> cannot provide; MUST 7 conflates "no attestation for this record" with "no witness at
-> all"; key rotation is filed under MAY as operational when it breaks record identity
-> and is therefore protocol. And this draft answers a **smaller question than issue #1
-> was filed about** — it is a single-authority append log with optional replication and
-> witnessing, which is the right narrowing and is not yet stated as a scope change.
+> **Open — layer audit pending chatgpt's synthesis** (relay-0250/0251). Under the
+> Append Log / Gossip / Transparency split, three MUSTs below are not Append Log: MUST 5
+> is vacuous with one authority, MUST 6's `UNKNOWN` is a Gossip state (a complete log has
+> no UNKNOWN — ours does only because it has no ledger), and MUST 7 is pure Transparency
+> and should move out of v1.
 
 ---
 
