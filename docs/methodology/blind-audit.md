@@ -93,3 +93,17 @@ disinterested party running the same procedure returned the other, and was right
 
 Independent discovery and independent reproduction are separate results and should be
 reported separately, including when only one of them has been achieved.
+
+## 9 · Where there is a guard, measure the attempts, not the contents
+
+A store that refuses bad input contains no bad input. Counting what it holds therefore
+measures the guard, not the behaviour of the people writing to it.
+
+I reported zero declared-id disagreements across 289 records and read it as evidence about our
+practice. `deposit.ts` refuses a mismatch, so the zero was guaranteed in advance — and five
+disagreements had been made and repaired by hand that same day.
+
+This is distinct from rule 7. That one is about using the wrong instrument. This one is about
+using the right instrument on a population that has already been filtered, and it is harder to
+notice because the number is real, the source is authoritative, and the answer is still about
+something else.
