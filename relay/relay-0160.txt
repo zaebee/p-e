@@ -1,0 +1,87 @@
+deposited-by: claude
+provenance: authored
+assigned-id: relay-0160
+---
+@p-e/x0
+id: relay-0160
+parent: relay-0159
+parent-sha256: a6a8dd52f896ab256614ad91472edbf917e84cc0359732feda797d02c434de12
+from: claude
+to: p-e
+kind: decision
+status: provisional
+date: 2026-08-29
+
+bee.zae has directed three things. Two are recorded now; the third is prepared and
+not run.
+
+1. I-3 / hivemark IS HELD, NOT SETTLED.
+
+Recorded status: **an independent reader finding requiring confirmation before it
+carries irreversible admission impact.**
+
+Not because the evidence is weak. The frozen falsifier states the condition, both
+readers established it from the same bytes, the `watch:` line says H fails and
+that this is a finding rather than a reader bug, and `admits()` makes the
+consequence permanent. The reason to hold is independence: the accused is a reader
+that interpreted the rule seven times, and the accuser has read once. One blind run
+should not become irrevocable catalogue state.
+
+It is also not dismissed as a disagreement. It stands as the strongest single
+finding any reader has produced here, awaiting a second independent pass.
+
+2. I-5 IS ITS OWN FINDING, AND SHOULD NOT SIT WITH I-2 AND I-9.
+
+I put it there in relay-0155 and it was wrong. relay-0056 amended I-2's and I-9's
+`reader:` clauses only; I-5's clause is byte-identical between 580c01d and the
+current specification and was never amended.
+
+So I-5/apex is not a reproduced defect. It is our reader applying a standard its
+clause does not contain — run 07's reason there is the amended I-9 standard, while
+the I-5 clause asks only for periods that are valid, non-overlapping and never
+merged.
+
+Which leaves a symmetry that is the cleaner result of the whole experiment:
+
+  I-3   clause is stronger than the reader   ->  the reader did not fire a
+                                                 falsifier whose condition it had
+                                                 itself established
+  I-5   clause is weaker than the reader     ->  the reader withheld a conformance
+                                                 the clause would have granted
+
+Deviation in both directions, from the same reader, found by one outside pass. The
+hypothesis it supports is narrow and, I think, correct: **a reader's own assessment
+of its interpretation cannot detect systematic interpretation drift**, because the
+loop from interpretation to implementation to result closes without leaving it.
+I-5 is the cleanest instance, since no amendment was ever involved.
+
+3. RUN 08 IS PREPARED AND HAS NOT BEEN RUN.
+
+docs/experiments/blind-reader/run-08/. One variable changes against the first
+reading: the catalogue carries the relay-0056 amendments. Same corpus, same
+withheld artifact, same instructions.
+
+Blind to run 07 and to the first reader in both directions. Its TASK.md carries an
+explicit instruction not to reason from the shape of the instructions about what
+earlier answers might have been, and it asks for a full nine-invariant verdict
+rather than a re-check of anything.
+
+The catalogue could not be handed over whole. §11 records which `reader:` clauses
+were defective and quotes a verdict verbatim, and a §1 paragraph from today names
+the five invariants whose title and falsifier diverge. Both were removed, with
+digests published in the manifest, and §1's own definition of the normative
+catalogue — the invariant statements, §4, M1-M4, U-1/U-2 — is present untouched.
+No text inside any invariant block was altered. That is an editorial decision by
+the party under test, and it is recorded as one.
+
+Verified by diffing section 3 of both catalogues: they differ in exactly the two
+amendments and nowhere else.
+
+ONE THING THE MANIFEST SAYS THAT I WANT IN THE RECORD TOO. The amendments work by
+naming the misreading and citing a counterexample from the corpus — I-9's carries
+`[0,0,0,0,0,0,0,0]` in the clause text. So a run-08 reading of I-9/apex is not
+independent of the counterexample it is handed. That is what an amendment is, and
+it is the treatment under test, but the comparison must say so rather than score it
+as a free result.
+
+// p-e from bee.claude

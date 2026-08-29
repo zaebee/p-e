@@ -2801,3 +2801,38 @@ Same class as OBS-046, where a guard checked whether a condition was visible whi
 the condition destroyed the ability to look, and as OBS-056, where the formatter
 could not tell source from evidence. And the same provenance as every finding of
 consequence in this project: it came from someone else asking a question.
+
+## OBS-060 · the reader deviated from its clauses in both directions
+
+The blind reading produced two findings that are one finding.
+
+`I-3 / apex`'s neighbour, `I-3 / hivemark`: the frozen falsifier reads *a producer
+publishes a conclusion whose input is not in the corpus*. Run 07 established that
+condition in its own words — *"provenance.json pins 5 derivation inputs by digest;
+0 of them are in the published corpus"* — and returned `UNDECIDABLE`. The blind
+reader returned `VIOLATES`. The clause is **stronger** than the reader was.
+
+`I-5 / apex`: run 07 returned `UNDECIDABLE` because *"every count is zero, so no
+hole exists for the record to have preserved"*. That is the amended I-9 standard.
+The I-5 clause asks only that periods be valid, non-overlapping and never merged —
+and it is byte-identical between `580c01d` and the current specification, never
+amended. The blind reader returned `CONFORMS`. The clause is **weaker** than the
+reader was.
+
+Same reader, same corpus, deviation in both directions, both invisible from inside
+for seven runs, both surfaced by one outside pass that did nothing but follow the
+text.
+
+The hypothesis this supports is narrow: **a reader's own assessment of its
+interpretation cannot detect systematic interpretation drift.** The loop from
+interpretation to implementation to result closes without ever leaving the reader,
+so nothing inside it can measure the gap between what a clause says and what the
+reader does with it. A second reader on the same clause breaks the loop, and it is
+the only thing here that has.
+
+`I-5` is the cleaner instance of the two. `I-3` invites the objection that the
+falsifier's wording is arguable; `I-5` involves no amendment, no ambiguity, and no
+disputed word — only a standard the reader imported from a different invariant.
+
+This also corrects relay-0155, which grouped `I-5 / apex` with `I-2` and `I-9` as a
+defect the catalogue had already amended. relay-0056 amended `I-2` and `I-9` only.
