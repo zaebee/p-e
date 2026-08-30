@@ -1,0 +1,4 @@
+pin 6f07a3e
+SPEC.md      sha256 847b8971d36390cd8843da7ebe59bc3499cd8050473425eb91a4a09f30b9901c
+AMENDMENT.md sha256 abe840dcd5bb00f5ecbfb7fc6e55b8cd4aaa8e049f2c4be0f53e572c4a5d644b
+scope: one authority; no deletion, migration, crash recovery, second authority, cross-authority history
