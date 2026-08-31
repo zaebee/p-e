@@ -92,10 +92,7 @@ async function claim(root: string, id: string): Promise<boolean> {
  * 50 records, 44ms at 200, 157ms at 800 — because every deposit re-probed every
  * id from 1. It is now one `readdir` and one `open`.
  */
-async function survey(
-  root: string,
-  held: ReadonlySet<string>,
-): Promise<{ mark: number; claimed: ReadonlySet<string> }> {
+async function survey(root: string, held: ReadonlySet<string>): Promise<{ mark: number }> {
   let names: string[];
   try {
     names = await readdir(markerDir(root));
@@ -103,7 +100,14 @@ async function survey(
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     names = [];
   }
-  const claimed = new Set(names);
+  // Only well-formed ids count. A stray file in `history/` would otherwise join
+  // the set and, worse, the mark: measured before this filter, a `relay-10000`
+  // left in the directory put the mark at 10000 and every later deposit failed
+  // with "the four-digit id space is exhausted". Reported by gemini-code-assist
+  // on PR #3 and reproduced. An OS-dropped `.DS_Store` was already harmless,
+  // since its tail parses as NaN, but relying on that was luck rather than a
+  // rule.
+  const claimed = new Set(names.filter((n) => ID.test(n)));
 
   // Backfill: a held id with no marker is a binding this store made before the
   // marker existed. Recording it is not a claim about the future — the binding is
@@ -117,7 +121,7 @@ async function survey(
     .map(seq)
     .filter(Number.isFinite)
     .reduce((a, b) => Math.max(a, b), 0);
-  return { mark, claimed };
+  return { mark };
 }
 
 /**
@@ -131,11 +135,15 @@ async function survey(
  * Ids below the mark that were never bound stay unavailable. They are not marked
  * spent; monotonicity is enforced as a rule, by the two places that consult
  * `mark`, rather than by writing several hundred files to stand in for one.
+ *
+ * The `claimed` set is not consulted here and was a parameter until PR #3:
+ * `mark` is the maximum over it, so every id this loop tries is already above
+ * every id in it. The check could never fire and is gone rather than kept as
+ * reassurance.
  */
-async function allocate(root: string, mark: number, claimed: ReadonlySet<string>): Promise<string> {
+async function allocate(root: string, mark: number): Promise<string> {
   for (let n = mark + 1; n <= 9999; n++) {
     const id = `relay-${String(n).padStart(4, "0")}`;
-    if (claimed.has(id)) continue;
     if (await claim(root, id)) return id;
   }
   throw new Error("the four-digit id space is exhausted");
@@ -154,8 +162,8 @@ async function settleId(
   held: ReadonlyMap<string, unknown>,
   proposedId: string | undefined,
 ): Promise<string> {
-  const { mark, claimed } = await survey(root, new Set(held.keys()));
-  if (proposedId === undefined) return allocate(root, mark, claimed);
+  const { mark } = await survey(root, new Set(held.keys()));
+  if (proposedId === undefined) return allocate(root, mark);
 
   if (!ID.test(proposedId)) {
     throw new Error(`id must look like relay-0001, got ${JSON.stringify(proposedId)}`);
@@ -226,6 +234,36 @@ async function deposit(
   }
 
   const id = await settleId(root, held, proposedId);
+
+  // Everything after the claim runs under a release. A deposit that does not
+  // complete never became a binding, and the marker records bindings — the clause
+  // says the marker persists beyond *deletion of the record*, which is a record
+  // that was bound and then removed. One that never landed is not that.
+  //
+  // Measured before this existed: a record whose declared `id:` disagreed with
+  // the assigned one threw after the claim and burned `relay-0003` — marker on
+  // disk, no record, next deposit at 0004. The read-back path released its marker
+  // and no other path did. Reported by gemini-code-assist on PR #3.
+  //
+  // Only this id is released. Markers `survey` backfilled for records already
+  // held are bindings that exist and are not this deposit's to undo.
+  try {
+    return await write(bytes, depositedBy, provenance, proposedId, root, id);
+  } catch (error) {
+    await rm(join(markerDir(root), id), { force: true });
+    throw error;
+  }
+}
+
+/** The part of a deposit that runs once the id is settled and its marker held. */
+async function write(
+  bytes: string,
+  depositedBy: string,
+  provenance: "authored" | "as-received",
+  proposedId: string | undefined,
+  root: string,
+  id: string,
+): Promise<DepositResult> {
   // Scoped to the header block, not the whole record. store.ts learned this on the
   // read path — a record quoting header-like lines at column 0 could adopt them — and
   // this path had not: a body quoting `id: relay-0007` was refused as though the record
@@ -273,16 +311,7 @@ async function deposit(
     if (!found) throw new Error(`${id} was written and does not parse as a record`);
     stored = found;
   } catch (error) {
-    // The record is removed AND its marker released. A deposit that cannot be
-    // read back never became a binding, and the marker records bindings — the
-    // clause says the marker persists beyond *deletion of the record*, which is
-    // a record that was bound and then removed. This one never was.
-    //
-    // Keeping it would spend an id on every malformed deposit and would break
-    // the behaviour the test below its own name asserts: a corrected record can
-    // take the id its rejected predecessor tried for.
     await rm(path, { force: true });
-    await rm(join(markerDir(root), id), { force: true });
     throw error;
   }
 

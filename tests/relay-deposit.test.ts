@@ -330,6 +330,34 @@ describe("allocation under the MUST 1 marker", () => {
     expect(id).toBe("relay-0003");
   });
 
+  it("releases the id when a deposit fails after the marker is claimed", async () => {
+    const root = storeOf("relay-0001");
+    await appendRelay(body("relay-0002"), undefined, root);
+
+    // Declares an id that cannot match the one allocated, so it throws after the
+    // claim. Measured before the release existed: this burned relay-0003 — marker
+    // on disk, no record, next deposit at 0004.
+    await expect(
+      appendRelay("@p-e/x0\nid: relay-9999\nfrom: t\n\nx\n", undefined, root),
+    ).rejects.toThrow(/declares id/);
+
+    expect(existsSync(join(root, "history", "relay-0003"))).toBe(false);
+    const { id } = await appendRelay(body("relay-0003"), undefined, root);
+    expect(id).toBe("relay-0003");
+  });
+
+  it("ignores a file in history/ that is not an id", async () => {
+    const root = storeOf("relay-0001");
+    mkdirSync(join(root, "history"), { recursive: true });
+    writeFileSync(join(root, "history", "relay-10000"), "");
+    writeFileSync(join(root, "history", ".DS_Store"), "");
+
+    // Measured before the filter: relay-10000 put the mark at 10000 and every
+    // later deposit failed with "the four-digit id space is exhausted".
+    const { id } = await appendRelay(body("relay-0002"), undefined, root);
+    expect(id).toBe("relay-0002");
+  });
+
   it("survives concurrent first deposits into a store with no history/", async () => {
     const root = storeOf("relay-0001");
 
