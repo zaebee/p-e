@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -207,13 +207,21 @@ describe("the durable write path", () => {
   it("leaves no temporary file behind on success", async () => {
     const root = scratch();
     await depositLocal(body("relay-0002"), "alice", undefined, root);
-    expect(readdirSync(root).filter((f) => !/^relay-\d+\.txt$/.test(f))).toEqual([]);
+    // `history/` is MUST 1's marker directory and is a permanent part of the
+    // store, not a leftover. Everything else must be gone.
+    expect(readdirSync(root).filter((f) => !/^relay-\d+\.txt$/.test(f) && f !== "history")).toEqual(
+      [],
+    );
   });
 
   it("leaves no temporary file behind when the id is taken", async () => {
     const root = scratch();
     await depositLocal(body("relay-0001"), "alice", "relay-0001", root).catch(() => {});
-    expect(readdirSync(root).filter((f) => !/^relay-\d+\.txt$/.test(f))).toEqual([]);
+    // `history/` is MUST 1's marker directory and is a permanent part of the
+    // store, not a leftover. Everything else must be gone.
+    expect(readdirSync(root).filter((f) => !/^relay-\d+\.txt$/.test(f) && f !== "history")).toEqual(
+      [],
+    );
   });
 
   it("stores the same bytes the non-durable path stored", async () => {
@@ -243,7 +251,7 @@ describe("the durable write path", () => {
  * that test must fail, and rewriting it is the proof the fix works — the same
  * device `settled-rulings.test.ts` uses to stop a gap closing silently.
  */
-describe("allocation, as it behaves before MUST 1", () => {
+describe("allocation under the MUST 1 marker", () => {
   function empty(): string {
     const root = join(mkdtempSync(join(tmpdir(), "p-e-alloc-")), "relay");
     mkdirSync(root, { recursive: true });
@@ -263,44 +271,87 @@ describe("allocation, as it behaves before MUST 1", () => {
     expect(id).toBe("relay-0001");
   });
 
-  it("reads the current maximum, so a gap is never filled", async () => {
+  it("does not fill a gap below the high-water mark — MUST 1 says monotonically", async () => {
     const root = empty();
     put(root, "relay-0001");
     put(root, "relay-0005");
 
     const { id } = await appendRelay(body("relay-0006"), undefined, root);
 
-    // max(present) + 1. Ids 0002 through 0004 are unused and stay unused —
-    // allocation never walks for a free one, which is what the marker changes.
+    // 0002 through 0004 are unbound and stay unavailable. The marker gives
+    // "never reuses a seq"; monotonicity is the separate half of MUST 1 and is
+    // what forbids going back for them. Measured on a copy of the live store:
+    // without this, allocation returned relay-0001 into a store whose ids start
+    // at 32.
     expect(id).toBe("relay-0006");
-    expect(readdirSync(root).sort()).toEqual([
-      "relay-0001.txt",
-      "relay-0005.txt",
-      "relay-0006.txt",
+    // The skipped ids are marked spent, so the walk does this once.
+    expect(readdirSync(join(root, "history")).sort()).toEqual([
+      "relay-0001",
+      "relay-0002",
+      "relay-0003",
+      "relay-0004",
+      "relay-0005",
+      "relay-0006",
     ]);
   });
 
-  it("frees a deleted id and rebinds it — this is relay-0183, and it is the defect", async () => {
+  it("adopts a held id whose marker is missing, and does not hand it out", async () => {
     const root = empty();
     put(root, "relay-0001");
     put(root, "relay-0002");
 
-    // The record is deleted. Nothing else changes.
+    const { id } = await appendRelay(body("relay-0003"), undefined, root);
+
+    // Neither held id had a marker — the state of every store written before
+    // this mechanism. The walk created both markers, stepped over both, and
+    // allocated the first id that was genuinely free.
+    expect(id).toBe("relay-0003");
+    expect(readdirSync(join(root, "history")).sort()).toEqual([
+      "relay-0001",
+      "relay-0002",
+      "relay-0003",
+    ]);
+  });
+
+  it("does not free a deleted id — relay-0183 cannot happen again", async () => {
+    const root = empty();
+    // Deposited through the write path, so the id gets its marker. This is the
+    // difference that matters: a record placed on disk by other means has no
+    // marker and is not protected, which the next test states outright.
+    const first = await appendRelay(body("relay-0001"), undefined, root);
+    expect(first.id).toBe("relay-0001");
+
+    rmSync(join(root, "relay-0001.txt"));
+
+    const { id } = await appendRelay(body("relay-0002"), undefined, root);
+
+    // Was `relay-0001` before the marker existed — the delete handed the id
+    // straight back. The marker survived the deletion and the walk stepped over
+    // it. G1 holds: an id, once bound, never names other bytes.
+    expect(id).toBe("relay-0002");
+    expect(existsSync(join(root, "history", "relay-0001"))).toBe(true);
+    expect(existsSync(join(root, "relay-0001.txt"))).toBe(false);
+  });
+
+  it("cannot protect an id deleted before any marker existed, and says so", async () => {
+    const root = empty();
+    put(root, "relay-0001");
+    put(root, "relay-0002");
     rmSync(join(root, "relay-0002.txt"));
 
     const { id } = await appendRelay(body("relay-0002"), undefined, root);
 
-    // WRONG, AND ASSERTED SO ON PURPOSE. `relay-0002` was bound and is now bound
-    // to different bytes: G1 — "an id, once bound, never names other bytes" —
-    // broken by an ordinary delete, because the guard asks whether an id is
-    // *currently held* rather than whether it was *ever bound*.
+    // `relay-0002` WAS bound and IS handed out again. Not a defect in the
+    // mechanism — a limit of what disk can tell it. The adoption in `allocate`
+    // recovers markers for ids that are still held; an id bound and deleted
+    // before markers existed leaves nothing that distinguishes it from an id
+    // never used.
     //
-    // MUST 1's marker is what fixes it: `history/relay-NNNN` persists beyond
-    // deletion, so a deleted id is not freed. When that lands this expectation
-    // becomes `relay-0003` and this comment goes with it.
+    // This is the legacy authority's shape, and it is why `issue-1` says the
+    // legacy store makes no G1 claim at all rather than claiming one from a
+    // floor. Recovering these ids needs evidence outside the id space —
+    // surviving `parent:` and `ref:` references — which is F7 and is not this
+    // change.
     expect(id).toBe("relay-0002");
-    const bytes = await readFile(join(root, "relay-0002.txt"), "utf8");
-    expect(bytes).toContain("hello");
-    expect(bytes).not.toContain("body");
   });
 });
