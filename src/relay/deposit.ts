@@ -1,4 +1,4 @@
-import { link, mkdir, open, rm } from "node:fs/promises";
+import { link, mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { STORE_ROOT, headerBlock, loadStore } from "./store.js";
 
@@ -62,59 +62,87 @@ async function claim(root: string, id: string): Promise<boolean> {
     if (code === "ENOENT") {
       // First deposit into a store with no history/ yet. Create it and retry
       // once; a second ENOENT is a real failure and is thrown.
+      //
+      // The retry needs the same EEXIST handling as the first attempt. Measured:
+      // four concurrent first deposits gave one success and three raw EEXIST
+      // throws out of the deposit, because two writers can both see ENOENT, both
+      // mkdir harmlessly, and the loser then finds the marker already there.
+      // Reported by gemini-code-assist on PR #3 and reproduced before fixing.
       await mkdir(markerDir(root), { recursive: true });
-      const handle = await open(join(markerDir(root), id), "wx");
-      await handle.close();
-      return true;
+      try {
+        const handle = await open(join(markerDir(root), id), "wx");
+        await handle.close();
+        return true;
+      } catch (retry) {
+        if ((retry as NodeJS.ErrnoException).code === "EEXIST") return false;
+        throw retry;
+      }
     }
     throw error;
   }
 }
 
 /**
- * Walk ids from the floor and claim the first whose marker does not exist.
+ * The high-water mark, and the markers that back it.
  *
- * Walking rather than counting is the point: it fills gaps left by ids that were
- * never bound, and steps over ids that were bound and deleted, which a maximum
- * cannot distinguish.
+ * `mark` is the largest id ever claimed, over markers AND held records. It must
+ * be both: a store written before this mechanism has records and no markers, and
+ * one whose top record is deleted has a marker and no record. Taking the maximum
+ * of held alone was wrong and reintroduced the bug this whole change exists to
+ * fix — delete the highest record and the mark falls back to it.
+ *
+ * Held ids missing a marker are backfilled here, once. Reading `history/` with a
+ * single `readdir` rather than probing each id is gemini-code-assist's
+ * suggestion on PR #3, and it is what makes the walk below cheap: measured on the
+ * first version, steady-state deposit cost grew linearly with the store — 7ms at
+ * 50 records, 44ms at 200, 157ms at 800 — because every deposit re-probed every
+ * id from 1. It is now one `readdir` and one `open`.
  */
-async function allocate(root: string, held: ReadonlySet<string>): Promise<string> {
-  // The high-water mark: no id at or below it may be handed out, whether or not
-  // a record is held there. This is monotonicity, and it is a different
-  // requirement from never-reuses.
-  const mark = [...held]
-    .map((k) => Number(k.slice(6)))
+async function survey(
+  root: string,
+  held: ReadonlySet<string>,
+): Promise<{ mark: number; claimed: ReadonlySet<string> }> {
+  let names: string[];
+  try {
+    names = await readdir(markerDir(root));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    names = [];
+  }
+  const claimed = new Set(names);
+
+  // Backfill: a held id with no marker is a binding this store made before the
+  // marker existed. Recording it is not a claim about the future — the binding is
+  // already real — and after this runs once the branch is never taken again.
+  for (const id of held) {
+    if (!claimed.has(id) && (await claim(root, id))) claimed.add(id);
+  }
+
+  const seq = (id: string) => Number(id.slice(6));
+  const mark = [...claimed, ...held]
+    .map(seq)
     .filter(Number.isFinite)
     .reduce((a, b) => Math.max(a, b), 0);
+  return { mark, claimed };
+}
 
-  for (let n = 1; n <= 9999; n++) {
+/**
+ * Claim the first id above the mark whose marker does not exist.
+ *
+ * Above the mark, because MUST 1 binds "uniquely, MONOTONICALLY, and never
+ * reuses a seq" — the marker gives never-reuses and monotonicity is the separate
+ * half. Found by running the first version against a copy of the live store,
+ * where it returned `relay-0001` into a store whose ids start at 32.
+ *
+ * Ids below the mark that were never bound stay unavailable. They are not marked
+ * spent; monotonicity is enforced as a rule, by the two places that consult
+ * `mark`, rather than by writing several hundred files to stand in for one.
+ */
+async function allocate(root: string, mark: number, claimed: ReadonlySet<string>): Promise<string> {
+  for (let n = mark + 1; n <= 9999; n++) {
     const id = `relay-${String(n).padStart(4, "0")}`;
-    if (!(await claim(root, id))) continue;
-
-    // The claim succeeded below the store's high-water mark. Keep the marker and
-    // walk on — MEASURED ON A COPY OF THE LIVE STORE, WHERE THIS IS WHAT WENT
-    // WRONG: ids there run from 32, so a walk that returned the first free id
-    // returned `relay-0001`, six hundred records after the store began.
-    //
-    // MUST 1 requires binding "uniquely, MONOTONICALLY, and never reuses a seq".
-    // The marker gives never-reuses. Monotonicity is separate and is what forbids
-    // filling a gap below the maximum: `reference.ts` derives successors from id
-    // order, so a new record at 0001 would be the oldest-looking and the newest,
-    // which is the verdict-flip the Migration section names.
-    //
-    // Claiming those ids rather than skipping them is deliberate. Ids 1-31 and
-    // 37-45 of this store were never bound and never will be; the marker records
-    // that they are spent, so the walk does this work once rather than every
-    // time. On a store whose markers have always existed there is no gap below
-    // the mark and this branch is never taken.
-    //
-    // What it does NOT recover: an id bound and then deleted before any marker
-    // existed. Nothing on disk distinguishes that from an id never used, which
-    // is the `relay-0183` history this store carries and the reason the
-    // KNOWN_MISSING backfill is a separate question (F7).
-    if (n <= mark) continue;
-
-    return id;
+    if (claimed.has(id)) continue;
+    if (await claim(root, id)) return id;
   }
   throw new Error("the four-digit id space is exhausted");
 }
@@ -174,11 +202,25 @@ async function deposit(
   // the same claim as an allocated one, so an id whose record was deleted cannot
   // be re-proposed either — the `held` check above catches only what is still
   // on disk, and `relay-0183` was rebound after its record was gone.
-  const id = proposedId ?? (await allocate(root, new Set(held.keys())));
-  if (proposedId !== undefined && !(await claim(root, proposedId))) {
-    throw new Error(
-      `${proposedId} was bound before. The marker for it exists, so the id is spent whether or not a record is held there: an id, once bound, never names other bytes.`,
-    );
+  const { mark, claimed } = await survey(root, new Set(held.keys()));
+  const id = proposedId ?? (await allocate(root, mark, claimed));
+
+  if (proposedId !== undefined) {
+    // Monotonicity applies to a proposed id too, and it was not enforced there.
+    // Measured before fixing: `relay-0002` was accepted into a store whose mark
+    // was `relay-0006`. The first version masked it by marking every id below the
+    // mark spent, which only worked after an allocation had run and cost a linear
+    // walk for it; this is the rule the markers were standing in for.
+    if (Number(proposedId.slice(6)) <= mark) {
+      throw new Error(
+        `${proposedId} is at or below relay-${String(mark).padStart(4, "0")}, the highest id this store has bound. Bindings are monotone: an id below the mark is spent whether or not a record is held there.`,
+      );
+    }
+    if (!(await claim(root, proposedId))) {
+      throw new Error(
+        `${proposedId} was bound before. The marker for it exists, so the id is spent whether or not a record is held there: an id, once bound, never names other bytes.`,
+      );
+    }
   }
   // Scoped to the header block, not the whole record. store.ts learned this on the
   // read path — a record quoting header-like lines at column 0 could adopt them — and

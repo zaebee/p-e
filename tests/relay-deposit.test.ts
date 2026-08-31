@@ -7,13 +7,28 @@ import { sha256 } from "../src/manifest.js";
 import { appendRelay, depositLocal } from "../src/relay/deposit.js";
 import { loadStore } from "../src/relay/store.js";
 
-function scratch(): string {
+/** An empty store directory. */
+function empty(): string {
   const root = join(mkdtempSync(join(tmpdir(), "p-e-dep-")), "relay");
   mkdirSync(root, { recursive: true });
+  return root;
+}
+
+/**
+ * A record placed on disk directly, bypassing the write path — so it has no
+ * allocation marker, which is the state of every store written before MUST 1.
+ */
+function put(root: string, id: string, text = "first"): void {
   writeFileSync(
-    join(root, "relay-0001.txt"),
-    "deposited-by: tester\nprovenance: authored\n---\n@p-e/x0\nid: relay-0001\nfrom: alice\n\nfirst\n",
+    join(root, `${id}.txt`),
+    `deposited-by: tester\nprovenance: authored\nassigned-id: ${id}\n---\n@p-e/x0\nid: ${id}\nfrom: alice\n\n${text}\n`,
   );
+}
+
+/** The common fixture: a store holding one record. */
+function scratch(): string {
+  const root = empty();
+  put(root, "relay-0001");
   return root;
 }
 
@@ -252,19 +267,6 @@ describe("the durable write path", () => {
  * device `settled-rulings.test.ts` uses to stop a gap closing silently.
  */
 describe("allocation under the MUST 1 marker", () => {
-  function empty(): string {
-    const root = join(mkdtempSync(join(tmpdir(), "p-e-alloc-")), "relay");
-    mkdirSync(root, { recursive: true });
-    return root;
-  }
-
-  function put(root: string, id: string): void {
-    writeFileSync(
-      join(root, `${id}.txt`),
-      `deposited-by: tester\nprovenance: authored\nassigned-id: ${id}\n---\n@p-e/x0\nid: ${id}\nfrom: alice\n\nbody\n`,
-    );
-  }
-
   it("starts at relay-0001 in an empty store", async () => {
     const root = empty();
     const { id } = await appendRelay(body("relay-0001"), undefined, root);
@@ -284,15 +286,60 @@ describe("allocation under the MUST 1 marker", () => {
     // without this, allocation returned relay-0001 into a store whose ids start
     // at 32.
     expect(id).toBe("relay-0006");
-    // The skipped ids are marked spent, so the walk does this once.
+    // The skipped ids are NOT marked spent. Monotonicity is enforced as a rule by
+    // the two places that consult the mark, rather than by writing a file per
+    // unbound id — the first version did that and paid a linear walk for it on
+    // every deposit.
     expect(readdirSync(join(root, "history")).sort()).toEqual([
       "relay-0001",
-      "relay-0002",
-      "relay-0003",
-      "relay-0004",
       "relay-0005",
       "relay-0006",
     ]);
+  });
+
+  it("refuses a proposed id at or below the mark, held or not", async () => {
+    const root = empty();
+    put(root, "relay-0005");
+    put(root, "relay-0006");
+
+    // relay-0002 was never bound and no record sits there. It is still spent:
+    // bindings are monotone. Measured before this check existed — it was accepted.
+    await expect(appendRelay(body("relay-0002"), "relay-0002", root)).rejects.toThrow(
+      /at or below relay-0006/,
+    );
+  });
+
+  it("does not lower the mark when the top record is deleted", async () => {
+    const root = empty();
+    await appendRelay(body("relay-0001"), undefined, root);
+    const second = await appendRelay(body("relay-0002"), undefined, root);
+    expect(second.id).toBe("relay-0002");
+
+    rmSync(join(root, "relay-0002.txt"));
+
+    // The mark comes from markers as well as held records. Taking it from held
+    // alone would hand relay-0002 straight back, which is the whole defect.
+    const { id } = await appendRelay(body("relay-0003"), undefined, root);
+    expect(id).toBe("relay-0003");
+  });
+
+  it("survives concurrent first deposits into a store with no history/", async () => {
+    const root = empty();
+    put(root, "relay-0001");
+
+    // Four writers race to create history/ and claim an id. Before the retry
+    // handled EEXIST this gave one success and three raw EEXIST throws out of
+    // the deposit — gemini-code-assist on PR #3, reproduced before fixing.
+    // No `id:` line: the record must not pin an id the store is choosing.
+    const anonymous = "@p-e/x0\nfrom: chatgpt\nto: claude\nkind: report\n\nhello\n";
+    const settled = await Promise.allSettled(
+      [0, 1, 2, 3].map(() => appendRelay(anonymous, undefined, root)),
+    );
+    const ok = settled.filter((r) => r.status === "fulfilled");
+    expect(ok).toHaveLength(4);
+    expect(
+      new Set(ok.map((r) => (r as PromiseFulfilledResult<{ id: string }>).value.id)).size,
+    ).toBe(4);
   });
 
   it("adopts a held id whose marker is missing, and does not hand it out", async () => {
