@@ -25,11 +25,22 @@ function put(root: string, id: string, text = "first"): void {
   );
 }
 
+/** A store holding exactly these ids, none of them with an allocation marker. */
+function storeOf(...ids: string[]): string {
+  const root = empty();
+  for (const id of ids) put(root, id);
+  return root;
+}
+
 /** The common fixture: a store holding one record. */
 function scratch(): string {
-  const root = empty();
-  put(root, "relay-0001");
-  return root;
+  return storeOf("relay-0001");
+}
+
+/** Deposit with no proposed id and report what the store allocated. */
+async function allocated(root: string, expected: string): Promise<string> {
+  const { id } = await appendRelay(body(expected), undefined, root);
+  return id;
 }
 
 const body = (id: string) =>
@@ -274,9 +285,7 @@ describe("allocation under the MUST 1 marker", () => {
   });
 
   it("does not fill a gap below the high-water mark — MUST 1 says monotonically", async () => {
-    const root = empty();
-    put(root, "relay-0001");
-    put(root, "relay-0005");
+    const root = storeOf("relay-0001", "relay-0005");
 
     const { id } = await appendRelay(body("relay-0006"), undefined, root);
 
@@ -298,9 +307,7 @@ describe("allocation under the MUST 1 marker", () => {
   });
 
   it("refuses a proposed id at or below the mark, held or not", async () => {
-    const root = empty();
-    put(root, "relay-0005");
-    put(root, "relay-0006");
+    const root = storeOf("relay-0005", "relay-0006");
 
     // relay-0002 was never bound and no record sits there. It is still spent:
     // bindings are monotone. Measured before this check existed — it was accepted.
@@ -324,8 +331,7 @@ describe("allocation under the MUST 1 marker", () => {
   });
 
   it("survives concurrent first deposits into a store with no history/", async () => {
-    const root = empty();
-    put(root, "relay-0001");
+    const root = storeOf("relay-0001");
 
     // Four writers race to create history/ and claim an id. Before the retry
     // handled EEXIST this gave one success and three raw EEXIST throws out of
@@ -343,9 +349,7 @@ describe("allocation under the MUST 1 marker", () => {
   });
 
   it("adopts a held id whose marker is missing, and does not hand it out", async () => {
-    const root = empty();
-    put(root, "relay-0001");
-    put(root, "relay-0002");
+    const root = storeOf("relay-0001", "relay-0002");
 
     const { id } = await appendRelay(body("relay-0003"), undefined, root);
 
@@ -381,9 +385,7 @@ describe("allocation under the MUST 1 marker", () => {
   });
 
   it("cannot protect an id deleted before any marker existed, and says so", async () => {
-    const root = empty();
-    put(root, "relay-0001");
-    put(root, "relay-0002");
+    const root = storeOf("relay-0001", "relay-0002");
     rmSync(join(root, "relay-0002.txt"));
 
     const { id } = await appendRelay(body("relay-0002"), undefined, root);

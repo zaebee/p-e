@@ -52,34 +52,28 @@ function markerDir(root: string): string {
  * there first.
  */
 async function claim(root: string, id: string): Promise<boolean> {
-  try {
-    const handle = await open(join(markerDir(root), id), "wx");
-    await handle.close();
-    return true;
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === "EEXIST") return false;
-    if (code === "ENOENT") {
-      // First deposit into a store with no history/ yet. Create it and retry
-      // once; a second ENOENT is a real failure and is thrown.
-      //
-      // The retry needs the same EEXIST handling as the first attempt. Measured:
-      // four concurrent first deposits gave one success and three raw EEXIST
-      // throws out of the deposit, because two writers can both see ENOENT, both
-      // mkdir harmlessly, and the loser then finds the marker already there.
-      // Reported by gemini-code-assist on PR #3 and reproduced before fixing.
-      await mkdir(markerDir(root), { recursive: true });
-      try {
-        const handle = await open(join(markerDir(root), id), "wx");
-        await handle.close();
-        return true;
-      } catch (retry) {
-        if ((retry as NodeJS.ErrnoException).code === "EEXIST") return false;
-        throw retry;
+  // Two attempts, because the directory may not exist yet and creating it is the
+  // only recoverable failure. The retry needs the same EEXIST handling as the
+  // first attempt: two writers can both see ENOENT, both mkdir harmlessly, and
+  // the loser then finds the marker already there. Measured before this loop
+  // existed — four concurrent first deposits gave one success and three raw
+  // EEXIST throws out of the deposit (gemini-code-assist, PR #3).
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const handle = await open(join(markerDir(root), id), "wx");
+      await handle.close();
+      return true;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "EEXIST") return false;
+      if (code === "ENOENT" && attempt === 0) {
+        await mkdir(markerDir(root), { recursive: true });
+        continue;
       }
+      throw error;
     }
-    throw error;
   }
+  throw new Error(`could not claim ${id}: the marker directory would not stay put`);
 }
 
 /**
@@ -148,6 +142,48 @@ async function allocate(root: string, mark: number, claimed: ReadonlySet<string>
 }
 
 /**
+ * Settle which id this deposit takes, and claim its marker before anything is
+ * written.
+ *
+ * A proposed id goes through the same claim as an allocated one. The `held`
+ * check catches only what is still on disk, and `relay-0183` was rebound after
+ * its record was gone.
+ */
+async function settleId(
+  root: string,
+  held: ReadonlyMap<string, unknown>,
+  proposedId: string | undefined,
+): Promise<string> {
+  const { mark, claimed } = await survey(root, new Set(held.keys()));
+  if (proposedId === undefined) return allocate(root, mark, claimed);
+
+  if (!ID.test(proposedId)) {
+    throw new Error(`id must look like relay-0001, got ${JSON.stringify(proposedId)}`);
+  }
+  if (held.has(proposedId)) {
+    throw new Error(
+      `${proposedId} is already held. A deposit never overwrites: the store keeps one account per id and has no basis for preferring a second.`,
+    );
+  }
+  // Monotonicity applies to a proposed id too, and it was not enforced there.
+  // Measured before fixing: `relay-0002` was accepted into a store whose mark was
+  // `relay-0006`. The first version masked it by marking every id below the mark
+  // spent, which only worked after an allocation had run and cost a linear walk
+  // for it; this is the rule the markers were standing in for.
+  if (Number(proposedId.slice(6)) <= mark) {
+    throw new Error(
+      `${proposedId} is at or below relay-${String(mark).padStart(4, "0")}, the highest id this store has bound. Bindings are monotone: an id below the mark is spent whether or not a record is held there.`,
+    );
+  }
+  if (!(await claim(root, proposedId))) {
+    throw new Error(
+      `${proposedId} was bound before. The marker for it exists, so the id is spent whether or not a record is held there: an id, once bound, never names other bytes.`,
+    );
+  }
+  return proposedId;
+}
+
+/**
  * Append one record. Refuses far more than it accepts, on purpose.
  *
  * Every deposit goes through here. At 20:05:00 a record deposited by another
@@ -182,15 +218,6 @@ async function deposit(
 ): Promise<DepositResult> {
   const held = await loadStore(root);
 
-  if (proposedId !== undefined && !ID.test(proposedId)) {
-    throw new Error(`id must look like relay-0001, got ${JSON.stringify(proposedId)}`);
-  }
-  if (proposedId !== undefined && held.has(proposedId)) {
-    throw new Error(
-      `${proposedId} is already held. A deposit never overwrites: the store keeps one account per id and has no basis for preferring a second.`,
-    );
-  }
-
   // The store holds relay records. Bytes that merely happen to parse - the
   // parser tolerates a record with no headers at all - are not one, and finding
   // that out at deposit is cheaper than finding a stray blob in the graph.
@@ -198,30 +225,7 @@ async function deposit(
     throw new Error("a record must begin with @p-e/x0");
   }
 
-  // The marker is claimed before anything is written. A proposed id goes through
-  // the same claim as an allocated one, so an id whose record was deleted cannot
-  // be re-proposed either — the `held` check above catches only what is still
-  // on disk, and `relay-0183` was rebound after its record was gone.
-  const { mark, claimed } = await survey(root, new Set(held.keys()));
-  const id = proposedId ?? (await allocate(root, mark, claimed));
-
-  if (proposedId !== undefined) {
-    // Monotonicity applies to a proposed id too, and it was not enforced there.
-    // Measured before fixing: `relay-0002` was accepted into a store whose mark
-    // was `relay-0006`. The first version masked it by marking every id below the
-    // mark spent, which only worked after an allocation had run and cost a linear
-    // walk for it; this is the rule the markers were standing in for.
-    if (Number(proposedId.slice(6)) <= mark) {
-      throw new Error(
-        `${proposedId} is at or below relay-${String(mark).padStart(4, "0")}, the highest id this store has bound. Bindings are monotone: an id below the mark is spent whether or not a record is held there.`,
-      );
-    }
-    if (!(await claim(root, proposedId))) {
-      throw new Error(
-        `${proposedId} was bound before. The marker for it exists, so the id is spent whether or not a record is held there: an id, once bound, never names other bytes.`,
-      );
-    }
-  }
+  const id = await settleId(root, held, proposedId);
   // Scoped to the header block, not the whole record. store.ts learned this on the
   // read path — a record quoting header-like lines at column 0 could adopt them — and
   // this path had not: a body quoting `id: relay-0007` was refused as though the record
