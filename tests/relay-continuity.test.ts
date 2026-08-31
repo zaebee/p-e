@@ -188,6 +188,17 @@ describe("duplicates", () => {
   // two records at once — exact as a statement about bytes, ambiguous as a pointer
   // to a record, which are different things the store does not separate. That is
   // why the check is here. It has never had a live instance to fire on.
+  //
+  // IT HAS ONE NOW, AND NOBODY BUILT IT. On 2026-08-31 mimo re-deposited a record
+  // that had already landed: relay-0497 and relay-0521 hold byte-identical bodies,
+  // both digesting to ea8c0929…, and the store did exactly what spec line 337 says
+  // it should — "two ids, one digest. Correct, and needs no resolution." No
+  // divergence, no erratum, no accounted-for entry. The first live case of a named
+  // failure in 485 records, and it arrived as an accident rather than as a fixture.
+  //
+  // The value was in its arising unprompted, and that value is not transferable to
+  // a test: pinning it would turn the one natural instance we have into an
+  // artificial one, and the comment below already gives the reason not to.
   const dupes = async (root?: string) => {
     const held = await loadStore(root);
     const byDigest = new Map<string, string[]>();
