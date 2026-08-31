@@ -11,13 +11,34 @@ import { AUTHORITY, type G1Claim, claimsG1, floorOf } from "../src/relay/authori
  * self-asserted and not checkable by a reader who was not present for every
  * allocation.
  */
+/**
+ * The grounds of a claim of none, and a loud failure otherwise.
+ *
+ * Written this way on purpose. `expect(claim.claims === "none" && claim.because)`
+ * asserts `false` matches a regular expression when the narrowing fails, which is
+ * a confusing failure — gemini-code-assist on PR #6, and correct. But narrowing
+ * with a bare `if (claim.claims === "none")` is worse: if the declaration ever
+ * changes to a floor, THE GROUNDS ASSERTION SILENTLY STOPS RUNNING and the test
+ * stays green. Measured before choosing between them — the if-block form passes
+ * with the assertion never reached.
+ *
+ * A test that vanishes when the thing it guards changes is the failure mode this
+ * whole branch keeps recording. So: narrow by throwing.
+ */
+function groundsOf(claim: G1Claim): string {
+  if (claim.claims !== "none") {
+    throw new Error(`expected a claim of none, got a claim from seq ${claim.seq}`);
+  }
+  return claim.because;
+}
+
 describe("the authority's G1 declaration", () => {
   it("this store claims no G1, and says why", () => {
     expect(AUTHORITY.claims).toBe("none");
+    expect(floorOf(AUTHORITY)).toBeUndefined();
     // The grounds name the reuse rather than gesturing at one, so a reader does
     // not have to take the position on trust.
-    expect(AUTHORITY.claims === "none" && AUTHORITY.because).toMatch(/relay-0183/);
-    expect(floorOf(AUTHORITY)).toBeUndefined();
+    expect(groundsOf(AUTHORITY)).toMatch(/relay-0183/);
   });
 
   it("a claim of none covers no seq at all", () => {
