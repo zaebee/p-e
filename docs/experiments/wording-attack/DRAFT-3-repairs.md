@@ -29,7 +29,18 @@ the separator the author intended, which is what the clause is for. Its cost is 
 header line consisting only of whitespace terminates the block — and such a line is not a
 field under the definition above, so nothing is lost.
 
-## SF-2 — may a declared id direct allocation?
+## SF-2 — RETRACTED (see relay-0468)
+
+**This repair does not survive attack and is retained only so the argument against it is
+readable beside it.** Line 317 says the envelope id "MUST be checked against the
+store-assigned id". You do not check X against Y if Y was chosen to equal X: the clause
+presupposes that allocation is independent of the declared id, which is what makes the
+check capable of failing. The rule below makes the check vacuous, so it does not dissolve
+Q8b — it empties the clause that creates Q8b. It also leaves a record whose requested id
+is taken permanently undepositable, since removing the declared id changes bound-content
+and therefore the record.
+
+## SF-2 — may a declared id direct allocation? (retracted)
 
 The audit measured the cost of the answer "no": binding one record that declared
 `id: alpha-0004` took eight deposits and abandoned seven seqs, so the identity the spec
