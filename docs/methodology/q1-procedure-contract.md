@@ -103,37 +103,85 @@ independent. The choice cannot be, by a participant.**
 
 ---
 
-## 5 · Which is why the decision rule, not the participant, is where insensitivity comes from
+## 5 · The mechanism already exists, and it is rejection, not selection
 
-This is the one part of the procedure that is new, and it is the direct application of what this
-branch has spent three days measuring.
+**This section replaces the "decision rule" of the first draft, which was the wrong shape and
+partly forbidden by the project's own founding text. Found by applying rule 13 one level up —
+search the system for an existing principle before inventing one — at chatgpt's request,
+relay-0619.**
 
-For a *measurement*, pre-registering the comparison statistic is what stops the answer being chosen
-after the numbers arrive (relay-0591, 0596). For a *decision*, the analogue one level up is a
-**decision rule fixed before results exist**: a function from the measurement to the adopted domain,
-published in advance, leaving nothing to a chooser.
+### 5.1 · What the README already says
 
-A decision rule qualifies only if it is:
+> *"p-e is not designed first. p-e is extracted first."*
 
-- **prior** — deposited as a record before any result is returned;
-- **total** — it names an outcome for every possible measurement, including "no candidate
-  satisfies it" and "all candidates satisfy it";
-- **a function of the measurement alone** — it may not reference a preference, a cost, or a
-  party's opinion; cost enters afterwards, at the affordability decision, which is separate and
-  sequenced second;
-- **attacked before results exist** — by someone who did not write it, under rule 14, because
-  writing the rule is itself the choice, moved earlier where it can be examined.
+> *"A spec edited to match the latest run would make the normative document a function of the most
+> recent experiment — and run 06 admitting something would then force a normative change for an
+> empirical reason. The draft records what is proposed. The reports record what was witnessed."*
 
-**I am not proposing a rule here.** Proposing one is choosing the domain by another route, and it is
-the thing I was told not to do. I am stating the form a rule must have for the criterion to be
-satisfiable at all, and the finding that without such a rule **the criterion cannot be met for
-Q1-as-decision, whoever is appointed.**
+That is the principle, stated at the top of the project, in the founding separation of spec from
+reports.
 
-If no acceptable rule can be written, that is a result, and the honest options are three, none of
-them mine to pick: adopt a declared-bias decision for the core and record the contradiction with
-the criterion; hold Q1 open; or narrow the core so this decision is no longer inside it.
+**And it forbids my §5 as it was written.** I proposed *"a function from the measurement to the
+adopted domain"* — which is exactly a normative document made a function of an experiment.
+Pre-registration answers the objection §5 was derived from (choosing the statistic after seeing the
+numbers, relay-0591/0596). It does not answer this one, which is a different objection: that an
+empirical outcome should not determine a normative requirement **at all**, however early the rule
+was written.
 
----
+### 5.2 · What the ADRs already do
+
+The mechanism this project actually uses is visible twice, worked:
+
+- **ADR-1.** SF-2 was not rejected because a better candidate won. It was rejected because it
+  violated things already in the contract — MUST 1's single allocation mechanism, monotonicity, and
+  decisively line 317, which requires the envelope `id:` to be *checked* against the store-assigned
+  id: *"You do not check X against Y if Y was chosen to equal X. A MUST requiring a check cannot be
+  satisfied by removing the possibility of its failure."*
+- **ADR-2.** *"a rule that removes a problem is not thereby a rule the contract entails."* Same
+  test, same outcome, and the note records that both were written by one author and neither flaw
+  was visible to that author.
+
+**Neither ADR selected anything. Both eliminated.** The input is the contract, not a measurement;
+the output is a rejection, not a choice; and there is no chooser in either.
+
+### 5.3 · And the stage-1 participant used it without being told
+
+From `q1-attack/RESULT.md`, on axes B, C and D:
+
+> *"not settled by the spec, but **each has a purpose stated in the spec that only one candidate
+> serves**."*
+
+That is elimination against stated purposes, arrived at by a participant that was given no
+methodology, no ADRs and no candidates. It is the strongest evidence available that the mechanism
+is a property of the material rather than of our habits.
+
+### 5.4 · So the correct form, which chooses nothing
+
+Not *measurement → domain*. Instead: **a predicate on candidates, drawn from constraints that
+predate the question, applied to each candidate domain in turn.** Whatever it rejects is rejected.
+Whatever survives, survives.
+
+Three outcomes, and the third is not a failure:
+
+| outcome | what it means |
+|---|---|
+| exactly one candidate survives per axis | the contract already entailed it; nobody chose |
+| none survives on an axis | the contract is self-contradictory there — that is F2's shape, and it is a result |
+| **more than one survives** | **the specification is genuinely silent, and no measurement can break the tie** |
+
+The third outcome deserves emphasis because it is the one a procedure designed to produce an answer
+will be tempted to suppress. If two domains both satisfy every constraint that predates the
+question, then the choice between them is **not a protocol question**, and adopting one is a
+convention to be labelled a convention — issue-1 already keeps that word apart from *guarantee*
+(line 209: *"**convention**, never a guarantee"*).
+
+**What remains judgement, stated:** which constraints count, and whether a candidate violates one.
+That is real and it is not eliminable. But it is judgement **against text that predates the
+question**, which is as close to insensitivity as this project has ever obtained — and it is the
+same thing pre-registration approximates, arrived at from the other side.
+
+**I am still not applying the predicate to any candidate.** Doing so is answering Q1, and that is
+not mine to do.
 
 ## 6 · The minimal experiment
 
