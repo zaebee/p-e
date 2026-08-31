@@ -72,7 +72,9 @@ comparable and must never be scored against each other.
 >
 > **Every line number below is against `847b8971d36390cd8843da7ebe59bc3499cd8050473425eb91a4a09f30b9901c`**,
 > the digest all three readers verified before reading. Adding this note moved the lines it cites
-> down by 23 in the file you are reading, and they are deliberately not renumbered: a line number
+> down by 32 in the file you are reading — a number that was 23 one commit ago, before this very
+> paragraph was added, and which the next edit above them will change again. That is the argument in
+> miniature. They are deliberately not renumbered: a line number
 > means something only against a digest, the same reason `blind-audit.md` rule 12 pins the bundle
 > rather than the document. Renumbering would point at the live file and break again on the next
 > edit, and the readers' own reports cite the frozen bytes.
