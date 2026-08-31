@@ -68,3 +68,48 @@ export function claimsG1(claim: G1Claim, seq: number): boolean {
 export function floorOf(claim: G1Claim): number | undefined {
   return claim.claims === "from" ? claim.seq : undefined;
 }
+
+/**
+ * Who this authority is, as distinct from what it claims.
+ *
+ * The citation contract requires it and nothing supplies it. `issue-1`:
+ *
+ * > "crossing an authority or store boundary the citation MUST be `(store
+ * > identity, locator, content digest)`, where *store identity* is the
+ * > **configured** authority/store identifier (not a filesystem path)."
+ *
+ * Two words in that sentence do the work. **Configured** — so it is not derived
+ * from where the files happen to sit, and a copy of this store under another path
+ * is the same authority. And **not a filesystem path** — which rules out the one
+ * thing that was available for free.
+ *
+ * ## Why this throws rather than defaulting
+ *
+ * A default would be a name I chose. `issue-1` says what this authority is not —
+ * "**the legacy authority is the shared filesystem**, not any participant" — and
+ * never what it is called, so there is nothing to transcribe the way
+ * `AUTHORITY`'s grounds were transcribed. Picking one inside a mechanism is how a
+ * decision gets hidden in a refactor, which this branch has spent a day
+ * recording. So: configure it, or this refuses.
+ *
+ * Nothing calls it yet. It exists because keying records by `(authority, seq)` —
+ * the Migration item, and what `relay-0699` measured as the real defect behind
+ * "chain rather than a DAG" — needs something to put in the first slot, and there
+ * was nothing.
+ */
+export function storeIdentity(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.P_E_STORE_IDENTITY?.trim();
+  if (configured === undefined || configured === "") {
+    throw new Error(
+      "no store identity is configured. Set P_E_STORE_IDENTITY to this authority's identifier — " +
+        "the citation contract requires one for any citation crossing a store boundary, and it must " +
+        "be a configured name rather than a filesystem path. This refuses instead of inventing one.",
+    );
+  }
+  if (configured.includes("/") && !configured.includes("://") && configured.startsWith("/")) {
+    throw new Error(
+      `store identity ${JSON.stringify(configured)} looks like a filesystem path. The contract says the identifier is not one: a copy of this store elsewhere is the same authority, and a path would make it a different one.`,
+    );
+  }
+  return configured;
+}
