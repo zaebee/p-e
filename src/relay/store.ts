@@ -138,7 +138,7 @@ function header(head: string, field: string): string | null {
  */
 export const ID_PREFIX = "relay-";
 export const ID_DIGITS = 4;
-export const ID = new RegExp(`^${ID_PREFIX}\\d{${ID_DIGITS}}$`);
+export const ID = new RegExp(String.raw`^${ID_PREFIX}\d{${ID_DIGITS}}$`);
 
 /** What divides the store's own deposit header from the record as it arrived. */
 const DEPOSIT_SEPARATOR = "\n---\n";
