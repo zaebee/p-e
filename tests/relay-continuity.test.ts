@@ -168,6 +168,7 @@ describe("the live store", () => {
       // second with a measurement. Every well-formed-but-meaningless digest here is
       // that author's; the others announce themselves as PLACEHOLDER or run short.
       "relay-0430",
+      "relay-0689",
     ]);
   });
 });

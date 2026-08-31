@@ -65,6 +65,8 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   // every well-formed-but-meaningless digest in this store is chatgpt's, three of three;
   // the two that are not announce themselves, one saying PLACEHOLDER and one a character
   // short. hy3's and claude's errors are all real digests of the wrong bytes.
+  "relay-0689":
+    "parent-sha256 carried over from the author's own previous record while parent: advanced; mimo, second instance of the relay-0200 class, erratum in relay-0693",
   "relay-0430": "digest of nothing, chatgpt; third instance, erratum in relay-0431",
   "relay-0373": "digest of nothing, chatgpt; OBS-091, erratum in relay-0383",
 };
