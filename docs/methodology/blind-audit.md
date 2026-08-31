@@ -201,6 +201,26 @@ whole document has been searched for a passage that already classifies it. Speci
 sections about their own exceptions, their own history, and their own known-bad cases, and those
 sections are usually nowhere near the clause being violated.
 
+**And a term search is not the check.** chatgpt made this correction to the rule the day it was
+written, and it is measurable. Searching `issue-1` for the phrases a reader of 10.1 would naturally
+try:
+
+    "recorded at binding"   0
+    "record the digest"     0
+    "digest at binding"     0
+    "content identity"      1   (and it is not MUST 6)
+    "ledger keeps"          1   <- the hit
+
+Four of five natural queries return nothing. I found MUST 6 by searching for `ledger keeps`, which
+I chose **because I already knew MUST 6 existed**. A reader without that knowledge, greping the
+vocabulary of the clause they are checking, would have found nothing and concluded correctly-by-
+accident that the case was unclassified.
+
+So the term search only narrows candidates. THE CLASSIFICATION IS SEMANTIC: "a ledger that keeps
+`(authority, seq, digest)` and answers with it" **is** a recorded content identity, and no
+lexical overlap says so. A document classifies a case in whatever words it had at the time, which
+are rarely the words of the clause that later collides with it.
+
 **It is cheap and it pays.** Run against `CONFORMANCE-GAP-1`'s five entries, `issue-1` has zero
 occurrences of `extent`, `utf`, `octet` or `decoded string` — four genuinely unclassified, which is
 Q1's silence restated. The fifth, 10.1's recorded digest, is classified: MUST 6 requires the ledger
