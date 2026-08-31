@@ -1,0 +1,33 @@
+You are being asked to build a working implementation of a protocol specification.
+
+Everything you need is in this directory: SPEC.md, AMENDMENT.md, and CONTRACT.md.
+
+Read CONTRACT.md first and do exactly what it says, nothing more and nothing less.
+
+Rules for this run:
+
+- Read only the files in this directory. Do not search the rest of the filesystem, do not
+  use the network, and do not look for an existing implementation of this specification.
+  One exists; you do not have it and must not go looking. Everything you need is in the
+  two documents.
+
+- Write the code in this directory, in whatever language you prefer. Nothing depends on
+  which one you choose.
+
+- Run what you write. A store you have not executed is not an answer to the contract.
+
+- Keep the decision journal AS YOU GO, not reconstructed at the end. It is the deliverable.
+  CONTRACT.md §4 gives its exact fields and tells you which choices belong in it. Read that
+  section carefully before you start writing code, because the distinction it draws — a
+  choice you had to make in order to write code, rather than every reading you noticed — is
+  the point of the whole exercise.
+
+- If a clause blocks you outright, stop at that point and record it as a blocker per §5.
+  Do not invent a resolution and carry on silently. A blocker is a legitimate and useful
+  result.
+
+- Finding the specification clear is also a legitimate result. If the journal is short
+  because the document is unambiguous, say so. Do not pad it.
+
+When you are done, produce the files CONTRACT.md §7 asks for: DECISIONS.md, NOTES.md, and
+the code. Then state, in one line, how many decisions and how many blockers you recorded.
