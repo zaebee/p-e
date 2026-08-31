@@ -1,7 +1,7 @@
 import { link, mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { type Continuity, stateOf } from "./continuity.js";
-import { STORE_ROOT, headerBlock, loadStore } from "./store.js";
+import { ID, ID_DIGITS, ID_PREFIX, STORE_ROOT, headerBlock, loadStore } from "./store.js";
 
 /**
  * The one write path, and it records what it can observe rather than what it is
@@ -37,16 +37,13 @@ export interface DepositResult {
 }
 
 /**
- * The id format, and the three numbers that follow from it.
+ * Allocation's share of the id format, derived rather than restated.
  *
- * `seq` was `Number(id.slice(6))` in two places and the space bound was a literal
- * `9999`. Both are consequences of the prefix and the digit count, and neither
- * says so: widen the format to five digits and the slice keeps working while the
- * bound silently does not. Derived here so one edit moves all of them.
+ * The format itself lives in `store.ts`, which both the write path and the
+ * readers depend on. These three follow from it: the bound was a literal `9999`
+ * and the seq was `Number(id.slice(6))` in two places, and none of them said it
+ * was a consequence.
  */
-const ID_PREFIX = "relay-";
-const ID_DIGITS = 4;
-const ID = new RegExp(`^${ID_PREFIX}\\d{${ID_DIGITS}}$`);
 const MAX_SEQ = 10 ** ID_DIGITS - 1;
 const seqOf = (id: string) => Number(id.slice(ID_PREFIX.length));
 const idOf = (seq: number) => `${ID_PREFIX}${String(seq).padStart(ID_DIGITS, "0")}`;

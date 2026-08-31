@@ -1,4 +1,4 @@
-import type { RelayRecord } from "./store.js";
+import { ID_DIGITS, ID_PREFIX, type RelayRecord } from "./store.js";
 
 /**
  * Which records nothing ever referred to. Reads, changes nothing.
@@ -60,7 +60,12 @@ export interface ReferenceFinding {
   readonly state: Reference;
 }
 
-const ID_IN_TEXT = /relay-\d{4}/g;
+/**
+ * Ids as they appear inside prose, built from the format rather than repeating
+ * it. This was `/relay-\d{4}/g`, and widening the format would have left it
+ * silently matching nothing — gemini-code-assist on PR #8.
+ */
+const ID_IN_TEXT = new RegExp(`${ID_PREFIX}\\d{${ID_DIGITS}}`, "g");
 
 /** What ends the header block. */
 const BLANK_LINE = "\n\n";

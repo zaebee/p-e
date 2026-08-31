@@ -124,6 +124,22 @@ function header(head: string, field: string): string | null {
   return value === "none" ? null : value;
 }
 
+/**
+ * The id format, and everything that follows from it.
+ *
+ * Here rather than in `deposit.ts` because the format is a property of the store
+ * and not of the write path: `reference.ts` needs it to find ids quoted in prose,
+ * and a reader importing from the writer to learn what an id looks like has the
+ * dependency backwards. Both already import this file.
+ *
+ * Widening the format is one edit. Before this it was four, three of which said
+ * nothing about being consequences — a literal `9999`, two `slice(6)` calls, and
+ * `/relay-\d{4}/g` in a file that never mentions the others.
+ */
+export const ID_PREFIX = "relay-";
+export const ID_DIGITS = 4;
+export const ID = new RegExp(`^${ID_PREFIX}\\d{${ID_DIGITS}}$`);
+
 /** What divides the store's own deposit header from the record as it arrived. */
 const DEPOSIT_SEPARATOR = "\n---\n";
 
