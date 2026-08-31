@@ -71,6 +71,20 @@ export interface Finding {
 }
 
 /**
+ * How many distinct producers must CONFORM before an invariant is admitted.
+ *
+ * A decision, not a property of anything. Two was chosen so that a single
+ * producer's agreement never admits — one producer conforming says the invariant
+ * is satisfiable, and the claim being tested is that it holds across producers.
+ *
+ * It is named because the number and the sentence describing it are otherwise in
+ * two places that can drift, and this repository already has a file about that:
+ * `conformance/settled.ts` exists because "a rule written down is not a rule
+ * enforced, and what people run is not what they read. **Prose does not run.**"
+ */
+const CONFIRMING_PRODUCERS = 2;
+
+/**
  * The demotion rule, applied mechanically rather than by judgement.
  *
  * Two distinct producers must CONFORM. A NOT_APPLICABLE never counts as support
@@ -82,5 +96,5 @@ export function admits(findings: readonly Finding[]): "ADMITTED" | "DEMOTED" {
   const confirming = new Set(
     findings.filter((f) => f.verdict === "CONFORMS").map((f) => f.producer),
   );
-  return confirming.size >= 2 ? "ADMITTED" : "DEMOTED";
+  return confirming.size >= CONFIRMING_PRODUCERS ? "ADMITTED" : "DEMOTED";
 }

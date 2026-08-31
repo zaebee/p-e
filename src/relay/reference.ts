@@ -1,4 +1,4 @@
-import type { RelayRecord } from "./store.js";
+import { ID_DIGITS, ID_PREFIX, type RelayRecord } from "./store.js";
 
 /**
  * Which records nothing ever referred to. Reads, changes nothing.
@@ -60,12 +60,20 @@ export interface ReferenceFinding {
   readonly state: Reference;
 }
 
-const ID_IN_TEXT = /relay-\d{4}/g;
+/**
+ * Ids as they appear inside prose, built from the format rather than repeating
+ * it. This was `/relay-\d{4}/g`, and widening the format would have left it
+ * silently matching nothing — gemini-code-assist on PR #8.
+ */
+const ID_IN_TEXT = new RegExp(String.raw`${ID_PREFIX}\d{${ID_DIGITS}}`, "g");
+
+/** What ends the header block. */
+const BLANK_LINE = "\n\n";
 
 /** Everything below the header block — the part a sender wrote as prose. */
 function prose(bytes: string): string {
-  const at = bytes.indexOf("\n\n");
-  return at === -1 ? "" : bytes.slice(at + 2);
+  const at = bytes.indexOf(BLANK_LINE);
+  return at === -1 ? "" : bytes.slice(at + BLANK_LINE.length);
 }
 
 export function checkReferences(store: ReadonlyMap<string, RelayRecord>): ReferenceFinding[] {
@@ -83,7 +91,12 @@ export function checkReferences(store: ReadonlyMap<string, RelayRecord>): Refere
     for (const target of [r.parent, r.ref]) {
       if (target) add(referencedBy, target, r.id);
     }
-    for (const hit of new Set(prose(r.bytes).match(ID_IN_TEXT) ?? [])) {
+    // `matchAll`, not `exec`. Sonar asks for `exec` here and it would be wrong:
+    // `ID_IN_TEXT` is a module constant carrying `g`, so `exec` advances its
+    // `lastIndex` and the next record starts scanning from wherever the last one
+    // stopped. Measured — two `exec` calls on one string return different hits,
+    // while two `matchAll` calls return the same and leave `lastIndex` at 0.
+    for (const hit of new Set([...prose(r.bytes).matchAll(ID_IN_TEXT)].map((m) => m[0]))) {
       if (hit !== r.id) add(mentionedBy, hit, r.id);
     }
   }

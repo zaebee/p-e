@@ -46,6 +46,16 @@ export const MAX_WAIT_MS = 90_000;
  *   record that lands between the caller's last read and this call is missed by
  *   the omitted form and caught by the explicit one. Pass what you last saw.
  */
+/**
+ * How often the store is re-read while waiting.
+ *
+ * A decision with no measurement behind it, and named so that it is visible as
+ * one rather than reading as a constant of the system. The only number here that
+ * was measured is the tunnel deadline above; this one was chosen to be far below
+ * it and has not been tuned since.
+ */
+const POLL_MS = 400;
+
 export async function waitForRelay(
   after?: string,
   timeoutMs = 30_000,
@@ -94,7 +104,7 @@ export async function waitForRelay(
               false,
             );
         })();
-      }, 400);
+      }, POLL_MS);
     });
   });
 }

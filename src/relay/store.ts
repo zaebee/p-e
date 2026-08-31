@@ -124,13 +124,32 @@ function header(head: string, field: string): string | null {
   return value === "none" ? null : value;
 }
 
+/**
+ * The id format, and everything that follows from it.
+ *
+ * Here rather than in `deposit.ts` because the format is a property of the store
+ * and not of the write path: `reference.ts` needs it to find ids quoted in prose,
+ * and a reader importing from the writer to learn what an id looks like has the
+ * dependency backwards. Both already import this file.
+ *
+ * Widening the format is one edit. Before this it was four, three of which said
+ * nothing about being consequences — a literal `9999`, two `slice(6)` calls, and
+ * `/relay-\d{4}/g` in a file that never mentions the others.
+ */
+export const ID_PREFIX = "relay-";
+export const ID_DIGITS = 4;
+export const ID = new RegExp(String.raw`^${ID_PREFIX}\d{${ID_DIGITS}}$`);
+
+/** What divides the store's own deposit header from the record as it arrived. */
+const DEPOSIT_SEPARATOR = "\n---\n";
+
 function parse(id: string, raw: string): RelayRecord {
   // The first line is a deposit header this store writes; the rest is the
   // record as it was given, byte for byte.
-  const split = raw.indexOf("\n---\n");
+  const split = raw.indexOf(DEPOSIT_SEPARATOR);
   if (split === -1) throw new Error(`${id}: no deposit header`);
   const meta = raw.slice(0, split);
-  const bytes = raw.slice(split + 5);
+  const bytes = raw.slice(split + DEPOSIT_SEPARATOR.length);
   // Absence must not read as a claim. A meta block with no `provenance:` line
   // used to parse as `as-received` — turning "the depositor did not say" into
   // "these bytes came through a transport and may differ from what the sender
