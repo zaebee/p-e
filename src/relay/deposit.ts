@@ -437,11 +437,11 @@ async function commit(root: string, path: string, text: string): Promise<void> {
  */
 function checkParent(bytes: string, held: ReadonlyMap<string, { readonly sha256: string }>) {
   const head = headerBlock(bytes);
-  const raw = /^parent:[ \t]*(.*)$/m.exec(head)?.[1]?.trim();
+  const raw = /^parent:(.*)$/m.exec(head)?.[1]?.trim();
   // `none` is the reserved word for the absence of a link — `store.ts:124` reads
   // it as null, and so must this.
   const parent = raw === undefined || raw === "none" ? null : raw;
-  const declared = /^parent-sha256:[ \t]*(.*)$/m.exec(head)?.[1]?.trim() ?? null;
+  const declared = /^parent-sha256:(.*)$/m.exec(head)?.[1]?.trim() ?? null;
   return stateOf(parent, declared, parent === null ? null : (held.get(parent)?.sha256 ?? null));
 }
 
@@ -478,7 +478,7 @@ const DIGEST = /^[0-9a-f]{64}$/;
  * is a claim; omission is not.
  */
 function refuseNonDigest(bytes: string): void {
-  const declared = /^parent-sha256:[ \t]*(.*)$/m.exec(headerBlock(bytes))?.[1]?.trim();
+  const declared = /^parent-sha256:(.*)$/m.exec(headerBlock(bytes))?.[1]?.trim();
   if (declared === undefined || DIGEST.test(declared)) return;
   throw new Error(
     `parent-sha256 must be 64 lowercase hex digits, got ${JSON.stringify(declared)}. ` +
