@@ -232,3 +232,34 @@ board as an independent item. With it, three items are one chain — Q1's digest
 marker-as-ledger, then 10.1 — because a digest cannot be written into a ledger entry without
 knowing which bytes it covers. Worked in the wrong order, that chain produces exactly the withdrawn
 repairs already recorded as ADR-1 and ADR-2.
+
+## 14 · A repair is attacked before adoption, by someone who did not write it
+
+Not "the finder must not be the fixer". That rule was proposed and does not fit the evidence,
+because **the finder and the fixer were already different parties when the failures happened**.
+
+    finder            fixer   attacker      outcome
+    Phase C auditor   claude  claude        SF-2 withdrawn
+    Phase C auditor   claude  mimo          SF-4 withdrawn
+    Phase C auditor   claude  mimo          SF-1 reversed under attack
+    Phase C auditor   claude  mimo          SF-3 survived — in the attacker's wording
+    claude            claude  reader C      the enumeration hypothesis, falsified
+
+SF-1 through SF-4 are the Phase C audit's four specification findings. It proposed no repairs; the
+repairs were written afterwards by a different party. Separating those two roles was already the
+case, and three of four repairs failed anyway.
+
+**What caught them was attack after the fact.** Not separation before it — which matters, because
+separation is cheap and comfortable and we would have believed it was working.
+
+**The rule.** No repair is adopted until a party that did not write it has attacked it. Four of the
+five artifacts above died or changed under exactly that treatment, and the survivor came back
+rewritten by its attacker.
+
+### The caveat, which is why this is a rule about repairs and not about people
+
+**Every repair in this phase was written by the same hand.** So "four for four" measures one
+author under attack, not a general property of authorship, and nobody has run the control where
+another party writes four repairs and three survive. Stated so that the rule cannot be quoted later
+as evidence about authorship in general — it is evidence about repairs going unattacked, and that
+is all it is.
