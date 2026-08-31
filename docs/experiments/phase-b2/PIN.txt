@@ -1,0 +1,5 @@
+pin 681a08d
+SPEC.md      sha256 847b8971d36390cd8843da7ebe59bc3499cd8050473425eb91a4a09f30b9901c
+AMENDMENT.md sha256 efcf6df9b3a25ad37d8db628e5d0cd497e1ad9b701c2294aae2738d453dbb2a6
+CONTRACT.md  sha256 babfe1972910d56a31bf3188f303ae48d97462f91e224e3410e8980470f7a707
+scope: one authority; no deletion, migration, crash recovery, second authority, cross-authority history
