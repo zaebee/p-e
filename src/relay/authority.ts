@@ -106,7 +106,11 @@ export function storeIdentity(env: NodeJS.ProcessEnv = process.env): string {
         "be a configured name rather than a filesystem path. This refuses instead of inventing one.",
     );
   }
-  if (configured.includes("/") && !configured.includes("://") && configured.startsWith("/")) {
+  // Just the leading slash. `startsWith("/")` already implies `includes("/")`,
+  // and the `://` guard it was paired with is dead too — no URL begins with a
+  // slash, so `https://example.test/p-e` passes without it. gemini-code-assist on
+  // PR #9 found the first redundancy; the second was hiding behind it.
+  if (configured.startsWith("/")) {
     throw new Error(
       `store identity ${JSON.stringify(configured)} looks like a filesystem path. The contract says the identifier is not one: a copy of this store elsewhere is the same authority, and a path would make it a different one.`,
     );
