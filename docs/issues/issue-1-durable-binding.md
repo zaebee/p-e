@@ -68,7 +68,16 @@ comparable and must never be scored against each other.
 > discover it.
 
 > **And this note does not settle where the boundary of "the MUST/MAY/MUST NOT sections" runs**
-> (measured 2026-08-31, `docs/experiments/q1-set/`). Three readers were given this document and one
+> (measured 2026-08-31, `docs/experiments/q1-set/`).
+>
+> **Every line number below is against `847b8971d36390cd8843da7ebe59bc3499cd8050473425eb91a4a09f30b9901c`**,
+> the digest all three readers verified before reading. Adding this note moved the lines it cites
+> down by 23 in the file you are reading, and they are deliberately not renumbered: a line number
+> means something only against a digest, the same reason `blind-audit.md` rule 12 pins the bundle
+> rather than the document. Renumbering would point at the live file and break again on the next
+> edit, and the readers' own reports cite the frozen bytes.
+>
+> Three readers were given this document and one
 > question — which text in it is normative, and by what rule — with no other material and no sight
 > of what the answer would decide. **They produced three materially different normative sets.**
 >
