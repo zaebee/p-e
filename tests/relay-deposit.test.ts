@@ -346,6 +346,26 @@ describe("allocation under the MUST 1 marker", () => {
     expect(id).toBe("relay-0003");
   });
 
+  it("ignores a .txt in the store whose name is not an id", async () => {
+    const root = storeOf("relay-0001");
+    // loadStore keys records by filename, so these become held ids. Measured
+    // before `held` was filtered: relay-10000.txt bricked the allocator with
+    // "the four-digit id space is exhausted", and notes.txt had a marker named
+    // `notes` written into history/.
+    writeFileSync(
+      join(root, "relay-10000.txt"),
+      "deposited-by: t\nprovenance: authored\n---\n@p-e/x0\nfrom: a\n\nb\n",
+    );
+    writeFileSync(
+      join(root, "notes.txt"),
+      "deposited-by: t\nprovenance: authored\n---\n@p-e/x0\nfrom: a\n\nb\n",
+    );
+
+    const { id } = await appendRelay(body("relay-0002"), undefined, root);
+    expect(id).toBe("relay-0002");
+    expect(readdirSync(join(root, "history")).sort()).toEqual(["relay-0001", "relay-0002"]);
+  });
+
   it("ignores a file in history/ that is not an id", async () => {
     const root = storeOf("relay-0001");
     mkdirSync(join(root, "history"), { recursive: true });

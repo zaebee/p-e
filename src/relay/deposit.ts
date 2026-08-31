@@ -109,15 +109,28 @@ async function survey(root: string, held: ReadonlySet<string>): Promise<{ mark: 
   // rule.
   const claimed = new Set(names.filter((n) => ID.test(n)));
 
+  // Both sides are filtered, and filtering only one was a bug of exactly the kind
+  // the first filter was added to stop. `loadStore` keys records by filename, so
+  // a `.txt` that is not an id becomes a held id: measured, a `relay-10000.txt`
+  // in the store put the mark at 10000 and bricked the allocator the same way a
+  // stray marker did, and a `notes.txt` had a marker named `notes` written for it
+  // in `history/`. Reported by gemini-code-assist on PR #3, third round,
+  // reproduced before fixing.
+  //
+  // Ignoring such a file is right here and is not a ruling on it. Whether the
+  // store should refuse to load one at all is a question about `loadStore` and
+  // not about allocation.
+  const ids = [...held].filter((id) => ID.test(id));
+
   // Backfill: a held id with no marker is a binding this store made before the
   // marker existed. Recording it is not a claim about the future — the binding is
   // already real — and after this runs once the branch is never taken again.
-  for (const id of held) {
+  for (const id of ids) {
     if (!claimed.has(id) && (await claim(root, id))) claimed.add(id);
   }
 
   const seq = (id: string) => Number(id.slice(6));
-  const mark = [...claimed, ...held]
+  const mark = [...claimed, ...ids]
     .map(seq)
     .filter(Number.isFinite)
     .reduce((a, b) => Math.max(a, b), 0);
