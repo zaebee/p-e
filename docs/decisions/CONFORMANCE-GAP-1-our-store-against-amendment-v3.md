@@ -44,3 +44,28 @@ It also does not claim the gap is a defect. The amendment is a draft that has ne
 adopted into `issue-1`, and a store that predates a draft is not violating anything. What
 would be wrong is measuring against this store and reporting the result as a fact about
 the specification.
+
+## Addendum — the same measurement against the ADOPTED spec
+
+Recorded after chatgpt's stop-signal: do not run derived experiments against this store
+until we know which relevant MUSTs it implements. That check existed only for the draft.
+Against `issue-1` itself:
+
+| clause | requires | our store |
+|---|---|---|
+| **MUST 1** | a persistent allocation marker per id, `history/relay-NNNN` | **no** — no `history/` directory exists |
+| **MUST 1** | allocation settled by atomic exclusive commit, **never by reading the current maximum** | **no** — `nextFree` is `max(present)+1`, the clause's named counterexample |
+| **MUST 2** | an authority MUST declare the seq from which it claims G1 | **no** — no floor anywhere in `src/relay/` |
+| **MUST 6** | visibility exposed as `PRESENT` / `KNOWN_MISSING` / `UNKNOWN` | **yes** |
+| **MUST 8** | crash-atomic and create-or-fail | **yes** — `link()` plus `fsync`, applied 2026-08-30 |
+
+So the store implements two of five checked clauses of the **adopted** specification, and
+one of those two was implemented this week as the F1 repair.
+
+This is a different and more serious statement than the amendment table above. AMENDMENT-v3
+is a draft nobody adopted, so failing it violates nothing. `issue-1` is the specification,
+and MUST 1's `max+1` prohibition is not a silence the store filled — **it is the exact
+mechanism the clause forbids by name.**
+
+Nothing here is proposed or repaired. It is recorded so that the stop-signal has the
+measurement it presupposes.
