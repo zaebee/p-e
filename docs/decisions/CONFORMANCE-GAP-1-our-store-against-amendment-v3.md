@@ -53,8 +53,8 @@ Against `issue-1` itself:
 
 | clause | requires | our store |
 |---|---|---|
-| **MUST 1** | a persistent allocation marker per id, `history/relay-NNNN` | **no** — no `history/` directory exists |
-| **MUST 1** | allocation settled by atomic exclusive commit, **never by reading the current maximum** | **no** — `nextFree` is `max(present)+1`, the clause's named counterexample |
+| **MUST 1** | a persistent allocation marker per id, `history/relay-NNNN` | **yes** — applied 2026-08-31; created `wx`, kept beyond deletion |
+| **MUST 1** | allocation settled by atomic exclusive commit, **never by reading the current maximum** | **yes** — applied 2026-08-31; the `wx` claim is the atomic step. The maximum is still read, for **monotonicity** — a separate half of the same clause — and never to choose the id |
 | **MUST 2** | an authority MUST declare the seq from which it claims G1 | **no** — no floor anywhere in `src/relay/` |
 | **MUST 6** | visibility exposed as `PRESENT` / `KNOWN_MISSING` / `UNKNOWN` | **yes** |
 | **MUST 8** | crash-atomic and create-or-fail | **yes** — `link()` plus `fsync`, applied 2026-08-30 |

@@ -1,4 +1,4 @@
-import { link, open, rm } from "node:fs/promises";
+import { link, mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { STORE_ROOT, headerBlock, loadStore } from "./store.js";
 
@@ -20,11 +20,188 @@ export interface DepositResult {
 
 const ID = /^relay-\d{4}$/;
 
-/** The next unused four-digit id, for a caller that proposes none. */
-function nextFree(held: ReadonlySet<string>): string {
-  const numbers = [...held].map((k) => Number(k.slice(6))).filter(Number.isFinite);
-  const next = (numbers.length === 0 ? 0 : Math.max(...numbers)) + 1;
-  return `relay-${String(next).padStart(4, "0")}`;
+/**
+ * MUST 1's allocation marker: an empty file per id, created `wx`, kept forever.
+ *
+ * What it replaces: `nextFree` was `max(present) + 1`, which the clause names as
+ * its own counterexample — allocation "MUST be settled by an atomic exclusive
+ * commit, **never by reading the current maximum**". Reading the maximum has two
+ * defects and the marker closes both.
+ *
+ * - **A deleted id was freed.** `max(present)` sees files on disk, so deleting
+ *   the highest record handed its id to the next deposit. That is `relay-0183`,
+ *   the failure this whole document exists for, and the record `wx` did not stop
+ *   it because deleting the record removed that guard. The marker persists
+ *   beyond deletion, so a bound id is never offered again.
+ * - **Two allocators could read the same maximum.** The read and the write were
+ *   separate steps with a window between them; the legacy authority has three
+ *   writers and two collided twice inside two hours (`relay-0225`, `relay-0232`).
+ *   `wx` is `O_CREAT|O_EXCL`: the claim is the atomic step, there is no shared
+ *   race point, and exactly one writer wins.
+ *
+ * The marker guards allocation; the record's own `link` still guards content.
+ * They are separate guards over separate things and neither replaces the other.
+ */
+function markerDir(root: string): string {
+  return join(root, "history");
+}
+
+/**
+ * Claim `id` by creating its marker. `false` means the id was already taken —
+ * by a record still held, by one since deleted, or by an allocator that got
+ * there first.
+ */
+async function claim(root: string, id: string): Promise<boolean> {
+  // Two attempts, because the directory may not exist yet and creating it is the
+  // only recoverable failure. The retry needs the same EEXIST handling as the
+  // first attempt: two writers can both see ENOENT, both mkdir harmlessly, and
+  // the loser then finds the marker already there. Measured before this loop
+  // existed — four concurrent first deposits gave one success and three raw
+  // EEXIST throws out of the deposit (gemini-code-assist, PR #3).
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const handle = await open(join(markerDir(root), id), "wx");
+      await handle.close();
+      return true;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "EEXIST") return false;
+      if (code === "ENOENT" && attempt === 0) {
+        await mkdir(markerDir(root), { recursive: true });
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error(`could not claim ${id}: the marker directory would not stay put`);
+}
+
+/**
+ * The high-water mark, and the markers that back it.
+ *
+ * `mark` is the largest id ever claimed, over markers AND held records. It must
+ * be both: a store written before this mechanism has records and no markers, and
+ * one whose top record is deleted has a marker and no record. Taking the maximum
+ * of held alone was wrong and reintroduced the bug this whole change exists to
+ * fix — delete the highest record and the mark falls back to it.
+ *
+ * Held ids missing a marker are backfilled here, once. Reading `history/` with a
+ * single `readdir` rather than probing each id is gemini-code-assist's
+ * suggestion on PR #3, and it is what makes the walk below cheap: measured on the
+ * first version, steady-state deposit cost grew linearly with the store — 7ms at
+ * 50 records, 44ms at 200, 157ms at 800 — because every deposit re-probed every
+ * id from 1. It is now one `readdir` and one `open`.
+ */
+async function survey(root: string, held: ReadonlySet<string>): Promise<{ mark: number }> {
+  let names: string[];
+  try {
+    names = await readdir(markerDir(root));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    names = [];
+  }
+  // Only well-formed ids count. A stray file in `history/` would otherwise join
+  // the set and, worse, the mark: measured before this filter, a `relay-10000`
+  // left in the directory put the mark at 10000 and every later deposit failed
+  // with "the four-digit id space is exhausted". Reported by gemini-code-assist
+  // on PR #3 and reproduced. An OS-dropped `.DS_Store` was already harmless,
+  // since its tail parses as NaN, but relying on that was luck rather than a
+  // rule.
+  const claimed = new Set(names.filter((n) => ID.test(n)));
+
+  // Both sides are filtered, and filtering only one was a bug of exactly the kind
+  // the first filter was added to stop. `loadStore` keys records by filename, so
+  // a `.txt` that is not an id becomes a held id: measured, a `relay-10000.txt`
+  // in the store put the mark at 10000 and bricked the allocator the same way a
+  // stray marker did, and a `notes.txt` had a marker named `notes` written for it
+  // in `history/`. Reported by gemini-code-assist on PR #3, third round,
+  // reproduced before fixing.
+  //
+  // Ignoring such a file is right here and is not a ruling on it. Whether the
+  // store should refuse to load one at all is a question about `loadStore` and
+  // not about allocation.
+  const ids = [...held].filter((id) => ID.test(id));
+
+  // Backfill: a held id with no marker is a binding this store made before the
+  // marker existed. Recording it is not a claim about the future — the binding is
+  // already real — and after this runs once the branch is never taken again.
+  for (const id of ids) {
+    if (!claimed.has(id) && (await claim(root, id))) claimed.add(id);
+  }
+
+  const seq = (id: string) => Number(id.slice(6));
+  const mark = [...claimed, ...ids]
+    .map(seq)
+    .filter(Number.isFinite)
+    .reduce((a, b) => Math.max(a, b), 0);
+  return { mark };
+}
+
+/**
+ * Claim the first id above the mark whose marker does not exist.
+ *
+ * Above the mark, because MUST 1 binds "uniquely, MONOTONICALLY, and never
+ * reuses a seq" — the marker gives never-reuses and monotonicity is the separate
+ * half. Found by running the first version against a copy of the live store,
+ * where it returned `relay-0001` into a store whose ids start at 32.
+ *
+ * Ids below the mark that were never bound stay unavailable. They are not marked
+ * spent; monotonicity is enforced as a rule, by the two places that consult
+ * `mark`, rather than by writing several hundred files to stand in for one.
+ *
+ * The `claimed` set is not consulted here and was a parameter until PR #3:
+ * `mark` is the maximum over it, so every id this loop tries is already above
+ * every id in it. The check could never fire and is gone rather than kept as
+ * reassurance.
+ */
+async function allocate(root: string, mark: number): Promise<string> {
+  for (let n = mark + 1; n <= 9999; n++) {
+    const id = `relay-${String(n).padStart(4, "0")}`;
+    if (await claim(root, id)) return id;
+  }
+  throw new Error("the four-digit id space is exhausted");
+}
+
+/**
+ * Settle which id this deposit takes, and claim its marker before anything is
+ * written.
+ *
+ * A proposed id goes through the same claim as an allocated one. The `held`
+ * check catches only what is still on disk, and `relay-0183` was rebound after
+ * its record was gone.
+ */
+async function settleId(
+  root: string,
+  held: ReadonlyMap<string, unknown>,
+  proposedId: string | undefined,
+): Promise<string> {
+  const { mark } = await survey(root, new Set(held.keys()));
+  if (proposedId === undefined) return allocate(root, mark);
+
+  if (!ID.test(proposedId)) {
+    throw new Error(`id must look like relay-0001, got ${JSON.stringify(proposedId)}`);
+  }
+  if (held.has(proposedId)) {
+    throw new Error(
+      `${proposedId} is already held. A deposit never overwrites: the store keeps one account per id and has no basis for preferring a second.`,
+    );
+  }
+  // Monotonicity applies to a proposed id too, and it was not enforced there.
+  // Measured before fixing: `relay-0002` was accepted into a store whose mark was
+  // `relay-0006`. The first version masked it by marking every id below the mark
+  // spent, which only worked after an allocation had run and cost a linear walk
+  // for it; this is the rule the markers were standing in for.
+  if (Number(proposedId.slice(6)) <= mark) {
+    throw new Error(
+      `${proposedId} is at or below relay-${String(mark).padStart(4, "0")}, the highest id this store has bound. Bindings are monotone: an id below the mark is spent whether or not a record is held there.`,
+    );
+  }
+  if (!(await claim(root, proposedId))) {
+    throw new Error(
+      `${proposedId} was bound before. The marker for it exists, so the id is spent whether or not a record is held there: an id, once bound, never names other bytes.`,
+    );
+  }
+  return proposedId;
 }
 
 /**
@@ -62,15 +239,6 @@ async function deposit(
 ): Promise<DepositResult> {
   const held = await loadStore(root);
 
-  if (proposedId !== undefined && !ID.test(proposedId)) {
-    throw new Error(`id must look like relay-0001, got ${JSON.stringify(proposedId)}`);
-  }
-  if (proposedId !== undefined && held.has(proposedId)) {
-    throw new Error(
-      `${proposedId} is already held. A deposit never overwrites: the store keeps one account per id and has no basis for preferring a second.`,
-    );
-  }
-
   // The store holds relay records. Bytes that merely happen to parse - the
   // parser tolerates a record with no headers at all - are not one, and finding
   // that out at deposit is cheaper than finding a stray blob in the graph.
@@ -78,7 +246,37 @@ async function deposit(
     throw new Error("a record must begin with @p-e/x0");
   }
 
-  const id = proposedId ?? nextFree(new Set(held.keys()));
+  const id = await settleId(root, held, proposedId);
+
+  // Everything after the claim runs under a release. A deposit that does not
+  // complete never became a binding, and the marker records bindings — the clause
+  // says the marker persists beyond *deletion of the record*, which is a record
+  // that was bound and then removed. One that never landed is not that.
+  //
+  // Measured before this existed: a record whose declared `id:` disagreed with
+  // the assigned one threw after the claim and burned `relay-0003` — marker on
+  // disk, no record, next deposit at 0004. The read-back path released its marker
+  // and no other path did. Reported by gemini-code-assist on PR #3.
+  //
+  // Only this id is released. Markers `survey` backfilled for records already
+  // held are bindings that exist and are not this deposit's to undo.
+  try {
+    return await write(bytes, depositedBy, provenance, proposedId, root, id);
+  } catch (error) {
+    await rm(join(markerDir(root), id), { force: true });
+    throw error;
+  }
+}
+
+/** The part of a deposit that runs once the id is settled and its marker held. */
+async function write(
+  bytes: string,
+  depositedBy: string,
+  provenance: "authored" | "as-received",
+  proposedId: string | undefined,
+  root: string,
+  id: string,
+): Promise<DepositResult> {
   // Scoped to the header block, not the whole record. store.ts learned this on the
   // read path — a record quoting header-like lines at column 0 could adopt them — and
   // this path had not: a body quoting `id: relay-0007` was refused as though the record
