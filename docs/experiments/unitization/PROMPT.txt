@@ -1,0 +1,26 @@
+You are being asked to apply a stated rule to a stated text and report what falls out.
+
+Everything you need is in this directory: SPEC.md, AMENDMENT.md, RULE.md, CONTRACT.md.
+
+Read CONTRACT.md first and do exactly what it says, nothing more and nothing less.
+
+Rules for this run:
+
+- Read only the files in this directory. Do not search the rest of the filesystem and do
+  not use the network. Other readings of these documents exist; you do not have them and
+  must not look for them.
+
+- You are NOT being asked whether the rule in RULE.md is a good rule, nor how you would
+  have cut the text yourself. You are applying the rule as given.
+
+- Where the rule does not determine the cut, you must still produce a unit list, so you
+  will make judgement calls. MAKE THEM, MARK THEM, and state the alternative you rejected.
+  CONTRACT.md §3 and §4 require this, and that section of your report matters more than
+  the list itself: a rule that determines everything produces an empty one, and that is a
+  result.
+
+- Check your arithmetic before you write it down. The per-section counts must sum to the
+  total. This run exists to produce a number, so a wrong number is a wrong answer.
+
+When you are done, produce UNITS.md as CONTRACT.md §6 asks. Then state, in one line, the
+total unit count and how many places you recorded where the rule did not determine the cut.
