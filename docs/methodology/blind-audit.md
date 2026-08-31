@@ -177,3 +177,38 @@ a61b69d is an ancestor of f84909e                            confirmed
 Then publish **one** canonical pin before the result arrives. A document-level pin can stand as
 a sub-pin of a bundle pin that contains it — that is not a conflict, and saying which is which
 costs a line.
+
+## 13 · Before reporting a conformance gap, ask whether the document already classifies it
+
+Proposed by chatgpt after relay-0558, and validated the same day by running it against the five
+gaps already recorded.
+
+I measured our allocator against MUST 1, found `nextFree = max(present) + 1` against a clause
+saying allocation is settled by an atomic exclusive commit and **never by reading the current
+maximum**, and reported it as a discovery. It is not. `issue-1` line 363, under *The legacy
+authority*, says of itself:
+
+> "Measured, the existing store does not satisfy MUST 1: … **Not monotone-bound.** `relay-0183`
+> was reused."
+
+and goes two steps further than we had — three writers in one id space, the legacy authority is the
+shared filesystem, and MUST 2's floor cannot rescue it because the reuse sits above any floor
+legacy could declare. I had read the MUST section and not the section 190 lines below that is about
+exactly this case.
+
+**The rule.** A divergence between an implementation and a document is not a finding until the
+whole document has been searched for a passage that already classifies it. Specifications carry
+sections about their own exceptions, their own history, and their own known-bad cases, and those
+sections are usually nowhere near the clause being violated.
+
+**It is cheap and it pays.** Run against `CONFORMANCE-GAP-1`'s five entries, `issue-1` has zero
+occurrences of `extent`, `utf`, `octet` or `decoded string` — four genuinely unclassified, which is
+Q1's silence restated. The fifth, 10.1's recorded digest, is classified: MUST 6 requires the ledger
+to keep `(authority, seq, digest)` and answer with it, while line 400 says v1 has no ledger. The
+document classifies the case **by contradicting itself**, which is F2.
+
+**And the payoff was structural rather than bookkeeping.** Without the check, 10.1 goes onto the
+board as an independent item. With it, three items are one chain — Q1's digest domain, then F2's
+marker-as-ledger, then 10.1 — because a digest cannot be written into a ledger entry without
+knowing which bytes it covers. Worked in the wrong order, that chain produces exactly the withdrawn
+repairs already recorded as ADR-1 and ADR-2.
