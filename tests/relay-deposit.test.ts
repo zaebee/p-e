@@ -452,3 +452,70 @@ describe("allocation under the MUST 1 marker", () => {
     expect(id).toBe("relay-0002");
   });
 });
+
+/**
+ * `parent-sha256:` at deposit — the shape it must have, and what the store can
+ * say about the claim without depending on the parent.
+ *
+ * Five records in this store carry something in that field which was never a
+ * digest, or was a digest of the wrong bytes. The shape check refuses three of
+ * them. The other two are well-formed and wrong, and no check on shape can see
+ * that; the report below is what surfaces those, at the moment the author can
+ * still explain it rather than hours later from a suite run.
+ */
+describe("the parent-sha256 claim", () => {
+  const withParent = (declared: string | null) =>
+    `@p-e/x0\nparent: relay-0001\n${declared === null ? "" : `parent-sha256: ${declared}\n`}from: t\nto: n\nkind: probe\n\nx\n`;
+
+  it("refuses a value that was never a digest, and names the alternative", async () => {
+    for (const junk of [
+      "PLACEHOLDER",
+      "unknown",
+      "0".repeat(63),
+      `0x${"a".repeat(62)}`,
+      "ABC" + "d".repeat(61),
+    ]) {
+      await expect(appendRelay(withParent(junk), undefined, scratch())).rejects.toThrow(
+        /64 lowercase hex digits/,
+      );
+    }
+    // The refusal has to say what to do instead, because in every recorded
+    // instance the field could have been left out at no cost.
+    await expect(appendRelay(withParent("unknown"), undefined, scratch())).rejects.toThrow(
+      /omit the line/,
+    );
+  });
+
+  it("reports MATCHES when the declared digest is the parent's", async () => {
+    const root = scratch();
+    const parent = (await loadStore(root)).get("relay-0001");
+    const { parentCheck } = await appendRelay(withParent(parent?.sha256 ?? ""), undefined, root);
+    expect(parentCheck).toBe("MATCHES");
+  });
+
+  it("reports MISMATCH and still deposits — the record lands, the claim is flagged", async () => {
+    const root = scratch();
+    const wrong = "a".repeat(64);
+    const { id, parentCheck } = await appendRelay(withParent(wrong), undefined, root);
+
+    // Not a refusal. MUST NOT line 254 forbids making writing depend on the
+    // parent being present, and a deposit that failed only when the parent
+    // happened to be held would have an outcome that varied with our access.
+    expect(parentCheck).toBe("MISMATCH");
+    expect(existsSync(join(root, `${id}.txt`))).toBe(true);
+  });
+
+  it("reports UNCHECKABLE when the parent is not held here", async () => {
+    const root = scratch();
+    const bytes = `@p-e/x0\nparent: relay-9998\nparent-sha256: ${"b".repeat(64)}\nfrom: t\n\nx\n`;
+    const { parentCheck } = await appendRelay(bytes, undefined, root);
+    // A fact about this store's access, not about the record — continuity.ts
+    // introduced this state to stop the one being reported as the other.
+    expect(parentCheck).toBe("UNCHECKABLE");
+  });
+
+  it("reports NO_CLAIM when the field is absent, which is the honest form", async () => {
+    const { parentCheck } = await appendRelay(withParent(null), undefined, scratch());
+    expect(parentCheck).toBe("NO_CLAIM");
+  });
+});
