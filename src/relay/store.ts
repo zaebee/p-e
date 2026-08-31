@@ -140,6 +140,68 @@ export const ID_PREFIX = "relay-";
 export const ID_DIGITS = 4;
 export const ID = new RegExp(String.raw`^${ID_PREFIX}\d{${ID_DIGITS}}$`);
 
+/**
+ * Where MUST 1's allocation markers live — one empty file per id ever bound.
+ *
+ * Here rather than in `deposit.ts` for the same reason the id format is here:
+ * it is a fact about the store's layout, and a reader that wants to know which
+ * ids were bound should not have to import the write path to find out. Until
+ * today nothing read it except the writer, which is why the state below went
+ * unnoticed.
+ */
+export function markerDir(root = STORE_ROOT): string {
+  return join(root, "history");
+}
+
+/**
+ * Markers and records disagreeing, which nothing compared until 2026-08-31.
+ *
+ * `checkContinuity` reads records and their declared parents. It cannot see an
+ * id that was bound and has no record, because there is no record to report it
+ * on — the id is simply absent, and absent is what an id never used looks like
+ * too. THE MARKER IS THE ONLY THING THAT TELLS THEM APART, and nothing was
+ * asking it.
+ *
+ * Found by following an outside audit of the specification, which predicted that
+ * a marker created before its record survives a crash and burns the id.
+ * `relay-0683` is that state in the live store, and `relay-0684` next to it lost
+ * both — the second is visible as `relay-0685`'s `UNCHECKABLE`, the first was
+ * visible to nothing.
+ *
+ * Neither side is a defect on its own:
+ *
+ * - **orphaned** — a marker with no record. The id is spent and nothing occupies
+ *   it. Expected after a crash between the claim and the write, and expected
+ *   after a record is deleted, which the marker is designed to survive. It is
+ *   reported because the two cases are indistinguishable here and the first is a
+ *   loss.
+ * - **unmarked** — a record with no marker. Every store written before MUST 1
+ *   landed, healed on the next deposit by `survey`'s backfill.
+ */
+export interface MarkerAgreement {
+  readonly orphaned: readonly string[];
+  readonly unmarked: readonly string[];
+}
+
+export async function markerAgreement(
+  store: ReadonlyMap<string, RelayRecord>,
+  root = STORE_ROOT,
+): Promise<MarkerAgreement> {
+  let names: string[];
+  try {
+    names = await readdir(markerDir(root));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    names = [];
+  }
+  const markers = new Set(names.filter((n) => ID.test(n)));
+  const records = new Set([...store.keys()].filter((id) => ID.test(id)));
+  return {
+    orphaned: [...markers].filter((id) => !records.has(id)).sort(),
+    unmarked: [...records].filter((id) => !markers.has(id)).sort(),
+  };
+}
+
 /** What divides the store's own deposit header from the record as it arrived. */
 const DEPOSIT_SEPARATOR = "\n---\n";
 

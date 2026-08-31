@@ -1,7 +1,15 @@
 import { link, mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { type Continuity, stateOf } from "./continuity.js";
-import { ID, ID_DIGITS, ID_PREFIX, STORE_ROOT, headerBlock, loadStore } from "./store.js";
+import {
+  ID,
+  ID_DIGITS,
+  ID_PREFIX,
+  STORE_ROOT,
+  headerBlock,
+  loadStore,
+  markerDir,
+} from "./store.js";
 
 /**
  * The one write path, and it records what it can observe rather than what it is
@@ -70,9 +78,6 @@ const idOf = (seq: number) => `${ID_PREFIX}${String(seq).padStart(ID_DIGITS, "0"
  * The marker guards allocation; the record's own `link` still guards content.
  * They are separate guards over separate things and neither replaces the other.
  */
-function markerDir(root: string): string {
-  return join(root, "history");
-}
 
 /**
  * Claim `id` by creating its marker. `false` means the id was already taken —

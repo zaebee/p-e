@@ -10,7 +10,7 @@
  * check was written to catch.
  */
 import { checkContinuity, tally } from "../src/relay/continuity.js";
-import { loadStore } from "../src/relay/store.js";
+import { loadStore, markerAgreement } from "../src/relay/store.js";
 
 /**
  * Divergences that exist and can never be repaired.
@@ -23,6 +23,18 @@ import { loadStore } from "../src/relay/store.js";
  * Each is corrected by an erratum record rather than an edit, which is the only
  * repair an append-only store has.
  */
+/**
+ * Markers whose record is gone, and why.
+ *
+ * The marker is never removed — removing it would free the id and reopen the
+ * failure MUST 1 exists to prevent. So an orphan is permanent and the only repair
+ * is to say what happened, which is the same shape as `ACCOUNTED_FOR` below.
+ */
+const ORPHANED_MARKERS: Readonly<Record<string, string>> = {
+  "relay-0683":
+    "mimo's observation, deposited and read on 2026-08-31 and never committed; the record is gone and the cause is unestablished — relay-0703. relay-0684 beside it lost record and marker both, which relay-0685 shows as UNCHECKABLE",
+};
+
 const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   "relay-0113": "PLACEHOLDER, retracted by its own author in relay-0114",
   "relay-0119": "whole-file digest instead of the body digest; OBS-048, erratum in relay-0124",
@@ -121,7 +133,34 @@ for (const [digest, ids] of byDigest) {
   if (ids.length > 1) console.log(`\n  same bytes at ${ids.join(" and ")}  sha256 ${digest}`);
 }
 
+// Markers against records, which nothing compared until an outside audit of the
+// specification sent someone to look. An orphaned marker is an id that was bound
+// and holds nothing: expected after a delete, which the marker survives by
+// design, and expected after a crash between the claim and the write, which is a
+// loss. The two are indistinguishable from here, so both are reported and the
+// unexplained ones are accounted for by name like a divergence.
+const agreement = await markerAgreement(store, root);
+if (agreement.unmarked.length > 0) {
+  console.log(
+    `\n  ${agreement.unmarked.length} record(s) with no marker — a store written before MUST 1; the next deposit backfills them`,
+  );
+}
+for (const id of agreement.orphaned) {
+  const note = ORPHANED_MARKERS[id];
+  console.log(`\n  marker with no record at ${id}`);
+  console.log(note ? `    known    ${note}` : "    UNACCOUNTED FOR");
+}
+
+const unexplainedOrphans = agreement.orphaned.filter((id) => !ORPHANED_MARKERS[id]);
 const unaccounted = findings.filter((f) => f.state === "DIVERGES" && !ACCOUNTED_FOR[f.id]);
+if (unexplainedOrphans.length > 0) {
+  console.log(
+    `\n${unexplainedOrphans.length} unaccounted orphaned marker(s): ${unexplainedOrphans.join(", ")}`,
+  );
+  console.log("An id was bound and nothing occupies it. The marker cannot be removed —");
+  console.log("that would free the id and reopen relay-0183's class. Record why it is empty.");
+  process.exit(1);
+}
 if (unaccounted.length > 0) {
   console.log(
     `\n${unaccounted.length} unaccounted divergence(s): ${unaccounted.map((f) => f.id).join(", ")}`,
