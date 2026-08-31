@@ -169,6 +169,7 @@ describe("the live store", () => {
       // that author's; the others announce themselves as PLACEHOLDER or run short.
       "relay-0430",
       "relay-0689",
+      "relay-0693",
     ]);
   });
 });
