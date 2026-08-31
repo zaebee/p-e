@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { AUTHORITY, type G1Claim, claimsG1, floorOf } from "../src/relay/authority.js";
+import {
+  AUTHORITY,
+  type G1Claim,
+  claimsG1,
+  floorOf,
+  storeIdentity,
+} from "../src/relay/authority.js";
 
 /**
  * MUST 2 — "An authority MUST declare the seq from which it claims G1, and MUST
@@ -75,6 +81,43 @@ describe("the authority's G1 declaration", () => {
     // test does not re-argue.
     expect(claimsG1({ claims: "from", seq: reuse + 1, declaredAt: "hypothetical" }, reuse)).toBe(
       false,
+    );
+  });
+});
+
+/**
+ * The store's identity, which the citation contract requires and nothing has
+ * supplied. These tests are about the refusal as much as the value: an unset
+ * identity must fail loudly rather than resolve to something plausible.
+ */
+describe("the store's configured identity", () => {
+  it("refuses when nothing is configured, and says what to set", () => {
+    expect(() => storeIdentity({})).toThrow(/no store identity is configured/);
+    expect(() => storeIdentity({})).toThrow(/P_E_STORE_IDENTITY/);
+    // The message has to say why there is no default, or the next reader adds one.
+    expect(() => storeIdentity({})).toThrow(/instead of inventing one/);
+  });
+
+  it("refuses an empty or blank value rather than treating it as a name", () => {
+    for (const blank of ["", "   ", "\t"]) {
+      expect(() => storeIdentity({ P_E_STORE_IDENTITY: blank })).toThrow(/no store identity/);
+    }
+  });
+
+  it("refuses an absolute path, which the contract rules out by name", () => {
+    // "not a filesystem path" — a copy of this store elsewhere is the same
+    // authority, and a path would make it a different one.
+    expect(() => storeIdentity({ P_E_STORE_IDENTITY: "/home/zaebee/projects/p-e/relay" })).toThrow(
+      /looks like a filesystem path/,
+    );
+  });
+
+  it("accepts a configured name, including forms that merely contain a slash", () => {
+    expect(storeIdentity({ P_E_STORE_IDENTITY: "p-e/relay" })).toBe("p-e/relay");
+    expect(storeIdentity({ P_E_STORE_IDENTITY: "  spaced  " })).toBe("spaced");
+    // A URL-shaped identifier is a name, not a path.
+    expect(storeIdentity({ P_E_STORE_IDENTITY: "https://example.test/p-e" })).toBe(
+      "https://example.test/p-e",
     );
   });
 });

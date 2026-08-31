@@ -68,3 +68,76 @@ export function claimsG1(claim: G1Claim, seq: number): boolean {
 export function floorOf(claim: G1Claim): number | undefined {
   return claim.claims === "from" ? claim.seq : undefined;
 }
+
+/**
+ * Who this authority is, as distinct from what it claims.
+ *
+ * The citation contract requires it and nothing supplies it. `issue-1`:
+ *
+ * > "crossing an authority or store boundary the citation MUST be `(store
+ * > identity, locator, content digest)`, where *store identity* is the
+ * > **configured** authority/store identifier (not a filesystem path)."
+ *
+ * Two words in that sentence do the work. **Configured** — so it is not derived
+ * from where the files happen to sit, and a copy of this store under another path
+ * is the same authority. And **not a filesystem path** — which rules out the one
+ * thing that was available for free.
+ *
+ * ## Why this throws while `AUTHORITY` beside it does not
+ *
+ * The two look inconsistent and are not, and the difference is the one this
+ * project draws everywhere else.
+ *
+ * `AUTHORITY`'s `claims: "none"` is **a fact about the authority**. It genuinely
+ * claims no G1, that is the answer, and not-claiming is a legitimate state of the
+ * world — so it is a value with grounds rather than a refusal to speak.
+ *
+ * An unconfigured identity is **not a fact about the authority**. This store has
+ * an identity; nobody has told us what it is. That is a missing *input*, not a
+ * state of the subject, and `store.ts` already says what happens when the two are
+ * confused: a meta block with no `provenance:` line used to parse as
+ * `as-received`, "turning 'the depositor did not say' into a claim about how it
+ * arrived". **Absence must not read as a claim.** A default here would do exactly
+ * that, and the name it read as would be one I chose.
+ *
+ * So: configure it, or this refuses. Confirmed as the right shape by
+ * gemini-code-assist on PR #9, on a weaker argument — that a returned
+ * `{ configured: false }` forces every caller to handle it and callers forget.
+ * True, and it would equally condemn `AUTHORITY`, which is the shape the question
+ * was about.
+ *
+ * ## And the path check does not enforce the clause
+ *
+ * It catches a leading slash and nothing else. `../relay` passes; so does `relay`,
+ * which is the directory's own name. There is no syntactic difference between
+ * `p-e/relay`, which is a name, and `docs/relay`, which is a path — the clause
+ * states an intention that cannot be checked from the string alone, which
+ * gemini-code-assist concedes in the same review: "the contract defines a
+ * constraint that is not purely syntactic". Left as it is rather than grown into
+ * something that would look like enforcement without being it.
+ *
+ * Nothing calls it yet. It exists because keying records by `(authority, seq)` —
+ * the Migration item, and what `relay-0699` measured as the real defect behind
+ * "chain rather than a DAG" — needs something to put in the first slot, and there
+ * was nothing.
+ */
+export function storeIdentity(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.P_E_STORE_IDENTITY?.trim();
+  if (configured === undefined || configured === "") {
+    throw new Error(
+      "no store identity is configured. Set P_E_STORE_IDENTITY to this authority's identifier — " +
+        "the citation contract requires one for any citation crossing a store boundary, and it must " +
+        "be a configured name rather than a filesystem path. This refuses instead of inventing one.",
+    );
+  }
+  // Just the leading slash. `startsWith("/")` already implies `includes("/")`,
+  // and the `://` guard it was paired with is dead too — no URL begins with a
+  // slash, so `https://example.test/p-e` passes without it. gemini-code-assist on
+  // PR #9 found the first redundancy; the second was hiding behind it.
+  if (configured.startsWith("/")) {
+    throw new Error(
+      `store identity ${JSON.stringify(configured)} looks like a filesystem path. The contract says the identifier is not one: a copy of this store elsewhere is the same authority, and a path would make it a different one.`,
+    );
+  }
+  return configured;
+}

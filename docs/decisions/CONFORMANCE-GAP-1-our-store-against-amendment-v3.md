@@ -57,6 +57,7 @@ Against `issue-1` itself:
 | **MUST 1** | allocation settled by atomic exclusive commit, **never by reading the current maximum** | **yes** — applied 2026-08-31; the `wx` claim is the atomic step. The maximum is still read, for **monotonicity** — a separate half of the same clause — and never to choose the id |
 | **MUST 2** | an authority MUST declare the seq from which it claims G1 | **yes, vacuously, and now stated** — applied 2026-08-31. This row was mis-framed. The clause binds an authority *that claims G1*; `issue-1`'s *The legacy authority* settles that this one cannot — `relay-0183` was rebound and 183 sits above any floor legacy could declare, so under v1's ban on exceptions it "cannot claim from 32 or from anywhere at all". The gap was never a missing floor. It was that nothing in `src/relay/` said the authority makes no claim; `authority.ts` now does, with the grounds |
 | **MUST 6** | visibility exposed as `PRESENT` / `KNOWN_MISSING` / `UNKNOWN` | **yes** |
+| **citation contract** | crossing a store boundary, a citation MUST be `(store identity, locator, content digest)` where store identity is the **configured** identifier | **no** — nothing configures one, and this row was missing from the table until 2026-08-31. `authority.ts` now refuses rather than defaulting, so the gap is visible instead of silent; closing it is a name, not a mechanism |
 | **MUST 8** | crash-atomic and create-or-fail | **yes** — `link()` plus `fsync`, applied 2026-08-30 |
 
 So the store implements two of five checked clauses of the **adopted** specification, and
