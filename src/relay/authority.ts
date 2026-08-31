@@ -83,14 +83,38 @@ export function floorOf(claim: G1Claim): number | undefined {
  * is the same authority. And **not a filesystem path** — which rules out the one
  * thing that was available for free.
  *
- * ## Why this throws rather than defaulting
+ * ## Why this throws while `AUTHORITY` beside it does not
  *
- * A default would be a name I chose. `issue-1` says what this authority is not —
- * "**the legacy authority is the shared filesystem**, not any participant" — and
- * never what it is called, so there is nothing to transcribe the way
- * `AUTHORITY`'s grounds were transcribed. Picking one inside a mechanism is how a
- * decision gets hidden in a refactor, which this branch has spent a day
- * recording. So: configure it, or this refuses.
+ * The two look inconsistent and are not, and the difference is the one this
+ * project draws everywhere else.
+ *
+ * `AUTHORITY`'s `claims: "none"` is **a fact about the authority**. It genuinely
+ * claims no G1, that is the answer, and not-claiming is a legitimate state of the
+ * world — so it is a value with grounds rather than a refusal to speak.
+ *
+ * An unconfigured identity is **not a fact about the authority**. This store has
+ * an identity; nobody has told us what it is. That is a missing *input*, not a
+ * state of the subject, and `store.ts` already says what happens when the two are
+ * confused: a meta block with no `provenance:` line used to parse as
+ * `as-received`, "turning 'the depositor did not say' into a claim about how it
+ * arrived". **Absence must not read as a claim.** A default here would do exactly
+ * that, and the name it read as would be one I chose.
+ *
+ * So: configure it, or this refuses. Confirmed as the right shape by
+ * gemini-code-assist on PR #9, on a weaker argument — that a returned
+ * `{ configured: false }` forces every caller to handle it and callers forget.
+ * True, and it would equally condemn `AUTHORITY`, which is the shape the question
+ * was about.
+ *
+ * ## And the path check does not enforce the clause
+ *
+ * It catches a leading slash and nothing else. `../relay` passes; so does `relay`,
+ * which is the directory's own name. There is no syntactic difference between
+ * `p-e/relay`, which is a name, and `docs/relay`, which is a path — the clause
+ * states an intention that cannot be checked from the string alone, which
+ * gemini-code-assist concedes in the same review: "the contract defines a
+ * constraint that is not purely syntactic". Left as it is rather than grown into
+ * something that would look like enforcement without being it.
  *
  * Nothing calls it yet. It exists because keying records by `(authority, seq)` —
  * the Migration item, and what `relay-0699` measured as the real defect behind
