@@ -62,10 +62,13 @@ export interface ReferenceFinding {
 
 const ID_IN_TEXT = /relay-\d{4}/g;
 
+/** What ends the header block. */
+const BLANK_LINE = "\n\n";
+
 /** Everything below the header block — the part a sender wrote as prose. */
 function prose(bytes: string): string {
-  const at = bytes.indexOf("\n\n");
-  return at === -1 ? "" : bytes.slice(at + 2);
+  const at = bytes.indexOf(BLANK_LINE);
+  return at === -1 ? "" : bytes.slice(at + BLANK_LINE.length);
 }
 
 export function checkReferences(store: ReadonlyMap<string, RelayRecord>): ReferenceFinding[] {

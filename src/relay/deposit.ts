@@ -36,7 +36,20 @@ export interface DepositResult {
   readonly parentCheck: Continuity;
 }
 
-const ID = /^relay-\d{4}$/;
+/**
+ * The id format, and the three numbers that follow from it.
+ *
+ * `seq` was `Number(id.slice(6))` in two places and the space bound was a literal
+ * `9999`. Both are consequences of the prefix and the digit count, and neither
+ * says so: widen the format to five digits and the slice keeps working while the
+ * bound silently does not. Derived here so one edit moves all of them.
+ */
+const ID_PREFIX = "relay-";
+const ID_DIGITS = 4;
+const ID = new RegExp(`^${ID_PREFIX}\\d{${ID_DIGITS}}$`);
+const MAX_SEQ = 10 ** ID_DIGITS - 1;
+const seqOf = (id: string) => Number(id.slice(ID_PREFIX.length));
+const idOf = (seq: number) => `${ID_PREFIX}${String(seq).padStart(ID_DIGITS, "0")}`;
 
 /**
  * MUST 1's allocation marker: an empty file per id, created `wx`, kept forever.
@@ -147,9 +160,8 @@ async function survey(root: string, held: ReadonlySet<string>): Promise<{ mark: 
     if (!claimed.has(id) && (await claim(root, id))) claimed.add(id);
   }
 
-  const seq = (id: string) => Number(id.slice(6));
   const mark = [...claimed, ...ids]
-    .map(seq)
+    .map(seqOf)
     .filter(Number.isFinite)
     .reduce((a, b) => Math.max(a, b), 0);
   return { mark };
@@ -173,11 +185,11 @@ async function survey(root: string, held: ReadonlySet<string>): Promise<{ mark: 
  * reassurance.
  */
 async function allocate(root: string, mark: number): Promise<string> {
-  for (let n = mark + 1; n <= 9999; n++) {
-    const id = `relay-${String(n).padStart(4, "0")}`;
+  for (let n = mark + 1; n <= MAX_SEQ; n++) {
+    const id = idOf(n);
     if (await claim(root, id)) return id;
   }
-  throw new Error("the four-digit id space is exhausted");
+  throw new Error(`the ${ID_DIGITS}-digit id space is exhausted`);
 }
 
 /**
@@ -209,9 +221,9 @@ async function settleId(
   // `relay-0006`. The first version masked it by marking every id below the mark
   // spent, which only worked after an allocation had run and cost a linear walk
   // for it; this is the rule the markers were standing in for.
-  if (Number(proposedId.slice(6)) <= mark) {
+  if (seqOf(proposedId) <= mark) {
     throw new Error(
-      `${proposedId} is at or below relay-${String(mark).padStart(4, "0")}, the highest id this store has bound. Bindings are monotone: an id below the mark is spent whether or not a record is held there.`,
+      `${proposedId} is at or below ${idOf(mark)}, the highest id this store has bound. Bindings are monotone: an id below the mark is spent whether or not a record is held there.`,
     );
   }
   if (!(await claim(root, proposedId))) {

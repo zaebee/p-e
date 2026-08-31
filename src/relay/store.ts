@@ -124,13 +124,16 @@ function header(head: string, field: string): string | null {
   return value === "none" ? null : value;
 }
 
+/** What divides the store's own deposit header from the record as it arrived. */
+const DEPOSIT_SEPARATOR = "\n---\n";
+
 function parse(id: string, raw: string): RelayRecord {
   // The first line is a deposit header this store writes; the rest is the
   // record as it was given, byte for byte.
-  const split = raw.indexOf("\n---\n");
+  const split = raw.indexOf(DEPOSIT_SEPARATOR);
   if (split === -1) throw new Error(`${id}: no deposit header`);
   const meta = raw.slice(0, split);
-  const bytes = raw.slice(split + 5);
+  const bytes = raw.slice(split + DEPOSIT_SEPARATOR.length);
   // Absence must not read as a claim. A meta block with no `provenance:` line
   // used to parse as `as-received` — turning "the depositor did not say" into
   // "these bytes came through a transport and may differ from what the sender
