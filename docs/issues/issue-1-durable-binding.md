@@ -67,6 +67,40 @@ comparable and must never be scored against each other.
 > unintegrated deliberately rather than welded shut, and marked so a reader is not left to
 > discover it.
 
+> **And this note does not settle where the boundary of "the MUST/MAY/MUST NOT sections" runs**
+> (measured 2026-08-31, `docs/experiments/q1-set/`).
+>
+> **Every line number below is against `847b8971d36390cd8843da7ebe59bc3499cd8050473425eb91a4a09f30b9901c`**,
+> the digest all three readers verified before reading. Adding this note moved the lines it cites
+> down by 32 in the file you are reading — a number that was 23 one commit ago, before this very
+> paragraph was added, and which the next edit above them will change again. That is the argument in
+> miniature. They are deliberately not renumbered: a line number
+> means something only against a digest, the same reason `blind-audit.md` rule 12 pins the bundle
+> rather than the document. Renumbering would point at the live file and break again on the next
+> edit, and the readers' own reports cite the frozen bytes.
+>
+> Three readers were given this document and one
+> question — which text in it is normative, and by what rule — with no other material and no sight
+> of what the answer would decide. **They produced three materially different normative sets.**
+>
+> Two of the three, independently, raised the same tension and named the same consequence: read
+> "An implementer can build from the MUST/MAY/MUST NOT sections alone and lose nothing" as a map of
+> where requirements live, and lines 290–327 are struck — the citation pair, the cross-store triple,
+> and the envelope `id:` check — while line 296 says of itself *"Cross-store citation is normative"*.
+> One reader instead excluded the sentence above as a claim *about* this document rather than *in*
+> it. All three admitted the citation section; none reconciled the two lines.
+>
+> Line 254 — *"Stated so that no implementation promises it:"* — was read by one as the directive the
+> non-guarantee list ranges over, and by another as an explicit disclaimer of normativity, in
+> opposite senses, both from the plain text. The guarantee and capability tables, line 334, and
+> line 351 each split two-to-one.
+>
+> **Recorded, not repaired.** Nothing here is amended and no reading is adopted: choosing among the
+> three sets is a decision and this is a measurement. What it establishes is narrower and is stated
+> so a reader is not left to discover it — **the document does not determine which of its own text
+> binds.** The four clauses the digest-domain question turns on are admitted by all three sets, so
+> that question is not affected; nothing else has been checked.
+
 Everything above the kernel — evaluator logic, clause interpretation, attribution, witnesses,
 authority durability — is outside it and says so.
 
