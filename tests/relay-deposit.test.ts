@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -226,5 +226,81 @@ describe("the durable write path", () => {
       ),
     ).toBe(true);
     expect(r.sha256).toBe(sha256(Buffer.from(raw.slice(raw.indexOf("\n---\n") + 5), "utf8")));
+  });
+});
+
+/**
+ * Allocation as it behaves today, pinned before MUST 1's marker is built.
+ *
+ * These tests describe the store we have, not the store the specification asks
+ * for. `CONFORMANCE-GAP-1` records two MUST 1 failures — no `history/` directory
+ * exists, and `nextFree` is `max(present) + 1`, which is the counterexample the
+ * clause names in its own words: allocation "MUST be settled by an atomic
+ * exclusive commit, **never by reading the current maximum**".
+ *
+ * The last test here reproduces `relay-0183`: the failure the whole document
+ * exists for. It asserts the wrong behaviour on purpose. When the marker lands
+ * that test must fail, and rewriting it is the proof the fix works — the same
+ * device `settled-rulings.test.ts` uses to stop a gap closing silently.
+ */
+describe("allocation, as it behaves before MUST 1", () => {
+  function empty(): string {
+    const root = join(mkdtempSync(join(tmpdir(), "p-e-alloc-")), "relay");
+    mkdirSync(root, { recursive: true });
+    return root;
+  }
+
+  function put(root: string, id: string): void {
+    writeFileSync(
+      join(root, `${id}.txt`),
+      `deposited-by: tester\nprovenance: authored\nassigned-id: ${id}\n---\n@p-e/x0\nid: ${id}\nfrom: alice\n\nbody\n`,
+    );
+  }
+
+  it("starts at relay-0001 in an empty store", async () => {
+    const root = empty();
+    const { id } = await appendRelay(body("relay-0001"), undefined, root);
+    expect(id).toBe("relay-0001");
+  });
+
+  it("reads the current maximum, so a gap is never filled", async () => {
+    const root = empty();
+    put(root, "relay-0001");
+    put(root, "relay-0005");
+
+    const { id } = await appendRelay(body("relay-0006"), undefined, root);
+
+    // max(present) + 1. Ids 0002 through 0004 are unused and stay unused —
+    // allocation never walks for a free one, which is what the marker changes.
+    expect(id).toBe("relay-0006");
+    expect(readdirSync(root).sort()).toEqual([
+      "relay-0001.txt",
+      "relay-0005.txt",
+      "relay-0006.txt",
+    ]);
+  });
+
+  it("frees a deleted id and rebinds it — this is relay-0183, and it is the defect", async () => {
+    const root = empty();
+    put(root, "relay-0001");
+    put(root, "relay-0002");
+
+    // The record is deleted. Nothing else changes.
+    rmSync(join(root, "relay-0002.txt"));
+
+    const { id } = await appendRelay(body("relay-0002"), undefined, root);
+
+    // WRONG, AND ASSERTED SO ON PURPOSE. `relay-0002` was bound and is now bound
+    // to different bytes: G1 — "an id, once bound, never names other bytes" —
+    // broken by an ordinary delete, because the guard asks whether an id is
+    // *currently held* rather than whether it was *ever bound*.
+    //
+    // MUST 1's marker is what fixes it: `history/relay-NNNN` persists beyond
+    // deletion, so a deleted id is not freed. When that lands this expectation
+    // becomes `relay-0003` and this comment goes with it.
+    expect(id).toBe("relay-0002");
+    const bytes = await readFile(join(root, "relay-0002.txt"), "utf8");
+    expect(bytes).toContain("hello");
+    expect(bytes).not.toContain("body");
   });
 });
