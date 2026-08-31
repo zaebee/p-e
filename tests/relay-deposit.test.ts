@@ -493,7 +493,7 @@ describe("the parent-sha256 claim", () => {
     expect(parentCheck).toBe("MATCHES");
   });
 
-  it("reports MISMATCH and still deposits — the record lands, the claim is flagged", async () => {
+  it("reports DIVERGES and still deposits — the record lands, the claim is flagged", async () => {
     const root = scratch();
     const wrong = "a".repeat(64);
     const { id, parentCheck } = await appendRelay(withParent(wrong), undefined, root);
@@ -501,7 +501,7 @@ describe("the parent-sha256 claim", () => {
     // Not a refusal. MUST NOT line 254 forbids making writing depend on the
     // parent being present, and a deposit that failed only when the parent
     // happened to be held would have an outcome that varied with our access.
-    expect(parentCheck).toBe("MISMATCH");
+    expect(parentCheck).toBe("DIVERGES");
     expect(existsSync(join(root, `${id}.txt`))).toBe(true);
   });
 
@@ -514,8 +514,27 @@ describe("the parent-sha256 claim", () => {
     expect(parentCheck).toBe("UNCHECKABLE");
   });
 
-  it("reports NO_CLAIM when the field is absent, which is the honest form", async () => {
+  it("reports LABEL_ONLY when a parent is named and no digest claimed", async () => {
+    // The honest form when you do not have the digest, and not a defect. This
+    // test asserted NO_CLAIM until the shared classifier was called instead of a
+    // second copy of its rules — the test was encoding the same drift as the code.
     const { parentCheck } = await appendRelay(withParent(null), undefined, scratch());
+    expect(parentCheck).toBe("LABEL_ONLY");
+  });
+
+  it("reports NO_CLAIM when there is no parent and no digest", async () => {
+    const bytes = "@p-e/x0\nfrom: t\nto: n\nkind: probe\n\nx\n";
+    const { parentCheck } = await appendRelay(bytes, undefined, scratch());
     expect(parentCheck).toBe("NO_CLAIM");
+  });
+
+  it("reports UNANCHORED for `parent: none` with a digest, not UNCHECKABLE", async () => {
+    // `none` is store.ts's reserved word for the absence of a link. Reporting
+    // UNCHECKABLE here would say the parent is one we do not hold, when the record
+    // says there is no parent — the substitution the vocabulary exists to refuse.
+    // Reported by gemini-code-assist on PR #7 and reproduced before fixing.
+    const bytes = `@p-e/x0\nparent: none\nparent-sha256: ${"a".repeat(64)}\nfrom: t\n\nx\n`;
+    const { parentCheck } = await appendRelay(bytes, undefined, scratch());
+    expect(parentCheck).toBe("UNANCHORED");
   });
 });

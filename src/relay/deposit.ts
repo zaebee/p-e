@@ -1,5 +1,6 @@
 import { link, mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { type Continuity, stateOf } from "./continuity.js";
 import { STORE_ROOT, headerBlock, loadStore } from "./store.js";
 
 /**
@@ -18,9 +19,9 @@ export interface DepositResult {
   readonly path: string;
   /**
    * What this store can say about the record's `parent-sha256:` claim, using
-   * `continuity.ts`'s own words for the same states.
+   * `continuity.ts`'s own classifier, not a second copy of its rules.
    *
-   * Observed and never enforced. `MISMATCH` does not refuse the deposit — MUST
+   * Observed and never enforced. `DIVERGES` does not refuse the deposit — MUST
    * NOT, line 254, forbids making writing depend on our access, and a deposit
    * that failed only when the parent happened to be held would have an outcome
    * that varied with it. Proposed by chatgpt as "reject / account"; this is the
@@ -32,7 +33,7 @@ export interface DepositResult {
    * author had long since moved on. Saying it at deposit puts the finding in
    * front of the party that can still explain it.
    */
-  readonly parentCheck: "MATCHES" | "MISMATCH" | "UNCHECKABLE" | "NO_CLAIM";
+  readonly parentCheck: Continuity;
 }
 
 const ID = /^relay-\d{4}$/;
@@ -303,7 +304,7 @@ async function write(
   proposedId: string | undefined,
   root: string,
   id: string,
-  parentCheck: DepositResult["parentCheck"],
+  parentCheck: Continuity,
 ): Promise<DepositResult> {
   // Scoped to the header block, not the whole record. store.ts learned this on the
   // read path — a record quoting header-like lines at column 0 could adopt them — and
@@ -422,24 +423,26 @@ async function commit(root: string, path: string, text: string): Promise<void> {
 }
 
 /**
- * Compare a declared `parent-sha256:` against the parent this store holds.
+ * What this store can say about a record's `parent-sha256:` claim, by the same
+ * classifier `check-continuity` uses on the store as a whole.
  *
- * Reports and never refuses. The three outcomes other than `NO_CLAIM` mirror
- * `continuity.ts`, including `UNCHECKABLE` for a parent whose bytes are not here
- * — which that file introduced precisely so a fact about this store's access is
- * not reported as someone else's error.
+ * Reports and never refuses. Calling `stateOf` rather than reimplementing it is
+ * not tidiness: the first version of this function drifted from it in three
+ * places within one commit — it named the mismatch `MISMATCH` where the
+ * vocabulary says `DIVERGES`, it returned `UNCHECKABLE` for `parent: none`,
+ * reporting a record with no parent as one whose parent we merely lack, and it
+ * collapsed `LABEL_ONLY` into `NO_CLAIM`. Two of the three were found by
+ * gemini-code-assist on PR #7 and the third by looking at what the shared
+ * function does.
  */
-function checkParent(
-  bytes: string,
-  held: ReadonlyMap<string, { readonly sha256: string }>,
-): DepositResult["parentCheck"] {
+function checkParent(bytes: string, held: ReadonlyMap<string, { readonly sha256: string }>) {
   const head = headerBlock(bytes);
-  const declared = /^parent-sha256:\s*(.*?)\s*$/m.exec(head)?.[1];
-  if (declared === undefined) return "NO_CLAIM";
-  const parent = /^parent:\s*(\S+)\s*$/m.exec(head)?.[1];
-  const actual = parent === undefined ? undefined : held.get(parent)?.sha256;
-  if (actual === undefined) return "UNCHECKABLE";
-  return actual === declared ? "MATCHES" : "MISMATCH";
+  const raw = /^parent:[ \t]*(.*)$/m.exec(head)?.[1]?.trim();
+  // `none` is the reserved word for the absence of a link — `store.ts:124` reads
+  // it as null, and so must this.
+  const parent = raw === undefined || raw === "none" ? null : raw;
+  const declared = /^parent-sha256:[ \t]*(.*)$/m.exec(head)?.[1]?.trim() ?? null;
+  return stateOf(parent, declared, parent === null ? null : (held.get(parent)?.sha256 ?? null));
 }
 
 /** Sixty-four lowercase hex digits, and nothing else. */
@@ -475,7 +478,7 @@ const DIGEST = /^[0-9a-f]{64}$/;
  * is a claim; omission is not.
  */
 function refuseNonDigest(bytes: string): void {
-  const declared = /^parent-sha256:\s*(.*?)\s*$/m.exec(headerBlock(bytes))?.[1];
+  const declared = /^parent-sha256:[ \t]*(.*)$/m.exec(headerBlock(bytes))?.[1]?.trim();
   if (declared === undefined || DIGEST.test(declared)) return;
   throw new Error(
     `parent-sha256 must be 64 lowercase hex digits, got ${JSON.stringify(declared)}. ` +

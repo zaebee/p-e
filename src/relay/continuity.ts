@@ -52,7 +52,16 @@ export interface ContinuityFinding {
   readonly state: Continuity;
 }
 
-function stateOf(
+/**
+ * The six states, from the three facts that decide them.
+ *
+ * Exported because the deposit path needs the same classification and
+ * reimplementing it there drifted immediately: a first attempt returned
+ * `UNCHECKABLE` for `parent: none` — reporting a missing parent as one we do not
+ * hold, which is the substitution this vocabulary exists to refuse — and
+ * collapsed `LABEL_ONLY` into `NO_CLAIM`. Two callers, one function.
+ */
+export function stateOf(
   parent: string | null,
   declared: string | null,
   actual: string | null,
