@@ -30,8 +30,9 @@ one falsified**. Verdict tally across 18 findings: 2 `CONFORMS` · 1 `VIOLATES` 
 
 The specification defines nine candidate invariants, extracted from the source
 of two production systems. Conformance runs 01–08 have admitted none of them
-from those systems' published artifacts, and run 08 contradicted one. Neither document is being adjusted to match
-the other, and §3 has not been rewritten to encode run 05 as its normative state.
+from those systems' published artifacts, and run 08 contradicted one. Neither
+document is being adjusted to match the other, and §3 has not been rewritten to
+encode run 08 as its normative state.
 
 The separation is deliberate:
 
