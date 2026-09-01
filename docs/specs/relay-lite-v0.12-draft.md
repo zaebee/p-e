@@ -141,6 +141,10 @@ would otherwise be asked to order records that are copies rather than siblings. 
 ### 4.1 Publishing
 
 ```typescript
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
+
 export type PublishResult =
   | { status: "PUBLISHED" }
   | { status: "ALREADY_PUBLISHED" }
@@ -262,7 +266,7 @@ verifying `parent_digest`. Re-serializing makes a non-canonical producer verify 
 nobody transmitted, and makes verification depend on the verifier's JSON library.
 
 **Stage 2 — structural and I-JSON conformance.** Parse; reject on duplicate keys, on numbers
-outside the safe range, on `cns.id != act.id`, on `cns.to ∉ act.to[]`, and on an unanchored
+outside the safe range, on `CNS.id != act.id`, on `CNS.to ∉ act.to[]`, and on an unanchored
 citation (`parent_id == null && parent_digest != null`).
 
 **Stage 3 — causal link evaluation.** Total and pure; see below.
@@ -296,7 +300,7 @@ export type CausalStatus =
 
 export function evaluateCausalLink(
   child: RelayAct,
-  localStore: Map<string, { octets: Buffer; digest: string }>
+  localStore: Map<string, StoredRecord>
 ): CausalStatus {
   const { parent_id, parent_digest } = child;
 
