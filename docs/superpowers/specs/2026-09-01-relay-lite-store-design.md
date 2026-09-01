@@ -83,8 +83,20 @@ a dependency without checking would inherit that class of error rather than
 avoid it.
 
 **UUIDv7** — not in the standard library; `crypto.randomUUID` produces v4.
-Around fifteen lines, and checkable: the time component is monotonic, and
-version and variant sit in the required bits.
+"Around fifteen lines" was too glib, and review said so. Two cases have to be
+named rather than assumed:
+
+- **more than one id inside the same millisecond**, which the timestamp alone
+  does not separate. RFC 9562 §6.2 method 1 — a counter in the `rand_a` bits,
+  seeded randomly per millisecond — is what this uses;
+- **a clock that steps backwards**, which must not produce an id that sorts
+  before one already issued. The generator holds the last millisecond it used
+  and does not go below it, the same shape as the HLC's `max(physical, last)`.
+
+What is load-bearing here is **uniqueness**, not strict ordering: §4's comparator
+reaches `id` only as a terminal tie-break after depth and HLC, and
+`DeduplicateByID` keys on it. Ordering is why v7 rather than v4, and it is worth
+having; a collision would be worse than a mis-ordering.
 
 Both are small, both are load-bearing, and both are places where another
 implementation may differ silently in exactly what matters here.
@@ -152,6 +164,14 @@ Three functions called in order, not one function with three phases:
 demonstrate that the order was respected; three functions can, and a test can
 call them out of order and observe the difference.
 
+**`UNANCHORED` appears in both stage 2 and stage 3, and that is not a
+contradiction** — the reconciling sentence is in the spec and was missing here.
+Stage 2 *rejects* it at ingest, which is where rejection belongs. Stage 3 still
+*classifies* it, so evaluation stays total and an auditor sweeping records that
+did not come through this pipeline — written under older rules, or arriving from
+elsewhere — gets a report rather than an aborted sweep. The two stages answer
+different questions: may this enter, and what is this.
+
 ## Refusals
 
 Every place this code says *no*, and what each refusal is entitled to claim.
@@ -195,7 +215,21 @@ against the specification rather than as unit tests of an implementation.
 **§3 — the canonical act**
 3. JCS against the **official RFC 8785 test vectors**, not against itself
 4. I-JSON: duplicate key, integer past 2^53, invalid UTF-8 — each refused, each
-   naming the rule
+   naming the rule.
+
+   Review expected this to need a custom parser, because `JSON.parse` silently
+   loses precision past `Number.MAX_SAFE_INTEGER`. Measured, it does not: an
+   integer outside the safe range stays outside it after rounding, since doubles
+   represent every integer up to 2^53 exactly and anything above rounds to
+   something no smaller. `9007199254740993` becomes `…992`, `1e400` becomes
+   `Infinity`, and both fail `Number.isInteger(v) && Math.abs(v) > MAX_SAFE`.
+   Detection works after the parse.
+
+   What does not survive is the **distinction between two wire forms**:
+   `…993` and `…992` both parse to `…992` and are afterwards identical. That
+   matters nowhere in this design, and the reason is §7's rule that a verifier
+   hashes received octets and never re-serialises — so the digest is taken over
+   what arrived, and the parse is used to decide admission, not identity.
 5. sealing: the same act republished produces the **same bytes**
 6. retrying an existing `id` changes neither `hlc` nor digest
 
