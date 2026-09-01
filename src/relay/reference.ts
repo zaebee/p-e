@@ -77,6 +77,34 @@ function prose(bytes: string): string {
 }
 
 /**
+ * The index of the first entry strictly greater than `id`, by binary search.
+ *
+ * Both sides are fixed-width zero-padded ids, so lexicographic order is the
+ * numeric one — the same property `store.ts`'s comparator rests on, and the same
+ * caveat: a fact about the format rather than about strings.
+ */
+function firstAbove(sorted: readonly string[], id: string): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    // `mid < hi <= sorted.length`, so this is always present. The check is for
+    // the compiler's index strictness rather than for a case that occurs.
+    const at = sorted[mid];
+    if (at !== undefined && at > id) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
+/** Id order, written out for the reasons `store.ts` gives beside its own. */
+function bySeq(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+/**
  * `bound` is every id this authority has ever bound — the marker set, which
  * survives deletion. Omit it and successors are counted over held records only,
  * which is what this did until 2026-09-01 and which a deletion could launder.
@@ -109,6 +137,19 @@ export function checkReferences(
     }
   }
 
+  // Sorted once, searched per record. gemini-code-assist on PR #11 caught that
+  // `[...bound].filter(...)` inside the loop allocated an array per record; its
+  // fix removed the allocation and kept the quadratic walk. Measured on synthetic
+  // stores, counting by walking the whole set each time against a binary search:
+  //
+  //       664 records      12ms     0.2ms
+  //      5000 records     443ms     1.7ms
+  //     20000 records   10207ms     7.3ms
+  //
+  // The store is 664 today, where both are free. The difference is what happens
+  // to a check that is meant to keep running.
+  const boundSorted = bound ? [...bound].sort(bySeq) : undefined;
+
   return ids.map((id, i) => {
     const refs = referencedBy.get(id) ?? [];
     const mentions = mentionedBy.get(id) ?? [];
@@ -126,7 +167,9 @@ export function checkReferences(
     // design. Without one — a store from before MUST 1, or a caller that does not
     // supply it — this falls back to the held-record count and is wrong in the
     // same old way, which is stated rather than hidden.
-    const successors = bound ? [...bound].filter((other) => other > id).length : ids.length - 1 - i;
+    const successors = boundSorted
+      ? boundSorted.length - firstAbove(boundSorted, id)
+      : ids.length - 1 - i;
     return {
       id,
       referencedBy: refs,
