@@ -33,6 +33,18 @@ import type { RelayRecord } from "./store.js";
  *                state exists because representable-and-unexercised and
  *                unrepresentable are different, which is the same distinction
  *                one level up.
+ *
+ * UNCHECKABLE IS NOT OURS AND IS NOT NEW, and the next reader should not have to
+ * discover that the way I did. It is SMT-LIB's `unknown`: a solver that cannot
+ * decide answers `unknown`, never `unsat`, because failing to prove a thing false
+ * is not proving it true. Three-valued outcomes are canon in verification and
+ * predate this project entirely — recorded in relay-0731, with relay-0732 as the
+ * erratum for having treated the distinction as something found here.
+ *
+ * What is ours is only which six situations a citation in THIS store falls into,
+ * and two blind readers given the data model and no state names returned nine and
+ * eight rather than six (docs/experiments/citation-set). So the partition below is
+ * this store's, not a law.
  */
 export type Continuity =
   | "MATCHES"

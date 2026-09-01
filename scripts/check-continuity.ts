@@ -4,10 +4,11 @@
  *   bun run check-continuity          summary, plus every finding worth naming
  *   bun run check-continuity --all    one line per record
  *
- * Exits non-zero only on a divergence that is not already known. UNCHECKABLE is
- * never a failure: it says this store lacks the parent's bytes, which is a fact
- * about our access. Treating it as an error would be the exact substitution the
- * check was written to catch.
+ * Exits 0 clean, 1 on a divergence that is not already known, and 2 when the
+ * store cannot be read at all. UNCHECKABLE is never a failure: it says this
+ * store lacks the parent's bytes, which is a fact about our access. Treating it
+ * as an error would be the exact substitution the check was written to catch —
+ * and so would answering 1 for a store nobody could open.
  */
 import { checkContinuity, tally } from "../src/relay/continuity.js";
 import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
@@ -91,7 +92,23 @@ const all = process.argv.includes("--all");
 // record into the append-only store — cannot be undone.
 const at = process.argv.indexOf("--root");
 const root = at === -1 ? undefined : process.argv[at + 1];
-const store = await loadStore(root);
+// Exit 2, not 1. A store this script cannot read and a store carrying a
+// divergence are different answers, and a caller that gets 1 for both cannot
+// tell them apart — which is the substitution the whole check exists to refuse,
+// performed on the way out. The distinction is computed all the way down to
+// UNCHECKABLE and was then discarded at the exit code until relay-0731.
+//
+// The shape is borrowed: genesis-corpus's courts answer 0 clean, 1 finding,
+// 2 refusal to judge, and refuse rather than report a silent zero.
+let store: Awaited<ReturnType<typeof loadStore>>;
+try {
+  store = await loadStore(root);
+} catch (error) {
+  console.error(`REFUSED: cannot read the store at ${root ?? STORE_ROOT}`);
+  console.error(`  ${(error as Error).message}`);
+  console.error("Nothing is claimed about the records. This is not a finding.");
+  process.exit(2);
+}
 const findings = checkContinuity(store);
 const counts = tally(findings);
 
