@@ -178,6 +178,17 @@ export function markerDir(root = STORE_ROOT): string {
  * - **unmarked** — a record with no marker. Every store written before MUST 1
  *   landed, healed on the next deposit by `survey`'s backfill.
  */
+/**
+ * Id order, stated rather than left to the default.
+ *
+ * A bare `.sort()` here is correct and only by accident of the format: ids are
+ * fixed-width and zero-padded, so lexicographic and numeric order coincide. That
+ * is a property of `ID_DIGITS` being constant within a store, not a fact about
+ * strings, and the default comparator says neither. Sonar flags the bare form as
+ * a reliability bug and is right to for the general case.
+ */
+const bySeq = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
 export interface MarkerAgreement {
   readonly orphaned: readonly string[];
   readonly unmarked: readonly string[];
@@ -195,10 +206,11 @@ export async function markerAgreement(
     names = [];
   }
   const markers = new Set(names.filter((n) => ID.test(n)));
-  const records = new Set([...store.keys()].filter((id) => ID.test(id)));
+  // `store.has` is O(1), so the second Set was a copy of the map's keys for no
+  // reason — gemini-code-assist on PR #10.
   return {
-    orphaned: [...markers].filter((id) => !records.has(id)).sort(),
-    unmarked: [...records].filter((id) => !markers.has(id)).sort(),
+    orphaned: [...markers].filter((id) => !store.has(id)).sort(bySeq),
+    unmarked: [...store.keys()].filter((id) => ID.test(id) && !markers.has(id)).sort(bySeq),
   };
 }
 

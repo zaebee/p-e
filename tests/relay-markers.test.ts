@@ -1,7 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { loadStore, markerAgreement, markerDir } from "../src/relay/store.js";
 
 /**
@@ -14,8 +14,22 @@ import { loadStore, markerAgreement, markerDir } from "../src/relay/store.js";
  * the live store.
  */
 describe("markerAgreement", () => {
-  function store(records: string[], markers: string[]): string {
+  // Every store built here is removed afterwards. No test in this repository did
+  // that before — gemini-code-assist on PR #10 — and eight files create temporary
+  // directories, so the leak is older and wider than this one.
+  const made: string[] = [];
+  afterEach(() => {
+    for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+
+  function scratch(): string {
     const root = join(mkdtempSync(join(tmpdir(), "p-e-mk-")), "relay");
+    made.push(join(root, ".."));
+    return root;
+  }
+
+  function store(records: string[], markers: string[]): string {
+    const root = scratch();
     mkdirSync(markerDir(root), { recursive: true });
     for (const id of records)
       writeFileSync(
@@ -51,7 +65,7 @@ describe("markerAgreement", () => {
   });
 
   it("treats a missing history/ as no markers rather than an error", async () => {
-    const root = join(mkdtempSync(join(tmpdir(), "p-e-mk-")), "relay");
+    const root = scratch();
     mkdirSync(root, { recursive: true });
     writeFileSync(
       join(root, "relay-0001.txt"),
