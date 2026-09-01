@@ -471,9 +471,14 @@ const DIGEST = /^[0-9a-f]{64}$/;
 function refuseNonDigest(bytes: string): void {
   const declared = /^parent-sha256:(.*)$/m.exec(headerBlock(bytes))?.[1]?.trim();
   if (declared === undefined || DIGEST.test(declared)) return;
+  // One template rather than a concatenation, so the sentence a depositor reads
+  // is one string in the source too. The second half is the load-bearing half:
+  // it names the alternative, because a refusal that does not say what to do
+  // instead invites the placeholder it just refused.
+  const alternative =
+    "If you do not have the parent's digest, omit the line: a named parent with no digest is LABEL_ONLY, which is not a defect. A placeholder is a claim.";
   throw new Error(
-    `parent-sha256 must be 64 lowercase hex digits, got ${JSON.stringify(declared)}. ` +
-      "If you do not have the parent's digest, omit the line: a named parent with no digest is LABEL_ONLY, which is not a defect. A placeholder is a claim.",
+    `parent-sha256 must be 64 lowercase hex digits, got ${JSON.stringify(declared)}. ${alternative}`,
   );
 }
 

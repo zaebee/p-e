@@ -12,6 +12,20 @@
       // doing exactly that to the Debian bytes on 2026-08-28.
       "corpus/**",
       "docs/experiments/debian-rb-bytes/**",
+
+      // Same class, added later and not covered until now: material handed to a
+      // blind reader. `clause-reader/CONTRACT.md` is "Set by bee.zae. Reproduced
+      // verbatim"; `suite-audit/PROMPT.md` calls its tree "the code you are
+      // auditing". Formatting either would change what a reader was shown, and
+      // no later run could tell which differences were the reader's and which
+      // were the formatter's.
+      //
+      // The rule is the class, not the file. A repository that stores captured
+      // artefacts beside its own source has two kinds of file with opposite
+      // rules, and formatting conventions apply to one of them.
+      "docs/experiments/clause-reader/corpus/**",
+      "docs/experiments/suite-audit/suite/**",
+
       "node_modules/**"
     ]
   }
