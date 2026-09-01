@@ -105,7 +105,11 @@ try {
   store = await loadStore(root);
 } catch (error) {
   console.error(`REFUSED: cannot read the store at ${root ?? STORE_ROOT}`);
-  console.error(`  ${(error as Error).message}`);
+  // Not `(error as Error).message`. If a non-Error ever reached this catch, the
+  // cast would throw inside the handler and the process would die unhandled —
+  // with exit 1, which is the collapse three lines of this block exist to
+  // prevent. The guarantee has to survive its own error path.
+  console.error(`  ${error instanceof Error ? error.message : String(error)}`);
   console.error("Nothing is claimed about the records. This is not a finding.");
   process.exit(2);
 }
