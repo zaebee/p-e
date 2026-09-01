@@ -139,6 +139,21 @@ describe("assertIJsonValue — RFC 7493, at minting", () => {
     }
   });
 
+  it("refuses a Date, a Map and a class instance rather than emptying them", () => {
+    // Object.values on each is [], so a permissive check passed them and
+    // canonicalize produced {}. Silent corruption, not a refusal.
+    class Thing {
+      x = 1;
+    }
+    for (const bad of [new Date(), new Map([["a", 1]]), new Set([1]), /x/, new Thing()]) {
+      expect(() => assertIJsonValue({ v: bad })).toThrow(IJsonViolation);
+    }
+  });
+
+  it("refuses a non-integer outside the safe range, which RFC 7493 also forbids", () => {
+    expect(() => assertIJsonValue({ n: 1e300 })).toThrow(IJsonViolation);
+  });
+
   it("admits null and booleans, which are JSON", () => {
     expect(() => assertIJsonValue({ a: null, b: true, c: false })).not.toThrow();
   });
@@ -174,6 +189,11 @@ describe("parseIJson — RFC 7493, at verification", () => {
     expect(() => parseIJson('{"a":["z","a"]}')).not.toThrow();
     expect(() => parseIJson('{"a":[1,2,3],"b":2}')).not.toThrow();
     expect(() => parseIJson('[{"a":1},{"a":2}]')).not.toThrow();
+  });
+
+  it("refuses a duplicate written one way escaped and one way not", () => {
+    // "a" and "\u0061" are one key after parsing and two strings as text.
+    expect(() => parseIJson('{"a":1,"\\u0061":2}')).toThrow(IJsonViolation);
   });
 
   it("still refuses a duplicate inside an object nested in an array", () => {
@@ -283,7 +303,12 @@ export function assertIJsonValue(value: unknown): void {
     // An integer past 2^53 stays past it after rounding, because doubles hold
     // every integer to 2^53 exactly and anything above rounds no smaller. So
     // this catches the violation even though the original digits are gone.
-    if (Number.isInteger(value) && Math.abs(value) > MAX_SAFE) {
+    //
+    // No `Number.isInteger` guard: every finite double above 2^52 is integral,
+    // so the guard excluded nothing and only made a reader wonder which
+    // non-integer case it was for. RFC 7493 §2.2 constrains numbers, not
+    // integers, and this now says that.
+    if (Math.abs(value) > MAX_SAFE) {
       throw new IJsonViolation(
         "number-range",
         `integer outside the safe range, encode it as a string: ${value}`,
@@ -314,6 +339,18 @@ export function assertIJsonValue(value: unknown): void {
     return;
   }
   if (typeof value === "object") {
+    // Plain objects only. `typeof` says "object" for Date, Map, Set, RegExp and
+    // every class instance, and `Object.values` on all of them is `[]` — so this
+    // passed them and `canonicalize` turned each into `{}`. Silent corruption,
+    // not a refusal: a caller who checked their value with `JSON.stringify`
+    // would have seen an ISO date and received an empty object from us.
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) {
+      throw new IJsonViolation(
+        "unsupported-type",
+        `only plain objects: ${(value as object).constructor?.name ?? "unknown"}`,
+      );
+    }
     for (const v of Object.values(value as object)) assertIJsonValue(v);
     return;
   }
@@ -376,7 +413,10 @@ function refuseDuplicateKeys(text: string): void {
       }
       if (ch === '"') {
         i++;
-        return out;
+        // Unescaped before comparison, because `"a"` and `"\u0061"` are the same
+        // key after parsing and different as text. A duplicate written one of
+        // each way escaped detection exactly when it was disguised.
+        return JSON.parse(`"${out}"`) as string;
       }
       out += ch;
       i++;
@@ -422,7 +462,7 @@ export function sha256Hex(text: string): string {
 - [ ] **Step 4: Run the tests and watch them pass**
 
 Run: `bun run test tests/relay-lite-canonical.test.ts`
-Expected: PASS, 17 tests.
+Expected: PASS, 20 tests.
 
 - [ ] **Step 5: Typecheck and lint**
 
