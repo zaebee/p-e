@@ -12,11 +12,11 @@
 
 ## Global Constraints
 
-- **Ten of the specification's twelve normative claims are in scope.** §4's two are consumer obligations and belong to a later projection; do not implement ordering or a comparator here.
+- **Eleven of the specification's twelve normative claims are in scope.** Only §4's *second* is a consumer obligation. Its first says *"The protocol **and storage model** treat the graph as a DAG"* and names a store directly — a store discharges it by imposing no total order of its own, keying acts by id and following parent links rather than sorting. An earlier draft put both out of scope: the count `2+4+2+4=12` was verified by measurement and each claim's *addressee* was not. Do not implement a comparator or a projection here; those belong to §4's second claim.
 - **Every check cites the clause it tests.** A test's name or its first comment quotes the sentence from `relay-lite-v0.12-draft.md` that it verifies. The suite is a conformance report, not unit tests of an implementation.
 - **Refusals are return values; exceptions mean this code is broken.** The one exception is `StoreCorruption`, which is about the store rather than a record and must be noticeable.
 - **A refusal names the party it implicates, or names none.** `RETRY_EXHAUSTED` asserts nothing about another writer; `UNCHECKABLE`, `LABEL_ONLY` and `NO_PARENT` are not defects.
-- **Sealed bytes are the act.** No function in this codebase may re-canonicalise a sealed act. `mint()` is the only producer of bytes.
+- **Sealed bytes are the act, and `index.ts` does not re-export `canonical.ts`.** `mint()` is then the only byte producer a consumer of this package has. An earlier form of this constraint said the guarantee held "by construction" while `canonicalize` sat exported beside it — a caller could assemble bytes for `{...act, hlc: other}` and nothing stopped them, which is a convention wearing a construction's name. `verify.ts` imports it directly and so do the tests; neither needs it on the public surface.
 - **Style follows `src/relay/`:** `node:`-prefixed builtins, `.js` extensions on relative imports, module docstrings that quote the clause and say why the code is shaped as it is.
 - **Commands:** `bun run test <path>` for one file, `bun run test` for the suite, `bun run typecheck`, `bun run lint`.
 - **Every task ends green.** A task is not done until `bun run typecheck` and `bun run lint` pass alongside its tests.
@@ -2013,12 +2013,12 @@ report saying which of the specification's claims hold, by clause.
 
 ```ts
 export * from "./act.js";
-export * from "./canonical.js";
 export * from "./cns.js";
 export * from "./hlc.js";
 export * from "./publish.js";
 export * from "./uuid.js";
 export * from "./verify.js";
+// canonical.js is deliberately absent from this list. See the implementation.
 export async function readDelivered(root: string): Promise<ReadonlyMap<string, StoredAct>>;
 ```
 
@@ -2042,6 +2042,33 @@ import {
 } from "../src/relay-lite/index.js";
 import { formatCns } from "../src/relay-lite/cns.js";
 import { readFile } from "node:fs/promises";
+
+// §4: "The protocol and storage model treat the graph as a DAG — a partial
+// order." A store discharges it by imposing no total order of its own.
+describe("§4 — the store imposes no order", () => {
+  it("returns acts keyed by id, with no sequence and no sort", async () => {
+    const root = mkdtempSync(join(tmpdir(), "relay-lite-dag-"));
+    let ctx = mintContext("n");
+    const ids: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      const m = mint(
+        { thread_id: "t", type: "message", from: "agent:a", to: ["agent:b"], payload: { i } },
+        ctx,
+        1000 + i,
+      );
+      ctx = m.ctx;
+      ids.push(m.sealed.act.id);
+      await publishAll(m.sealed, root);
+    }
+    const held = await readDelivered(root);
+    // A Map keyed by id: no position, no rank, nothing a consumer could mistake
+    // for the causal history. Every act is present and none is ordered.
+    expect(new Set(held.keys())).toEqual(new Set(ids));
+    for (const act of held.values()) {
+      expect(Object.keys(act)).toEqual(["bytes", "digest"]);
+    }
+  });
+});
 
 describe("readDelivered", () => {
   it("skips a file deleted between the listing and the read", async () => {
@@ -2129,12 +2156,17 @@ import { parseCns } from "./cns.js";
 import { StoreCorruption, type StoredAct } from "./verify.js";
 
 export * from "./act.js";
-export * from "./canonical.js";
 export * from "./cns.js";
 export * from "./hlc.js";
 export * from "./publish.js";
 export * from "./uuid.js";
 export * from "./verify.js";
+
+// `canonical.js` is deliberately not re-exported. `mint()` is then the only
+// producer of bytes a consumer of this package has, which is what makes §3.2's
+// MUST NOT against re-ticking a retry hold by construction rather than by
+// convention: through this surface a caller cannot assemble bytes for
+// {...act, hlc: other}. verify.ts imports it directly, and so do the tests.
 
 /**
  * Every act delivered under this root, keyed by act id.
@@ -2216,10 +2248,10 @@ const CLAIMS = [
   { clause: "§7.2", text: "A citation carries both handles, the locator and the digest", test: "relay-lite-verify" },
   { clause: "§7.3", text: "A store guarantees digest == SHA-256(octets)", test: "relay-lite-verify" },
   { clause: "§7.3", text: "A discrepancy raises STORE_CORRUPTION and MUST NOT surface as DIVERGES", test: "relay-lite-verify" },
+  { clause: "§4", text: "The protocol and storage model treat the graph as a DAG, a partial order", test: "relay-lite-roundtrip" },
 ] as const;
 
 const OUT_OF_SCOPE = [
-  { clause: "§4", text: "The protocol and storage model treat the graph as a DAG" },
   { clause: "§4", text: "A consumer MUST NOT present a linear projection as the causal history" },
 ] as const;
 
@@ -2231,6 +2263,7 @@ for (const c of CLAIMS) {
 console.log("out of scope — consumer obligations, not dischargeable by a store\n");
 for (const c of OUT_OF_SCOPE) console.log(`  ${c.clause.padEnd(6)} ${c.text}`);
 console.log(`\n${CLAIMS.length} of ${CLAIMS.length + OUT_OF_SCOPE.length} claims implemented here.`);
+console.log("The one left is a consumer's: a store cannot satisfy it on a reader's behalf.");
 ```
 
 - [ ] **Step 6: Run the whole suite and the report**
@@ -2265,7 +2298,19 @@ omitted, so the count is legible."
 
 ## After the plan
 
-Two things follow and neither is in it.
+Four things follow and none is in it.
+
+**A correction to the design document.** `2026-09-01-relay-lite-store-design.md`
+carries the scope boundary this plan has since had to fix — it puts both of §4's
+claims out of scope, where the first names the *storage model* and belongs to a
+store. It also justifies writing JCS by arguing that a dependency chosen without
+checking inherits relay-ui's error, which argues for **checking** a dependency
+rather than for writing one; the real reason is that this project takes no
+runtime dependency it can avoid, which is a policy and not a deduction. Both
+were raised in `relay-0742` and conceded in `relay-0743`. The design is merged,
+so this is its own change rather than an edit here.
+
+
 
 **File an erratum against the spec.** §3.3 says nothing about where the HLC's
 `l` and `c` live between restarts, so a node restarting after a backwards clock
