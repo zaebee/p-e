@@ -1,4 +1,4 @@
-# Errata — defects in this bundle, recorded not repaired
+# Errata — defects in this bundle, recorded, not repaired
 
 **Nothing in this directory is edited by this file.** `PRE-REGISTRATION.md` states that nothing
 in it may be revised once a result arrives, and `CONTRACT.md`, `PIN.txt` and the payloads are
@@ -7,6 +7,18 @@ now would put a `CONTRACT.md` on the default branch whose digest is not the one 
 dispatched, and would break the pins in `relay-0717` and `relay-0719`.
 
 Each entry says what is wrong, whether it affected the result, and what a later run should do.
+
+## Results are stored verbatim
+
+`RESULT-subagent.md` and `RESULT-mistral.md` are byte-for-byte copies of what each participant
+wrote, and are not normalised — not for trailing whitespace, not for markdown style, not for
+anything. `RESULT-subagent.md` ends with a newline and `RESULT-mistral.md` ends with `9`, because
+that is what the two readers produced.
+
+The run compares what independent readers arrived at. Tidying the artefacts would make some
+differences between them mine, and a later reader could not tell which were which. The same rule
+governs `docs/experiments/citation-set/`; it was not written down here, which is why a reviewer of
+PR #15 had no way to know it and proposed a reformat.
 
 ## E1 — `PIN.txt` prints the answers to one candidate reading
 
