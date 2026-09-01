@@ -10,7 +10,7 @@
  * check was written to catch.
  */
 import { checkContinuity, tally } from "../src/relay/continuity.js";
-import { loadStore } from "../src/relay/store.js";
+import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
 
 /**
  * Divergences that exist and can never be repaired.
@@ -23,6 +23,18 @@ import { loadStore } from "../src/relay/store.js";
  * Each is corrected by an erratum record rather than an edit, which is the only
  * repair an append-only store has.
  */
+/**
+ * Markers whose record is gone, and why.
+ *
+ * The marker is never removed — removing it would free the id and reopen the
+ * failure MUST 1 exists to prevent. So an orphan is permanent and the only repair
+ * is to say what happened, which is the same shape as `ACCOUNTED_FOR` below.
+ */
+const ORPHANED_MARKERS: Readonly<Record<string, string>> = {
+  "relay-0683":
+    "mimo's observation, deposited and read on 2026-08-31 and never committed; the record is gone and the cause is unestablished — relay-0703. relay-0684 beside it lost record and marker both, which relay-0685 shows as UNCHECKABLE",
+};
+
 const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   "relay-0113": "PLACEHOLDER, retracted by its own author in relay-0114",
   "relay-0119": "whole-file digest instead of the body digest; OBS-048, erratum in relay-0124",
@@ -121,13 +133,48 @@ for (const [digest, ids] of byDigest) {
   if (ids.length > 1) console.log(`\n  same bytes at ${ids.join(" and ")}  sha256 ${digest}`);
 }
 
-const unaccounted = findings.filter((f) => f.state === "DIVERGES" && !ACCOUNTED_FOR[f.id]);
-if (unaccounted.length > 0) {
+// Markers against records, which nothing compared until an outside audit of the
+// specification sent someone to look. Three outcomes rather than two: a marker
+// with no record and nothing naming the id is a LOSS, since a crash between the
+// claim and the write leaves nothing to name it; a marker named by a survivor is
+// the ordinary post-delete state the marker is designed to produce, and is not a
+// defect. A first version of this collapsed both and failed the suite on a
+// spec-sanctioned deletion — found in review.
+const agreement = await markerAgreement(store, root ?? STORE_ROOT);
+if (agreement.unmarked.length > 0) {
   console.log(
-    `\n${unaccounted.length} unaccounted divergence(s): ${unaccounted.map((f) => f.id).join(", ")}`,
+    `\n  ${agreement.unmarked.length} record(s) with no marker — a store written before MUST 1; the next deposit backfills them`,
   );
-  console.log("Records are immutable: the repair is an erratum record, never an edit.");
-  console.log("Once written, add the id to ACCOUNTED_FOR with the erratum it points at.");
+}
+for (const id of agreement.deleted) {
+  console.log(`\n  marker with no record at ${id}, named by a survivor — a delete, not a defect`);
+}
+for (const id of agreement.lost) {
+  const note = ORPHANED_MARKERS[id];
+  console.log(`\n  marker with no record at ${id}, and nothing names it`);
+  console.log(note ? `    known    ${note}` : "    UNACCOUNTED FOR");
+}
+
+// Both failures are collected and reported before exiting once. They were two
+// blocks with two exits, so accounting for an orphan revealed a divergence the
+// operator had never been shown — found in review.
+const unexplainedLost = agreement.lost.filter((id) => !ORPHANED_MARKERS[id]);
+const unaccounted = findings.filter((f) => f.state === "DIVERGES" && !ACCOUNTED_FOR[f.id]);
+if (unexplainedLost.length > 0 || unaccounted.length > 0) {
+  if (unexplainedLost.length > 0) {
+    console.log(
+      `\n${unexplainedLost.length} unaccounted lost marker(s): ${unexplainedLost.join(", ")}`,
+    );
+    console.log("An id was bound, nothing occupies it, and nothing names it. The marker cannot be");
+    console.log("removed — that would free the id and reopen relay-0183's class. Record why.");
+  }
+  if (unaccounted.length > 0) {
+    console.log(
+      `\n${unaccounted.length} unaccounted divergence(s): ${unaccounted.map((f) => f.id).join(", ")}`,
+    );
+    console.log("Records are immutable: the repair is an erratum record, never an edit.");
+    console.log("Once written, add the id to ACCOUNTED_FOR with the erratum it points at.");
+  }
   process.exit(1);
 }
 
