@@ -16,13 +16,17 @@
  * classification the report exists to avoid making.
  */
 import { checkReferences, tallyReferences } from "../src/relay/reference.js";
-import { loadStore } from "../src/relay/store.js";
+import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
 
 const all = process.argv.includes("--all");
 const at = process.argv.indexOf("--root");
 const root = at === -1 ? undefined : process.argv[at + 1];
 
-const findings = checkReferences(await loadStore(root));
+const store = await loadStore(root);
+// The marker set, so a deleted record still counts as a possible referrer.
+const { lost, deleted } = await markerAgreement(store, root ?? STORE_ROOT);
+const everBound = new Set([...store.keys(), ...lost, ...deleted]);
+const findings = checkReferences(store, everBound);
 const counts = tallyReferences(findings);
 
 for (const [state, n] of Object.entries(counts)) {

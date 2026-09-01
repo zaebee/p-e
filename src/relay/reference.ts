@@ -76,7 +76,15 @@ function prose(bytes: string): string {
   return at === -1 ? "" : bytes.slice(at + BLANK_LINE.length);
 }
 
-export function checkReferences(store: ReadonlyMap<string, RelayRecord>): ReferenceFinding[] {
+/**
+ * `bound` is every id this authority has ever bound — the marker set, which
+ * survives deletion. Omit it and successors are counted over held records only,
+ * which is what this did until 2026-09-01 and which a deletion could launder.
+ */
+export function checkReferences(
+  store: ReadonlyMap<string, RelayRecord>,
+  bound?: ReadonlySet<string>,
+): ReferenceFinding[] {
   const ids = [...store.keys()].sort();
   const referencedBy = new Map<string, string[]>();
   const mentionedBy = new Map<string, string[]>();
@@ -104,7 +112,21 @@ export function checkReferences(store: ReadonlyMap<string, RelayRecord>): Refere
   return ids.map((id, i) => {
     const refs = referencedBy.get(id) ?? [];
     const mentions = mentionedBy.get(id) ?? [];
-    const successors = ids.length - 1 - i;
+    // Ids ever bound above this one, not records still held above it.
+    //
+    // MEASURED BEFORE FIXING: in a store of three, deleting relay-0003 moved
+    // relay-0002 from UNREFERENCED to NO_SUCCESSORS. A record that existed and
+    // could have referenced it was removed, and the removal EXCUSED A DIFFERENT
+    // RECORD FROM A FINDING. That is `issue-1`'s "flips a record from excused to
+    // a finding with the subject unchanged", running the other way, and it needs
+    // no second authority — the Migration section reaches for one and the defect
+    // is nearer than that.
+    //
+    // The marker set is what fixes it, because a marker outlives its record by
+    // design. Without one — a store from before MUST 1, or a caller that does not
+    // supply it — this falls back to the held-record count and is wrong in the
+    // same old way, which is stated rather than hidden.
+    const successors = bound ? [...bound].filter((other) => other > id).length : ids.length - 1 - i;
     return {
       id,
       referencedBy: refs,

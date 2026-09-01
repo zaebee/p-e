@@ -1,9 +1,10 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { appendRelay } from "../src/relay/deposit.js";
 import { type Reference, checkReferences, tallyReferences } from "../src/relay/reference.js";
-import { loadStore } from "../src/relay/store.js";
+import { loadStore, markerAgreement } from "../src/relay/store.js";
 
 function store(records: Record<string, string>): string {
   const root = join(mkdtempSync(join(tmpdir(), "p-e-ref-")), "relay");
@@ -142,5 +143,67 @@ describe("the live store", () => {
     const summed = Object.values(counts).reduce((a, b) => a + b, 0);
     expect(summed).toBe(findings.length);
     expect(findings.length).toBeGreaterThan(80);
+  });
+});
+
+/**
+ * Successors counted over ids ever bound, not records still held.
+ *
+ * `NO_SUCCESSORS` excuses a record from `UNREFERENCED`: nothing came after it, so
+ * nothing could have referenced it yet. Counting only held records made that
+ * excuse depend on what had since been deleted.
+ */
+describe("successors and the marker set", () => {
+  function scratch(): string {
+    const root = join(mkdtempSync(join(tmpdir(), "p-e-succ-")), "relay");
+    mkdirSync(root, { recursive: true });
+    return root;
+  }
+  const body = (n: string) => `@p-e/x0\nfrom: a\nto: b\nkind: k\n\n${n}\n`;
+
+  async function statesOf(root: string, withMarkers: boolean) {
+    const store = await loadStore(root);
+    if (!withMarkers) return checkReferences(store).map((f) => `${f.id}:${f.state}`);
+    const { lost, deleted } = await markerAgreement(store, root);
+    const bound = new Set([...store.keys(), ...lost, ...deleted]);
+    return checkReferences(store, bound).map((f) => `${f.id}:${f.state}`);
+  }
+
+  it("a deletion no longer excuses the record below it", async () => {
+    const root = scratch();
+    for (const n of ["one", "two", "three"]) await appendRelay(body(n), undefined, root);
+    rmSync(join(root, "relay-0003.txt"));
+
+    // Measured before the fix: relay-0002 became NO_SUCCESSORS here. A record
+    // that existed and could have referenced it was removed, and the removal
+    // excused a different record from a finding.
+    expect(await statesOf(root, true)).toEqual([
+      "relay-0001:UNREFERENCED",
+      "relay-0002:UNREFERENCED",
+    ]);
+    // The old behaviour, kept as the contrast rather than described.
+    expect(await statesOf(root, false)).toEqual([
+      "relay-0001:UNREFERENCED",
+      "relay-0002:NO_SUCCESSORS",
+    ]);
+  });
+
+  it("still excuses the genuinely newest record", async () => {
+    const root = scratch();
+    for (const n of ["one", "two"]) await appendRelay(body(n), undefined, root);
+    expect(await statesOf(root, true)).toEqual([
+      "relay-0001:UNREFERENCED",
+      "relay-0002:NO_SUCCESSORS",
+    ]);
+  });
+
+  it("falls back to held records when no marker set is given", async () => {
+    // A store from before MUST 1, or a caller that does not supply one. Wrong in
+    // the old way, and stated rather than hidden.
+    const root = scratch();
+    for (const n of ["one", "two"]) await appendRelay(body(n), undefined, root);
+    rmSync(join(root, "relay-0002.txt"));
+    expect(await statesOf(root, false)).toEqual(["relay-0001:NO_SUCCESSORS"]);
+    expect(await statesOf(root, true)).toEqual(["relay-0001:UNREFERENCED"]);
   });
 });
