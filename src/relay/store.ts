@@ -186,8 +186,17 @@ export function markerDir(root = STORE_ROOT): string {
  * is a property of `ID_DIGITS` being constant within a store, not a fact about
  * strings, and the default comparator says neither. Sonar flags the bare form as
  * a reliability bug and is right to for the general case.
+ *
+ * Written out rather than as a nested ternary, which Sonar also flags. And not
+ * as `a.localeCompare(b)`, which is the tempting one-liner and would be a real
+ * defect here: collation is locale-dependent, and these are identifiers rather
+ * than text.
  */
-const bySeq = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+function bySeq(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
 
 export interface MarkerAgreement {
   readonly orphaned: readonly string[];
