@@ -46,8 +46,23 @@ done, reply with a short summary of what you concluded.
   only the fenced block below "Paste the text below" is ever given to a reader; this file is for
   the operator alone.
 
-- **Run C onward** — bundle restored to the three material files. `SYSTEM.md` and `CONTRACT.md`
-  hash identically to what Run A read, so Run A and Run C are comparable.
+- **Run C — Mistral. Valid.** Bundle restored to the three material files and copied to
+  `~/projects/citation-blind-c`. Wrapper pasted as the reader's only instruction. Hashes
+  verified by the reader. Eight outcomes. Result: `RESULT-mistral.md` here.
+
+  `SYSTEM.md` and `CONTRACT.md` hash identically to what Run A read, so Run A and Run C are
+  comparable. The one recorded difference between them: Run A received the wrapper as a message
+  from its parent, Run C as a pasted first message from the operator.
+
+## Results are stored verbatim
+
+`RESULT-*.md` are byte-for-byte copies of what each reader wrote, and are not normalised —
+not for trailing whitespace, heading style, or anything else. `RESULT-subagent.md` ends with a
+newline and `RESULT-mistral.md` does not, because that is what the two readers produced.
+
+The point of the exercise is to compare what independent readers arrived at. Tidying the
+artefacts would make some differences between them mine, and a later reader could not tell which
+were which.
 
 ## Where things live, and why
 
