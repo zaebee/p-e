@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { gunzipSync } from "node:zlib";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync } from "node:zlib";
 
 /**
  * Adapter for the Debian reproducible-builds (r-b) producer.

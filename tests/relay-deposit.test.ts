@@ -473,7 +473,7 @@ describe("the parent-sha256 claim", () => {
       "unknown",
       "0".repeat(63),
       `0x${"a".repeat(62)}`,
-      "ABC" + "d".repeat(61),
+      `ABC${"d".repeat(61)}`,
     ]) {
       await expect(appendRelay(withParent(junk), undefined, scratch())).rejects.toThrow(
         /64 lowercase hex digits/,

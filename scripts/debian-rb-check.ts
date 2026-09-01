@@ -25,8 +25,7 @@ function checkDebianRb(d: Awaited<ReturnType<typeof readDebianRb>>): Finding[] {
 
   // I-1 — a verdict whose absence is the third state is named and, where the
   // producer emits it, appears as a value distinct from the two it judges.
-  const thirdExercised =
-    d.statusValues.includes("UNKWN") || d.pkgStatusValues.includes("UNKWN");
+  const thirdExercised = d.statusValues.includes("UNKWN") || d.pkgStatusValues.includes("UNKWN");
   findings.push({
     invariant: "I-1",
     producer: "debian-rb",
@@ -46,8 +45,7 @@ function checkDebianRb(d: Awaited<ReturnType<typeof readDebianRb>>): Finding[] {
   // producer, not from another repository.
   const buildsCarryTrace =
     d.builds.every(
-      (b) =>
-        "build_id" in b || "url" in b || "diffoscope_log_id" in b || "attestation_log_id" in b,
+      (b) => "build_id" in b || "url" in b || "diffoscope_log_id" in b || "attestation_log_id" in b,
     ) || d.pkgCarryTrace;
   findings.push({
     invariant: "I-3",
@@ -72,7 +70,8 @@ function checkDebianRb(d: Awaited<ReturnType<typeof readDebianRb>>): Finding[] {
     producer: "debian-rb",
     verdict: "NOT_APPLICABLE",
     evidence: "OBSERVED",
-    reason: "r-b names no periods. 'release' is a distribution tag (trixie/forky/unstable/experimental), not a time window; 'started_at'/'built_at' are instants. There is no period axis for a record to republish a verdict about — the producer simply has no period construct (relay-0119 refuter #4)",
+    reason:
+      "r-b names no periods. 'release' is a distribution tag (trixie/forky/unstable/experimental), not a time window; 'started_at'/'built_at' are instants. There is no period axis for a record to republish a verdict about — the producer simply has no period construct (relay-0119 refuter #4)",
     projections: [
       "a build record is about a moment (built_at), not a period; release is categorical. I-5 cannot be exercised by this producer as the invariant is stated",
     ],
@@ -101,7 +100,9 @@ function checkDebianRb(d: Awaited<ReturnType<typeof readDebianRb>>): Finding[] {
   // relay-0146: r-b DOES store derived state (the dashboard); the falsifier is
   // exercised and does not fire.
   const i4Recomputed = d.dashboard !== null && d.recomputed !== null;
-  const recTotal = d.recomputed ? d.recomputed.all.good + d.recomputed.all.bad + d.recomputed.all.fail : 0;
+  const recTotal = d.recomputed
+    ? d.recomputed.all.good + d.recomputed.all.bad + d.recomputed.all.fail
+    : 0;
   findings.push({
     invariant: "I-4",
     producer: "debian-rb",
@@ -154,7 +155,9 @@ function render(d: Awaited<ReturnType<typeof readDebianRb>>, findings: Finding[]
   lines.push(
     "(relay-0130 §4), so the v0 selection is no longer claude's curation alone. The initial",
   );
-  lines.push("b.json/v0.rs/v1build.rs trio (relay-0129) was claude's; see Effect section for the split.");
+  lines.push(
+    "b.json/v0.rs/v1build.rs trio (relay-0129) was claude's; see Effect section for the split.",
+  );
   lines.push("");
   lines.push("## Source");
   lines.push("");
@@ -162,13 +165,21 @@ function render(d: Awaited<ReturnType<typeof readDebianRb>>, findings: Finding[]
   lines.push(`- v0 Status variants: ${JSON.stringify(d.v0Status)}`);
   lines.push(`- v1 BuildStatus variants: ${JSON.stringify(d.v1BuildStatus)}`);
   lines.push(`- OBSERVED status values in sample: ${JSON.stringify(d.statusValues)}`);
-  lines.push(`- OBSERVED status values in v0/pkgs/list stride sample: ${JSON.stringify(d.pkgStatusValues)}`);
-  lines.push(`- v0 package records carry retrievable input trace (build_id+artifact_url+attestation/diffoscope): ${d.pkgCarryTrace}`);
-  lines.push(`- v0 BAD records lacking has_diffoscope (proves booleans are independent, not derived): ${d.pkgBadWithoutDiffoscope}`);
+  lines.push(
+    `- OBSERVED status values in v0/pkgs/list stride sample: ${JSON.stringify(d.pkgStatusValues)}`,
+  );
+  lines.push(
+    `- v0 package records carry retrievable input trace (build_id+artifact_url+attestation/diffoscope): ${d.pkgCarryTrace}`,
+  );
+  lines.push(
+    `- v0 BAD records lacking has_diffoscope (proves booleans are independent, not derived): ${d.pkgBadWithoutDiffoscope}`,
+  );
   lines.push(`- v0 UNKWN records lacking build_id: ${d.pkgUnkwnWithoutBuildId}`);
   lines.push(`- v0 records carry an explicit boundary/limit field: ${d.pkgHasBoundaryField}`);
   if (d.dashboard !== null && d.recomputed !== null) {
-    lines.push(`- DASHBOARD (stored derived state) rebuilds: good=${d.dashboard.good} bad=${d.dashboard.bad} fail=${d.dashboard.fail} unknown=${d.dashboard.unknown}`);
+    lines.push(
+      `- DASHBOARD (stored derived state) rebuilds: good=${d.dashboard.good} bad=${d.dashboard.bad} fail=${d.dashboard.fail} unknown=${d.dashboard.unknown}`,
+    );
     lines.push(
       `- RECOMPUTED from source-all: all GOOD=${d.recomputed.all.good}/BAD=${d.recomputed.all.bad}/FAIL=${d.recomputed.all.fail}; synced-true GOOD=${d.recomputed.syncedTrue.good}/BAD=${d.recomputed.syncedTrue.bad}/FAIL=${d.recomputed.syncedTrue.fail}; disagreements=${d.recomputeDisagreement}`,
     );
@@ -176,12 +187,18 @@ function render(d: Awaited<ReturnType<typeof readDebianRb>>, findings: Finding[]
       "  (dashboard + source-all pinned per relay-0146: v1-trixie-arm64-dashboard.json d2afd547..., v1-trixie-arm64-source-all.json.gz gz dde55b6...)",
     );
   } else {
-    lines.push("- DASHBOARD/source-all not pinned here; I-4 recomputation unavailable from frozen bytes");
+    lines.push(
+      "- DASHBOARD/source-all not pinned here; I-4 recomputation unavailable from frozen bytes",
+    );
   }
   lines.push(`- retries>0 by status: ${JSON.stringify(d.retriesByStatus)}`);
   lines.push("");
-  lines.push("- v0 bytes now PINNED per relay-0130 §4 (claude, executed verbatim from hy3's rule):");
-  lines.push("  v0-arm64-stride1000.json (every 1000th of 489,668 records), v0-arm64-unkwn-all.json.gz (all 107,144 UNKWN).");
+  lines.push(
+    "- v0 bytes now PINNED per relay-0130 §4 (claude, executed verbatim from hy3's rule):",
+  );
+  lines.push(
+    "  v0-arm64-stride1000.json (every 1000th of 489,668 records), v0-arm64-unkwn-all.json.gz (all 107,144 UNKWN).",
+  );
   lines.push("");
   lines.push("## Findings");
   lines.push("");
@@ -198,18 +215,14 @@ function render(d: Awaited<ReturnType<typeof readDebianRb>>, findings: Finding[]
   const conforms = findings.filter((f) => f.verdict === "CONFORMS").length;
   lines.push("## Effect on the catalogue (why this is not an admission)");
   lines.push("");
-  lines.push(
-    `debian-rb now yields ${conforms} CONFORMS (I-1, I-3, I-4) across six invariants`,
-  );
+  lines.push(`debian-rb now yields ${conforms} CONFORMS (I-1, I-3, I-4) across six invariants`);
   lines.push(
     "(I-1/I-3/I-4/I-5/I-8/I-9), from bytes pinned in this repo (v0/pkgs/list stride + UNKWN-full,",
   );
   lines.push(
     "extracted per relay-0130 §4). This is NOT a run; no catalogue is mutated by it. admits() requires",
   );
-  lines.push(
-    ">=2 DISTINCT producers CONFORMING on the same invariant. Per run 06:",
-  );
+  lines.push(">=2 DISTINCT producers CONFORMING on the same invariant. Per run 06:");
   lines.push(
     "- I-1: r-b CONFORMS; hivemark and apex UNDECIDABLE on I-1 -> 1 distinct -> unadmitted.",
   );
@@ -252,12 +265,8 @@ function render(d: Awaited<ReturnType<typeof readDebianRb>>, findings: Finding[]
   lines.push(
     "- I-8: r-b UNDECIDABLE (frozen artifacts carry no boundary statement); apex CONFORMS in run 06 ->",
   );
-  lines.push(
-    "  1 distinct -> unadmitted. Matches the I-8 expect line (single-source under test).",
-  );
-  lines.push(
-    "- I-5: NOT_APPLICABLE. I-9: UNDECIDABLE.",
-  );
+  lines.push("  1 distinct -> unadmitted. Matches the I-8 expect line (single-source under test).");
+  lines.push("- I-5: NOT_APPLICABLE. I-9: UNDECIDABLE.");
   lines.push("");
   lines.push(
     "THE RELAY-0133 DISSENT, resolved by reading. My relay-0130 reason 'a single new source cannot admit",
