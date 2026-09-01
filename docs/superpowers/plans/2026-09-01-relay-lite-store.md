@@ -156,6 +156,21 @@ describe("parseIJson — RFC 7493, at verification", () => {
     expect(() => parseIJson('{"a":"x","b":"\\"a\\":1"}')).not.toThrow();
   });
 
+  // The first tokenizer tracked depth rather than container kind, so a comma
+  // inside an array set expectKey because an object sat below it on the stack.
+  // These expose it; three weaker cases passed against the bug.
+  it("does not count array elements as keys of the enclosing object", () => {
+    expect(() => parseIJson('{"a":["x","y","y"]}')).not.toThrow();
+    expect(() => parseIJson('{"a":["z","a"]}')).not.toThrow();
+    expect(() => parseIJson('{"a":[1,2,3],"b":2}')).not.toThrow();
+    expect(() => parseIJson('[{"a":1},{"a":2}]')).not.toThrow();
+  });
+
+  it("still refuses a duplicate inside an object nested in an array", () => {
+    expect(() => parseIJson('{"a":[{"c":1,"c":2}]}')).toThrow(IJsonViolation);
+    expect(() => parseIJson('{"a":{"b":1,"b":2}}')).toThrow(IJsonViolation);
+  });
+
   it("refuses an out-of-range integer in the text", () => {
     expect(() => parseIJson('{"n":9007199254740993}')).toThrow(IJsonViolation);
   });
@@ -313,8 +328,23 @@ export function parseIJson(text: string): unknown {
  * A tokenizer rather than a regular expression: a key-shaped string can appear
  * inside a value, and counting `"k":` would refuse well-formed text.
  */
+/**
+ * Walk the text and refuse an object naming a key twice.
+ *
+ * The stack remembers *which kind* of container each frame is, not only that
+ * there is one. Tracking depth alone was wrong and review caught it: a comma
+ * inside an array set `expectKey` because an object sat below it on the stack,
+ * so array elements were counted as keys of that object, and
+ * `{"a":["x","y","y"]}` was refused as a duplicate.
+ *
+ * A tokenizer rather than a regular expression, because a key-shaped string can
+ * appear inside a value — and the first version of this tokenizer then produced
+ * exactly the false positive it was written to avoid.
+ */
+type Frame = { readonly kind: "object"; readonly keys: Set<string> } | { readonly kind: "array" };
+
 function refuseDuplicateKeys(text: string): void {
-  const stack: Set<string>[] = [];
+  const stack: Frame[] = [];
   let i = 0;
   let expectKey = false;
 
@@ -338,28 +368,31 @@ function refuseDuplicateKeys(text: string): void {
     throw new IJsonViolation("invalid-string", "unterminated string");
   };
 
+  const top = (): Frame | undefined => stack[stack.length - 1];
+
   while (i < text.length) {
     const ch = text[i];
     if (ch === '"') {
       const s = readString();
-      if (expectKey && stack.length > 0) {
-        const top = stack[stack.length - 1];
-        if (top.has(s)) throw new IJsonViolation("duplicate-key", `duplicate key: ${s}`);
-        top.add(s);
+      const frame = top();
+      if (expectKey && frame?.kind === "object") {
+        if (frame.keys.has(s)) throw new IJsonViolation("duplicate-key", `duplicate key: ${s}`);
+        frame.keys.add(s);
         expectKey = false;
       }
       continue;
     }
     if (ch === "{") {
-      stack.push(new Set());
+      stack.push({ kind: "object", keys: new Set() });
       expectKey = true;
-    } else if (ch === "}") {
+    } else if (ch === "[") {
+      stack.push({ kind: "array" });
+      expectKey = false;
+    } else if (ch === "}" || ch === "]") {
       stack.pop();
       expectKey = false;
-    } else if (ch === "[") {
-      expectKey = false;
     } else if (ch === ",") {
-      expectKey = stack.length > 0;
+      expectKey = top()?.kind === "object";
     }
     i++;
   }
@@ -373,7 +406,7 @@ export function sha256Hex(text: string): string {
 - [ ] **Step 4: Run the tests and watch them pass**
 
 Run: `bun run test tests/relay-lite-canonical.test.ts`
-Expected: PASS, 13 tests.
+Expected: PASS, 15 tests.
 
 - [ ] **Step 5: Typecheck and lint**
 
@@ -1363,6 +1396,22 @@ import { formatCns } from "./cns.js";
  * Every element closes a failure found during review of issue #5, and the
  * comments say which, because a reader who does not know what each guards will
  * eventually simplify one away.
+ *
+ * ## This module requires POSIX, and says so rather than degrading
+ *
+ * §4.1 is built from `link` refusing a held name with `EEXIST`, `O_CREAT |
+ * O_EXCL` on the temp, and `fsync` on a directory file descriptor. Windows has
+ * none of those semantics, and `open()` on a directory there raises `EISDIR`.
+ *
+ * Review proposed catching and ignoring that. It is not done, because a
+ * publisher that skipped the directory fsync and still returned `PUBLISHED`
+ * would be asserting a durability it did not obtain — *"durable bytes are not a
+ * durable name"* is the whole reason the step exists. An error propagating is a
+ * caller learning the platform cannot give what this returns; a swallowed one is
+ * a caller told the name is safe when it may not be.
+ *
+ * If this ever needs to run where a directory cannot be synced, the honest shape
+ * is a fourth `PublishResult` naming the weaker guarantee, not a silent one.
  */
 
 export type PublishResult =
