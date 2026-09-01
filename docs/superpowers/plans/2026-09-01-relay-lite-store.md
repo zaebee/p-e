@@ -378,12 +378,6 @@ export function parseIJson(text: string): unknown {
 /**
  * Walk the text and refuse an object naming a key twice.
  *
- * A tokenizer rather than a regular expression: a key-shaped string can appear
- * inside a value, and counting `"k":` would refuse well-formed text.
- */
-/**
- * Walk the text and refuse an object naming a key twice.
- *
  * The stack remembers *which kind* of container each frame is, not only that
  * there is one. Tracking depth alone was wrong and review caught it: a comma
  * inside an array set `expectKey` because an object sat below it on the stack,
@@ -2035,7 +2029,6 @@ import {
   publishAll,
   readDelivered,
   StoreCorruption,
-  readDelivered,
   stage1,
   stage2,
   stage3,
