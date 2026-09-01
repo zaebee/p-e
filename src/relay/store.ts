@@ -141,43 +141,41 @@ export const ID_DIGITS = 4;
 export const ID = new RegExp(String.raw`^${ID_PREFIX}\d{${ID_DIGITS}}$`);
 
 /**
- * Where MUST 1's allocation markers live — one empty file per id ever bound.
+ * MUST 1's allocation marker: an empty file per id, created `wx`, kept forever.
  *
- * Here rather than in `deposit.ts` for the same reason the id format is here:
- * it is a fact about the store's layout, and a reader that wants to know which
- * ids were bound should not have to import the write path to find out. Until
- * today nothing read it except the writer, which is why the state below went
- * unnoticed.
+ * What it replaces: `nextFree` was `max(present) + 1`, which the clause names as
+ * its own counterexample — allocation "MUST be settled by an atomic exclusive
+ * commit, **never by reading the current maximum**". Reading the maximum has two
+ * defects and the marker closes both.
+ *
+ * - **A deleted id was freed.** `max(present)` sees files on disk, so deleting
+ *   the highest record handed its id to the next deposit. That is `relay-0183`,
+ *   the failure this whole document exists for, and the record `wx` did not stop
+ *   it because deleting the record removed that guard. The marker persists
+ *   beyond deletion, so a bound id is never offered again.
+ * - **Two allocators could read the same maximum.** The read and the write were
+ *   separate steps with a window between them; the legacy authority has three
+ *   writers and two collided twice inside two hours (`relay-0225`, `relay-0232`).
+ *   `wx` is `O_CREAT|O_EXCL`: the claim is the atomic step, there is no shared
+ *   race point, and exactly one writer wins.
+ *
+ * The marker guards allocation; the record's own `link` still guards content.
+ * They are separate guards over separate things and neither replaces the other.
+ */
+/**
+ * Where they live, and why the directory is described here.
+ *
+ * Here rather than in `deposit.ts` for the same reason the id format is: it is a
+ * fact about the store's layout, and a reader wanting to know which ids were
+ * bound should not import the write path to find out. Until today nothing read
+ * it except the writer, which is why the state below went unnoticed — and the
+ * rationale above travelled with the function rather than being left behind it,
+ * which the first version of this move got wrong.
  */
 export function markerDir(root = STORE_ROOT): string {
   return join(root, "history");
 }
 
-/**
- * Markers and records disagreeing, which nothing compared until 2026-08-31.
- *
- * `checkContinuity` reads records and their declared parents. It cannot see an
- * id that was bound and has no record, because there is no record to report it
- * on — the id is simply absent, and absent is what an id never used looks like
- * too. THE MARKER IS THE ONLY THING THAT TELLS THEM APART, and nothing was
- * asking it.
- *
- * Found by following an outside audit of the specification, which predicted that
- * a marker created before its record survives a crash and burns the id.
- * `relay-0683` is that state in the live store, and `relay-0684` next to it lost
- * both — the second is visible as `relay-0685`'s `UNCHECKABLE`, the first was
- * visible to nothing.
- *
- * Neither side is a defect on its own:
- *
- * - **orphaned** — a marker with no record. The id is spent and nothing occupies
- *   it. Expected after a crash between the claim and the write, and expected
- *   after a record is deleted, which the marker is designed to survive. It is
- *   reported because the two cases are indistinguishable here and the first is a
- *   loss.
- * - **unmarked** — a record with no marker. Every store written before MUST 1
- *   landed, healed on the next deposit by `survey`'s backfill.
- */
 /**
  * Id order, stated rather than left to the default.
  *
@@ -198,14 +196,54 @@ function bySeq(a: string, b: string): number {
   return 0;
 }
 
+/**
+ * Markers and records disagreeing, which nothing compared until 2026-08-31.
+ *
+ * `checkContinuity` reads records and their declared parents. It cannot see an
+ * id that was bound and has no record, because there is no record to report it
+ * on — the id is simply absent, and absent is what an id never used looks like
+ * too. THE MARKER IS THE ONLY THING THAT TELLS THEM APART, and nothing was
+ * asking it.
+ *
+ * Found by following an outside audit of the specification, which predicted that
+ * a marker created before its record survives a crash and burns the id.
+ * `relay-0683` is that state in the live store, and `relay-0684` next to it lost
+ * both — the second is visible as `relay-0685`'s `UNCHECKABLE`, the first was
+ * visible to nothing.
+ *
+ * ## Three outcomes, not two
+ *
+ * A first version of this said the delete and the crash were "indistinguishable
+ * here". THEY ARE NOT, and this file already exported what separates them. A
+ * crash between the claim and the write leaves no record, so nothing can name
+ * it: it is necessarily `UNKNOWN`. A deleted record leaves its `parent:` and
+ * `ref:` trace in whatever named it, which is `KNOWN_MISSING` — and that is the
+ * state MUST 1's marker is *designed* to produce.
+ *
+ * - **lost** — a marker with no record and nothing naming the id. The id is
+ *   spent, nothing occupies it, and nothing remembers it. `relay-0683`.
+ * - **deleted** — a marker with no record, named by a surviving record. The
+ *   ordinary post-delete state, and not a defect.
+ * - **unmarked** — a record with no marker. Every store written before MUST 1,
+ *   healed on the next deposit by `survey`'s backfill.
+ *
+ * The `deleted` inference is strong rather than certain: `KNOWN_MISSING` proves
+ * a surviving record NAMES the id, not that a record ever landed there. A sender
+ * naming an id before it exists would look the same. That is pathological and it
+ * is the gap, so this reports the distinction and does not treat it as proof.
+ */
 export interface MarkerAgreement {
-  readonly orphaned: readonly string[];
+  /** Bound, empty, and unremembered: nothing names the id. */
+  readonly lost: readonly string[];
+  /** Bound, empty, and named by a survivor: the designed post-delete state. */
+  readonly deleted: readonly string[];
+  /** Held with no marker: a store written before MUST 1. */
   readonly unmarked: readonly string[];
 }
 
 export async function markerAgreement(
-  store: ReadonlyMap<string, RelayRecord>,
-  root = STORE_ROOT,
+  store: Map<string, RelayRecord>,
+  root: string,
 ): Promise<MarkerAgreement> {
   let names: string[];
   try {
@@ -215,10 +253,12 @@ export async function markerAgreement(
     names = [];
   }
   const markers = new Set(names.filter((n) => ID.test(n)));
-  // `store.has` is O(1), so the second Set was a copy of the map's keys for no
+  // `store.has` is O(1), so a second Set of the map's keys was a copy for no
   // reason — gemini-code-assist on PR #10.
+  const orphaned = [...markers].filter((id) => !store.has(id)).sort(bySeq);
   return {
-    orphaned: [...markers].filter((id) => !store.has(id)).sort(bySeq),
+    lost: orphaned.filter((id) => exists(store, id) === "UNKNOWN"),
+    deleted: orphaned.filter((id) => exists(store, id) === "KNOWN_MISSING"),
     unmarked: [...store.keys()].filter((id) => ID.test(id) && !markers.has(id)).sort(bySeq),
   };
 }

@@ -43,25 +43,42 @@ describe("markerAgreement", () => {
   it("agrees when every record has a marker and every marker a record", async () => {
     const root = store(["relay-0001", "relay-0002"], ["relay-0001", "relay-0002"]);
     expect(await markerAgreement(await loadStore(root), root)).toEqual({
-      orphaned: [],
+      lost: [],
+      deleted: [],
       unmarked: [],
     });
   });
 
-  it("names a marker with no record — the state that was invisible", async () => {
+  it("calls a marker LOST when nothing names the id — the state that was invisible", async () => {
     const root = store(["relay-0001"], ["relay-0001", "relay-0002"]);
-    const { orphaned, unmarked } = await markerAgreement(await loadStore(root), root);
-    // relay-0002 was bound and nothing occupies it. Indistinguishable here from
-    // an id never used — except that the marker exists, which is the whole point.
-    expect(orphaned).toEqual(["relay-0002"]);
+    const { lost, deleted, unmarked } = await markerAgreement(await loadStore(root), root);
+    // Nothing names relay-0002, so no record ever landed there — a crash between
+    // the claim and the write. This is relay-0683's shape in the live store.
+    expect(lost).toEqual(["relay-0002"]);
+    expect(deleted).toEqual([]);
     expect(unmarked).toEqual([]);
+  });
+
+  it("calls it DELETED when a survivor names it — the state the marker is for", async () => {
+    // relay-0002 is deposited, named by relay-0003, then removed. The marker
+    // survives by design and the id is spent; that is MUST 1 working, not a
+    // defect. A first version of this check failed the suite on it.
+    const root = store(["relay-0001", "relay-0003"], ["relay-0001", "relay-0002", "relay-0003"]);
+    writeFileSync(
+      join(root, "relay-0003.txt"),
+      "deposited-by: t\nprovenance: authored\nassigned-id: relay-0003\n---\n@p-e/x0\nparent: relay-0002\nfrom: a\n\nb\n",
+    );
+    const { lost, deleted } = await markerAgreement(await loadStore(root), root);
+    expect(deleted).toEqual(["relay-0002"]);
+    expect(lost).toEqual([]);
   });
 
   it("names a record with no marker — every store written before MUST 1", async () => {
     const root = store(["relay-0001", "relay-0002"], ["relay-0001"]);
-    const { orphaned, unmarked } = await markerAgreement(await loadStore(root), root);
+    const { lost, deleted, unmarked } = await markerAgreement(await loadStore(root), root);
     expect(unmarked).toEqual(["relay-0002"]);
-    expect(orphaned).toEqual([]);
+    expect(lost).toEqual([]);
+    expect(deleted).toEqual([]);
   });
 
   it("treats a missing history/ as no markers rather than an error", async () => {
@@ -74,7 +91,8 @@ describe("markerAgreement", () => {
     // A store from before the mechanism existed. Every record unmarked, no orphans,
     // and not a failure — `survey` backfills on the next deposit.
     expect(await markerAgreement(await loadStore(root), root)).toEqual({
-      orphaned: [],
+      lost: [],
+      deleted: [],
       unmarked: ["relay-0001"],
     });
   });
@@ -87,7 +105,8 @@ describe("markerAgreement", () => {
       "deposited-by: t\nprovenance: authored\n---\n@p-e/x0\n\nx\n",
     );
     expect(await markerAgreement(await loadStore(root), root)).toEqual({
-      orphaned: [],
+      lost: [],
+      deleted: [],
       unmarked: [],
     });
   });

@@ -57,29 +57,6 @@ const seqOf = (id: string) => Number(id.slice(ID_PREFIX.length));
 const idOf = (seq: number) => `${ID_PREFIX}${String(seq).padStart(ID_DIGITS, "0")}`;
 
 /**
- * MUST 1's allocation marker: an empty file per id, created `wx`, kept forever.
- *
- * What it replaces: `nextFree` was `max(present) + 1`, which the clause names as
- * its own counterexample — allocation "MUST be settled by an atomic exclusive
- * commit, **never by reading the current maximum**". Reading the maximum has two
- * defects and the marker closes both.
- *
- * - **A deleted id was freed.** `max(present)` sees files on disk, so deleting
- *   the highest record handed its id to the next deposit. That is `relay-0183`,
- *   the failure this whole document exists for, and the record `wx` did not stop
- *   it because deleting the record removed that guard. The marker persists
- *   beyond deletion, so a bound id is never offered again.
- * - **Two allocators could read the same maximum.** The read and the write were
- *   separate steps with a window between them; the legacy authority has three
- *   writers and two collided twice inside two hours (`relay-0225`, `relay-0232`).
- *   `wx` is `O_CREAT|O_EXCL`: the claim is the atomic step, there is no shared
- *   race point, and exactly one writer wins.
- *
- * The marker guards allocation; the record's own `link` still guards content.
- * They are separate guards over separate things and neither replaces the other.
- */
-
-/**
  * Claim `id` by creating its marker. `false` means the id was already taken —
  * by a record still held, by one since deleted, or by an allocator that got
  * there first.

@@ -10,7 +10,7 @@
  * check was written to catch.
  */
 import { checkContinuity, tally } from "../src/relay/continuity.js";
-import { loadStore, markerAgreement } from "../src/relay/store.js";
+import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
 
 /**
  * Divergences that exist and can never be repaired.
@@ -134,39 +134,47 @@ for (const [digest, ids] of byDigest) {
 }
 
 // Markers against records, which nothing compared until an outside audit of the
-// specification sent someone to look. An orphaned marker is an id that was bound
-// and holds nothing: expected after a delete, which the marker survives by
-// design, and expected after a crash between the claim and the write, which is a
-// loss. The two are indistinguishable from here, so both are reported and the
-// unexplained ones are accounted for by name like a divergence.
-const agreement = await markerAgreement(store, root);
+// specification sent someone to look. Three outcomes rather than two: a marker
+// with no record and nothing naming the id is a LOSS, since a crash between the
+// claim and the write leaves nothing to name it; a marker named by a survivor is
+// the ordinary post-delete state the marker is designed to produce, and is not a
+// defect. A first version of this collapsed both and failed the suite on a
+// spec-sanctioned deletion — found in review.
+const agreement = await markerAgreement(store, root ?? STORE_ROOT);
 if (agreement.unmarked.length > 0) {
   console.log(
     `\n  ${agreement.unmarked.length} record(s) with no marker — a store written before MUST 1; the next deposit backfills them`,
   );
 }
-for (const id of agreement.orphaned) {
+for (const id of agreement.deleted) {
+  console.log(`\n  marker with no record at ${id}, named by a survivor — a delete, not a defect`);
+}
+for (const id of agreement.lost) {
   const note = ORPHANED_MARKERS[id];
-  console.log(`\n  marker with no record at ${id}`);
+  console.log(`\n  marker with no record at ${id}, and nothing names it`);
   console.log(note ? `    known    ${note}` : "    UNACCOUNTED FOR");
 }
 
-const unexplainedOrphans = agreement.orphaned.filter((id) => !ORPHANED_MARKERS[id]);
+// Both failures are collected and reported before exiting once. They were two
+// blocks with two exits, so accounting for an orphan revealed a divergence the
+// operator had never been shown — found in review.
+const unexplainedLost = agreement.lost.filter((id) => !ORPHANED_MARKERS[id]);
 const unaccounted = findings.filter((f) => f.state === "DIVERGES" && !ACCOUNTED_FOR[f.id]);
-if (unexplainedOrphans.length > 0) {
-  console.log(
-    `\n${unexplainedOrphans.length} unaccounted orphaned marker(s): ${unexplainedOrphans.join(", ")}`,
-  );
-  console.log("An id was bound and nothing occupies it. The marker cannot be removed —");
-  console.log("that would free the id and reopen relay-0183's class. Record why it is empty.");
-  process.exit(1);
-}
-if (unaccounted.length > 0) {
-  console.log(
-    `\n${unaccounted.length} unaccounted divergence(s): ${unaccounted.map((f) => f.id).join(", ")}`,
-  );
-  console.log("Records are immutable: the repair is an erratum record, never an edit.");
-  console.log("Once written, add the id to ACCOUNTED_FOR with the erratum it points at.");
+if (unexplainedLost.length > 0 || unaccounted.length > 0) {
+  if (unexplainedLost.length > 0) {
+    console.log(
+      `\n${unexplainedLost.length} unaccounted lost marker(s): ${unexplainedLost.join(", ")}`,
+    );
+    console.log("An id was bound, nothing occupies it, and nothing names it. The marker cannot be");
+    console.log("removed — that would free the id and reopen relay-0183's class. Record why.");
+  }
+  if (unaccounted.length > 0) {
+    console.log(
+      `\n${unaccounted.length} unaccounted divergence(s): ${unaccounted.map((f) => f.id).join(", ")}`,
+    );
+    console.log("Records are immutable: the repair is an erratum record, never an edit.");
+    console.log("Once written, add the id to ACCOUNTED_FOR with the erratum it points at.");
+  }
   process.exit(1);
 }
 
