@@ -16,7 +16,7 @@
  * classification the report exists to avoid making.
  */
 import { checkReferences, tallyReferences } from "../src/relay/reference.js";
-import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
+import { ID, STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
 
 const all = process.argv.includes("--all");
 const at = process.argv.indexOf("--root");
@@ -25,7 +25,12 @@ const root = at === -1 ? undefined : process.argv[at + 1];
 const store = await loadStore(root);
 // The marker set, so a deleted record still counts as a possible referrer.
 const { lost, deleted } = await markerAgreement(store, root ?? STORE_ROOT);
-const everBound = new Set([...store.keys(), ...lost, ...deleted]);
+// Filtered by id shape, as `markerAgreement` filters both its sides. Without it
+// a `.txt` in the store whose name is not an id counts as a successor and can
+// flip the record below it out of NO_SUCCESSORS. Pre-existing on main; the first
+// version of this change passed the place where it could be closed without
+// closing it — gemini-code-assist and the fable review both walked past it too.
+const everBound = new Set([...store.keys(), ...lost, ...deleted].filter((id) => ID.test(id)));
 const findings = checkReferences(store, everBound);
 const counts = tallyReferences(findings);
 

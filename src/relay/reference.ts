@@ -35,8 +35,10 @@ import { ID_DIGITS, ID_PREFIX, type RelayRecord } from "./store.js";
  *                  because they are named in relay-0033's prose, and that
  *                  inference was false. Prose is evidence that a human or agent
  *                  used the record, and it is not a link.
- *   UNREFERENCED   nothing names it, and records exist after it that could have
- *   NO_SUCCESSORS  nothing exists after it, so nothing could have referenced it.
+ *   UNREFERENCED   nothing names it, and ids were bound after it whose records
+ *                  could have
+ *   NO_SUCCESSORS  nothing was bound after it, so nothing could have referenced
+ *                  it.
  *                  Calling the newest record unreferenced would report our
  *                  position in time as a property of the record — the same
  *                  substitution `cold`/`unknown` refuses.
@@ -50,7 +52,7 @@ export interface ReferenceFinding {
   /** Records whose body mentions its id, excluding the record itself. */
   readonly mentionedBy: readonly string[];
   /**
-   * How many records the store holds after this one.
+   * How many ids this authority bound after this one — held or since gone.
    *
    * Reported rather than thresholded. Any cutoff for "recent enough to judge"
    * would be invented here and would then look like a finding, so the number is
@@ -106,12 +108,17 @@ function bySeq(a: string, b: string): number {
 
 /**
  * `bound` is every id this authority has ever bound — the marker set, which
- * survives deletion. Omit it and successors are counted over held records only,
- * which is what this did until 2026-09-01 and which a deletion could launder.
+ * survives deletion.
+ *
+ * Required rather than optional. It was optional and fell back to counting held
+ * records, which is the behaviour this change exists to remove, and a caller who
+ * forgot got it silently. A caller that genuinely wants the old count passes an
+ * empty set and says so. The same shape was removed from `markerAgreement` one
+ * review earlier and kept here by inattention.
  */
 export function checkReferences(
   store: ReadonlyMap<string, RelayRecord>,
-  bound?: ReadonlySet<string>,
+  bound: ReadonlySet<string>,
 ): ReferenceFinding[] {
   const ids = [...store.keys()].sort();
   const referencedBy = new Map<string, string[]>();
@@ -148,7 +155,7 @@ export function checkReferences(
   //
   // The store is 664 today, where both are free. The difference is what happens
   // to a check that is meant to keep running.
-  const boundSorted = bound ? [...bound].sort(bySeq) : undefined;
+  const boundSorted = [...bound].sort(bySeq);
 
   return ids.map((id, i) => {
     const refs = referencedBy.get(id) ?? [];
@@ -163,13 +170,18 @@ export function checkReferences(
     // no second authority — the Migration section reaches for one and the defect
     // is nearer than that.
     //
-    // The marker set is what fixes it, because a marker outlives its record by
-    // design. Without one — a store from before MUST 1, or a caller that does not
-    // supply it — this falls back to the held-record count and is wrong in the
-    // same old way, which is stated rather than hidden.
-    const successors = boundSorted
-      ? boundSorted.length - firstAbove(boundSorted, id)
-      : ids.length - 1 - i;
+    // AND THIS COUNT IS NOT EXACT, WHICH AN EARLIER VERSION OF THIS COMMENT
+    // CLAIMED IT WAS. A marker with no record and nothing naming it is either a
+    // deleted record — a real past referrer — or a crash between the claim and
+    // the write, which never was one. MEASURED: THE TWO PRODUCE IDENTICAL STORE
+    // STATE, so nothing here can separate them. `relay-0683` is the second kind
+    // and is counted as the first.
+    //
+    // Kept as an over-count rather than an under-count on purpose. Excluding
+    // them would restore the defect above, since a deleted record nobody named
+    // lands in exactly the same bucket. The error that reports too much is the
+    // one this store already prefers: absence must not read as a claim.
+    const successors = boundSorted.length - firstAbove(boundSorted, id);
     return {
       id,
       referencedBy: refs,
