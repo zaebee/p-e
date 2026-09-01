@@ -56,7 +56,7 @@ Tasks 1–3 have no dependencies on each other and can be done in any order. Tas
 ```ts
 export function canonicalize(value: unknown): string;
 export class IJsonViolation extends Error {
-  readonly rule: "number-range" | "invalid-string" | "duplicate-key";
+  readonly rule: "number-range" | "invalid-string" | "duplicate-key" | "unsupported-type";
 }
 export function assertIJsonValue(value: unknown): void;   // minting
 export function parseIJson(text: string): unknown;        // verification
@@ -133,6 +133,16 @@ describe("assertIJsonValue — RFC 7493, at minting", () => {
     expect(() => assertIJsonValue({ t: "\ud800" })).toThrow(IJsonViolation);
   });
 
+  it("refuses a value with no JSON form rather than leaving it to canonicalize", () => {
+    for (const bad of [undefined, Symbol("s"), () => 1, 10n]) {
+      expect(() => assertIJsonValue({ v: bad })).toThrow(IJsonViolation);
+    }
+  });
+
+  it("admits null and booleans, which are JSON", () => {
+    expect(() => assertIJsonValue({ a: null, b: true, c: false })).not.toThrow();
+  });
+
   it("admits the boundary value and ordinary values", () => {
     expect(() => assertIJsonValue({ n: Number.MAX_SAFE_INTEGER })).not.toThrow();
     expect(() => assertIJsonValue({ n: 0.1, t: "ok", a: [1, 2], o: { k: null } })).not.toThrow();
@@ -206,7 +216,7 @@ import { createHash } from "node:crypto";
 const MAX_SAFE = Number.MAX_SAFE_INTEGER;
 
 export class IJsonViolation extends Error {
-  readonly rule: "number-range" | "invalid-string" | "duplicate-key";
+  readonly rule: "number-range" | "invalid-string" | "duplicate-key" | "unsupported-type";
   constructor(rule: IJsonViolation["rule"], message: string) {
     super(message);
     this.name = "IJsonViolation";
@@ -298,13 +308,19 @@ export function assertIJsonValue(value: unknown): void {
     }
     return;
   }
+  if (value === null || typeof value === "boolean") return;
   if (Array.isArray(value)) {
     for (const v of value) assertIJsonValue(v);
     return;
   }
-  if (value !== null && typeof value === "object") {
+  if (typeof value === "object") {
     for (const v of Object.values(value as object)) assertIJsonValue(v);
+    return;
   }
+  // Everything else — undefined, symbol, function, bigint — has no JSON form.
+  // Falling through silently made this validator admit what `canonicalize`
+  // refuses a moment later, which is a check asserting more than it verified.
+  throw new IJsonViolation("unsupported-type", `no JSON representation: ${typeof value}`);
 }
 
 /**
@@ -406,7 +422,7 @@ export function sha256Hex(text: string): string {
 - [ ] **Step 4: Run the tests and watch them pass**
 
 Run: `bun run test tests/relay-lite-canonical.test.ts`
-Expected: PASS, 15 tests.
+Expected: PASS, 17 tests.
 
 - [ ] **Step 5: Typecheck and lint**
 
@@ -1692,6 +1708,17 @@ describe("stage 2 — §7.1 structural and I-JSON conformance", () => {
   });
 
   // "reject ... on an unanchored citation (parent_id == null && parent_digest != null)"
+  it("refuses a shape that is not an act, rather than passing it to stage 3", () => {
+    const notAnAct = canonicalize({ id: "x", to: [] });
+    const r = stage2(notAnAct, formatCns(parent.act, "agent:mimo"));
+    expect(r).toMatchObject({ ok: false, reason: "not-an-act" });
+  });
+
+  it("refuses a to[] holding something other than strings", () => {
+    const forged = canonicalize({ ...parent.act, to: [1, 2] });
+    expect(stage2(forged, formatCns(parent.act, "agent:mimo")).ok).toBe(false);
+  });
+
   it("refuses an unanchored citation at ingest", () => {
     const forged = canonicalize({ ...parent.act, parent_id: null, parent_digest: "aa" });
     const r = stage2(forged, formatCns(parent.act, "agent:mimo"));
@@ -1800,6 +1827,37 @@ export function stage1(bytes: string): { readonly digest: string } {
   return { digest: sha256Hex(bytes) };
 }
 
+const ACT_TYPES = new Set(["message", "claim", "challenge", "ruling", "erratum"]);
+
+/**
+ * The whole shape, because a partial check is a check that admits what it did
+ * not look at.
+ */
+function isRelayAct(v: unknown): v is RelayAct {
+  if (v === null || typeof v !== "object") return false;
+  const a = v as Record<string, unknown>;
+  const str = (x: unknown): boolean => typeof x === "string";
+  const strOrNull = (x: unknown): boolean => x === null || typeof x === "string";
+  const hlc = a.hlc;
+  if (hlc === null || typeof hlc !== "object") return false;
+  const h = hlc as Record<string, unknown>;
+  return (
+    str(a.id) &&
+    str(a.thread_id) &&
+    strOrNull(a.parent_id) &&
+    strOrNull(a.parent_digest) &&
+    str(a.type) &&
+    ACT_TYPES.has(a.type as string) &&
+    str(a.from) &&
+    Array.isArray(a.to) &&
+    a.to.every(str) &&
+    typeof h.l === "number" &&
+    typeof h.c === "number" &&
+    str(h.node_id) &&
+    "payload" in a
+  );
+}
+
 export type Stage2Result =
   | { readonly ok: true; readonly act: RelayAct }
   | { readonly ok: false; readonly reason: string };
@@ -1817,9 +1875,11 @@ export function stage2(bytes: string, filename: string): Stage2Result {
   }
 
   const act = value as RelayAct;
-  if (typeof act?.id !== "string" || !Array.isArray(act?.to)) {
-    return { ok: false, reason: "not-an-act" };
-  }
+  // Every field, not only two. Checking `id` and `to` alone let a shape that is
+  // not an act reach stage 3, where `undefined === null` is false twice and the
+  // result was `UNCHECKABLE` — a state meaning "this reader lacks the parent",
+  // reported about something that was never an act.
+  if (!isRelayAct(act)) return { ok: false, reason: "not-an-act" };
 
   // A producer that did not canonicalise is refused rather than repaired. §7.1
   // forbids a verifier re-serialising to compute a digest; admitting
@@ -1865,7 +1925,7 @@ export function stage3(act: RelayAct, held: ReadonlyMap<string, StoredAct>): Cau
 - [ ] **Step 4: Run and watch it pass**
 
 Run: `bun run test tests/relay-lite-verify.test.ts`
-Expected: PASS, 9 tests.
+Expected: PASS, 11 tests.
 
 - [ ] **Step 5: Typecheck, lint, commit**
 
@@ -1925,7 +1985,7 @@ export async function readDelivered(root: string): Promise<ReadonlyMap<string, S
 - [ ] **Step 1: Write the failing round-trip test**
 
 ```ts
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -1934,12 +1994,44 @@ import {
   mintContext,
   publishAll,
   readDelivered,
+  StoreCorruption,
+  readDelivered,
   stage1,
   stage2,
   stage3,
 } from "../src/relay-lite/index.js";
 import { formatCns } from "../src/relay-lite/cns.js";
 import { readFile } from "node:fs/promises";
+
+describe("readDelivered", () => {
+  it("skips a file deleted between the listing and the read", async () => {
+    const root = mkdtempSync(join(tmpdir(), "relay-lite-gap-"));
+    const { sealed } = mint(
+      { thread_id: "t", type: "message", from: "agent:a", to: ["agent:b"], payload: { n: 1 } },
+      mintContext("n"),
+      1000,
+    );
+    await publishAll(sealed, root);
+    // One delivery file, removed after publication: the sweep reports what it
+    // holds rather than failing.
+    rmSync(join(root, "in", formatCns(sealed.act, "agent:b")));
+    expect((await readDelivered(root)).size).toBe(0);
+  });
+
+  it("refuses two copies of one id that disagree, rather than picking one", async () => {
+    const root = mkdtempSync(join(tmpdir(), "relay-lite-dup-"));
+    const { sealed } = mint(
+      { thread_id: "t", type: "message", from: "agent:a", to: ["agent:b", "agent:c"], payload: { n: 1 } },
+      mintContext("n"),
+      1000,
+    );
+    await publishAll(sealed, root);
+    // Same id under a second delivery name, different bytes: a discrepancy in
+    // the store, not a defect in anyone's record.
+    writeFileSync(join(root, "in", formatCns(sealed.act, "agent:c")), '{"forged":true}');
+    await expect(readDelivered(root)).rejects.toThrow(StoreCorruption);
+  });
+});
 
 describe("round trip — two agents and a citation between them", () => {
   it("mints, publishes, reads back, and verifies the citation", async () => {
@@ -1994,7 +2086,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { sha256Hex } from "./canonical.js";
 import { parseCns } from "./cns.js";
-import type { StoredAct } from "./verify.js";
+import { StoreCorruption, type StoredAct } from "./verify.js";
 
 export * from "./act.js";
 export * from "./canonical.js";
@@ -2026,8 +2118,30 @@ export async function readDelivered(root: string): Promise<ReadonlyMap<string, S
   for (const name of names) {
     const cns = parseCns(name);
     if (!cns) continue;
-    const bytes = await readFile(join(inDir, name), "utf8");
-    out.set(cns.id, { bytes, digest: sha256Hex(bytes) });
+
+    let bytes: string;
+    try {
+      bytes = await readFile(join(inDir, name), "utf8");
+    } catch (error) {
+      // A file deleted between the readdir and this read is a gap in what this
+      // reader holds, not a fault in the store. Failing the whole sweep for it
+      // would make one racing delete look like a broken store.
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+
+    const digest = sha256Hex(bytes);
+    const seen = out.get(cns.id);
+    if (seen !== undefined && seen.digest !== digest) {
+      // Fan-out means N delivery files carry one act and the copies are
+      // byte-identical — that is what moving `to` out of the hashed body bought.
+      // Two copies under one id that disagree is therefore a discrepancy inside
+      // this store, and §7.3 says a store must not let its own discrepancy reach
+      // a record as a verdict. Taking whichever `readdir` returned last would do
+      // exactly that, silently and non-deterministically.
+      throw new StoreCorruption(cns.id);
+    }
+    out.set(cns.id, { bytes, digest });
   }
   return out;
 }
