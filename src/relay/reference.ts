@@ -35,8 +35,10 @@ import { ID_DIGITS, ID_PREFIX, type RelayRecord } from "./store.js";
  *                  because they are named in relay-0033's prose, and that
  *                  inference was false. Prose is evidence that a human or agent
  *                  used the record, and it is not a link.
- *   UNREFERENCED   nothing names it, and records exist after it that could have
- *   NO_SUCCESSORS  nothing exists after it, so nothing could have referenced it.
+ *   UNREFERENCED   nothing names it, and ids were bound after it whose records
+ *                  could have
+ *   NO_SUCCESSORS  nothing was bound after it, so nothing could have referenced
+ *                  it.
  *                  Calling the newest record unreferenced would report our
  *                  position in time as a property of the record — the same
  *                  substitution `cold`/`unknown` refuses.
@@ -50,7 +52,7 @@ export interface ReferenceFinding {
   /** Records whose body mentions its id, excluding the record itself. */
   readonly mentionedBy: readonly string[];
   /**
-   * How many records the store holds after this one.
+   * How many ids this authority bound after this one — held or since gone.
    *
    * Reported rather than thresholded. Any cutoff for "recent enough to judge"
    * would be invented here and would then look like a finding, so the number is
@@ -76,7 +78,48 @@ function prose(bytes: string): string {
   return at === -1 ? "" : bytes.slice(at + BLANK_LINE.length);
 }
 
-export function checkReferences(store: ReadonlyMap<string, RelayRecord>): ReferenceFinding[] {
+/**
+ * The index of the first entry strictly greater than `id`, by binary search.
+ *
+ * Both sides are fixed-width zero-padded ids, so lexicographic order is the
+ * numeric one — the same property `store.ts`'s comparator rests on, and the same
+ * caveat: a fact about the format rather than about strings.
+ */
+function firstAbove(sorted: readonly string[], id: string): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    // `mid < hi <= sorted.length`, so this is always present. The check is for
+    // the compiler's index strictness rather than for a case that occurs.
+    const at = sorted[mid];
+    if (at !== undefined && at > id) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
+/** Id order, written out for the reasons `store.ts` gives beside its own. */
+function bySeq(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+/**
+ * `bound` is every id this authority has ever bound — the marker set, which
+ * survives deletion.
+ *
+ * Required rather than optional. It was optional and fell back to counting held
+ * records, which is the behaviour this change exists to remove, and a caller who
+ * forgot got it silently. A caller that genuinely wants the old count passes an
+ * empty set and says so. The same shape was removed from `markerAgreement` one
+ * review earlier and kept here by inattention.
+ */
+export function checkReferences(
+  store: ReadonlyMap<string, RelayRecord>,
+  bound: ReadonlySet<string>,
+): ReferenceFinding[] {
   const ids = [...store.keys()].sort();
   const referencedBy = new Map<string, string[]>();
   const mentionedBy = new Map<string, string[]>();
@@ -101,10 +144,44 @@ export function checkReferences(store: ReadonlyMap<string, RelayRecord>): Refere
     }
   }
 
+  // Sorted once, searched per record. gemini-code-assist on PR #11 caught that
+  // `[...bound].filter(...)` inside the loop allocated an array per record; its
+  // fix removed the allocation and kept the quadratic walk. Measured on synthetic
+  // stores, counting by walking the whole set each time against a binary search:
+  //
+  //       664 records      12ms     0.2ms
+  //      5000 records     443ms     1.7ms
+  //     20000 records   10207ms     7.3ms
+  //
+  // The store is 664 today, where both are free. The difference is what happens
+  // to a check that is meant to keep running.
+  const boundSorted = [...bound].sort(bySeq);
+
   return ids.map((id, i) => {
     const refs = referencedBy.get(id) ?? [];
     const mentions = mentionedBy.get(id) ?? [];
-    const successors = ids.length - 1 - i;
+    // Ids ever bound above this one, not records still held above it.
+    //
+    // MEASURED BEFORE FIXING: in a store of three, deleting relay-0003 moved
+    // relay-0002 from UNREFERENCED to NO_SUCCESSORS. A record that existed and
+    // could have referenced it was removed, and the removal EXCUSED A DIFFERENT
+    // RECORD FROM A FINDING. That is `issue-1`'s "flips a record from excused to
+    // a finding with the subject unchanged", running the other way, and it needs
+    // no second authority — the Migration section reaches for one and the defect
+    // is nearer than that.
+    //
+    // AND THIS COUNT IS NOT EXACT, WHICH AN EARLIER VERSION OF THIS COMMENT
+    // CLAIMED IT WAS. A marker with no record and nothing naming it is either a
+    // deleted record — a real past referrer — or a crash between the claim and
+    // the write, which never was one. MEASURED: THE TWO PRODUCE IDENTICAL STORE
+    // STATE, so nothing here can separate them. `relay-0683` is the second kind
+    // and is counted as the first.
+    //
+    // Kept as an over-count rather than an under-count on purpose. Excluding
+    // them would restore the defect above, since a deleted record nobody named
+    // lands in exactly the same bucket. The error that reports too much is the
+    // one this store already prefers: absence must not read as a claim.
+    const successors = boundSorted.length - firstAbove(boundSorted, id);
     return {
       id,
       referencedBy: refs,

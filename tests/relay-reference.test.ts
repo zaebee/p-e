@@ -1,9 +1,21 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { appendRelay } from "../src/relay/deposit.js";
 import { type Reference, checkReferences, tallyReferences } from "../src/relay/reference.js";
-import { loadStore } from "../src/relay/store.js";
+import { loadStore, markerAgreement } from "../src/relay/store.js";
+
+/**
+ * Findings with the marker set supplied, which `checkReferences` now requires.
+ * Every store built here is written through the deposit path, so its markers are
+ * the ids it bound.
+ */
+async function refs(root?: string) {
+  const store = await loadStore(root);
+  const { lost, deleted } = await markerAgreement(store, root ?? "relay");
+  return checkReferences(store, new Set([...store.keys(), ...lost, ...deleted]));
+}
 
 function store(records: Record<string, string>): string {
   const root = join(mkdtempSync(join(tmpdir(), "p-e-ref-")), "relay");
@@ -21,7 +33,7 @@ const plain = (id: string, extra = "", body = "text") =>
   `@p-e/x0\nid: ${id}\nfrom: alice\n${extra}\n${body}\n`;
 
 async function stateOf(root: string, id: string): Promise<Reference> {
-  const found = checkReferences(await loadStore(root)).find((f) => f.id === id);
+  const found = (await refs(root)).find((f) => f.id === id);
   if (!found) throw new Error(`no finding for ${id}`);
   return found.state;
 }
@@ -95,7 +107,7 @@ describe("checkReferences", () => {
       "relay-0002": plain("relay-0002", "parent: relay-0001"),
       "relay-0003": plain("relay-0003"),
     });
-    const f = checkReferences(await loadStore(root)).find((x) => x.id === "relay-0001");
+    const f = (await refs(root)).find((x) => x.id === "relay-0001");
     expect(f?.referencedBy).toEqual(["relay-0002"]);
     expect(f?.mentionedBy).toEqual([]);
   });
@@ -106,7 +118,7 @@ describe("checkReferences", () => {
       "relay-0002": plain("relay-0002"),
       "relay-0003": plain("relay-0003"),
     });
-    const findings = checkReferences(await loadStore(root));
+    const findings = await refs(root);
     expect(findings.map((f) => f.successors)).toEqual([2, 1, 0]);
   });
 
@@ -115,17 +127,14 @@ describe("checkReferences", () => {
       "relay-0002": plain("relay-0002"),
       "relay-0001": plain("relay-0001"),
     });
-    expect(checkReferences(await loadStore(root)).map((f) => f.id)).toEqual([
-      "relay-0001",
-      "relay-0002",
-    ]);
+    expect((await refs(root)).map((f) => f.id)).toEqual(["relay-0001", "relay-0002"]);
   });
 });
 
 describe("tallyReferences", () => {
   it("reports every state, including ones no record occupies", async () => {
     const root = store({ "relay-0001": plain("relay-0001") });
-    const counts = tallyReferences(checkReferences(await loadStore(root)));
+    const counts = tallyReferences(await refs(root));
     expect(counts.NO_SUCCESSORS).toBe(1);
     expect(counts.PROSE_ONLY).toBe(0);
     expect(counts.UNREFERENCED).toBe(0);
@@ -134,7 +143,7 @@ describe("tallyReferences", () => {
 
 describe("the live store", () => {
   it("answers the question chatgpt asked, without inventing a threshold", async () => {
-    const findings = checkReferences(await loadStore());
+    const findings = await refs();
     // Not a pinned population: this is a snapshot and the point of the report is
     // that it must be read across time. What is asserted is that the report is
     // total — every held record gets exactly one state.
@@ -142,5 +151,75 @@ describe("the live store", () => {
     const summed = Object.values(counts).reduce((a, b) => a + b, 0);
     expect(summed).toBe(findings.length);
     expect(findings.length).toBeGreaterThan(80);
+  });
+});
+
+/**
+ * Successors counted over ids ever bound, not records still held.
+ *
+ * `NO_SUCCESSORS` excuses a record from `UNREFERENCED`: nothing came after it, so
+ * nothing could have referenced it yet. Counting only held records made that
+ * excuse depend on what had since been deleted.
+ */
+describe("successors and the marker set", () => {
+  function scratch(): string {
+    const root = join(mkdtempSync(join(tmpdir(), "p-e-succ-")), "relay");
+    mkdirSync(root, { recursive: true });
+    return root;
+  }
+  const body = (n: string) => `@p-e/x0\nfrom: a\nto: b\nkind: k\n\n${n}\n`;
+
+  /**
+   * `withMarkers: false` passes the held ids alone, which is what counting over
+   * held records means. The old behaviour is now something a caller states
+   * rather than something they get by omitting an argument.
+   */
+  async function statesOf(root: string, withMarkers: boolean) {
+    const store = await loadStore(root);
+    const bound = new Set<string>(store.keys());
+    if (withMarkers) {
+      const { lost, deleted } = await markerAgreement(store, root);
+      for (const id of [...lost, ...deleted]) bound.add(id);
+    }
+    return checkReferences(store, bound).map((f) => `${f.id}:${f.state}`);
+  }
+
+  it("a deletion no longer excuses the record below it", async () => {
+    const root = scratch();
+    for (const n of ["one", "two", "three"]) await appendRelay(body(n), undefined, root);
+    rmSync(join(root, "relay-0003.txt"));
+
+    // Measured before the fix: relay-0002 became NO_SUCCESSORS here. A record
+    // that existed and could have referenced it was removed, and the removal
+    // excused a different record from a finding.
+    expect(await statesOf(root, true)).toEqual([
+      "relay-0001:UNREFERENCED",
+      "relay-0002:UNREFERENCED",
+    ]);
+    // The old behaviour, kept as the contrast rather than described.
+    expect(await statesOf(root, false)).toEqual([
+      "relay-0001:UNREFERENCED",
+      "relay-0002:NO_SUCCESSORS",
+    ]);
+  });
+
+  it("still excuses the genuinely newest record", async () => {
+    const root = scratch();
+    for (const n of ["one", "two"]) await appendRelay(body(n), undefined, root);
+    expect(await statesOf(root, true)).toEqual([
+      "relay-0001:UNREFERENCED",
+      "relay-0002:NO_SUCCESSORS",
+    ]);
+  });
+
+  it("counts over held ids alone when a caller asks for that", async () => {
+    // A store from before MUST 1 has no markers, so this is what it gets. It is
+    // wrong in the old way, and a caller now says so by passing the held ids
+    // rather than by omitting an argument.
+    const root = scratch();
+    for (const n of ["one", "two"]) await appendRelay(body(n), undefined, root);
+    rmSync(join(root, "relay-0002.txt"));
+    expect(await statesOf(root, false)).toEqual(["relay-0001:NO_SUCCESSORS"]);
+    expect(await statesOf(root, true)).toEqual(["relay-0001:UNREFERENCED"]);
   });
 });
