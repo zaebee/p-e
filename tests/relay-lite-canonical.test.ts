@@ -4,6 +4,7 @@ import {
   assertIJsonValue,
   canonicalize,
   parseIJson,
+  sha256Hex,
 } from "../src/relay-lite/canonical.js";
 
 describe("canonicalize — RFC 8785 (JCS)", () => {
@@ -220,5 +221,62 @@ describe("parseIJson — RFC 7493, at verification", () => {
 
   it("admits well-formed text and returns the value", () => {
     expect(parseIJson('{"a":1,"b":"x"}')).toEqual({ a: 1, b: "x" });
+  });
+});
+
+describe("round-trip stability, over generated values", () => {
+  // The property a canonicalizer exists to have: text that has been through the
+  // store and back must canonicalize to the same bytes, or a record's digest
+  // would depend on how many times it had been read. Seeded, so a failure is
+  // reproducible rather than a story about a run nobody has.
+  const NL = String.fromCharCode(10);
+  const BEE = String.fromCodePoint(0x1f41d);
+  const keys = ["a", "b", "ключ", "x y", "", BEE, "A", " ", "zz", "Z", "a"];
+  const leaves: unknown[] = [
+    "",
+    "ok",
+    "ключ",
+    'a"b',
+    "\\",
+    NL,
+    " ",
+    BEE,
+    0,
+    -0,
+    1,
+    -1,
+    1.5,
+    0.1,
+    100,
+    9007199254740991,
+    -9007199254740991,
+    1.0000000000000002,
+    5e-324,
+    true,
+    false,
+    null,
+  ];
+
+  it("canonicalize, parse, canonicalize gives the same bytes and digest", () => {
+    let seed = 987654321;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    const pick = <T>(a: T[]): T => a[Math.floor(rnd() * a.length)] as T;
+    const gen = (d: number): unknown => {
+      const r = rnd();
+      if (d > 4 || r < 0.4) return pick(leaves);
+      if (r < 0.7) return Array.from({ length: Math.floor(rnd() * 5) }, () => gen(d + 1));
+      const o: Record<string, unknown> = {};
+      for (let i = 0, n = Math.floor(rnd() * 5); i < n; i++) o[pick(keys)] = gen(d + 1);
+      return o;
+    };
+
+    for (let i = 0; i < 2000; i++) {
+      const first = canonicalize(gen(0));
+      const second = canonicalize(parseIJson(first));
+      expect(second).toBe(first);
+      expect(sha256Hex(second)).toBe(sha256Hex(first));
+      // And the canonical form is a fixed point of itself.
+      expect(canonicalize(JSON.parse(first))).toBe(first);
+    }
   });
 });
