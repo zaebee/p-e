@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -178,3 +186,45 @@ describe("what the publisher is handed, and does not mint", () => {
     expect(readdirSync(join(dir, "in"))).toEqual([]);
   });
 });
+
+describe("the durability claim this module can actually make", () => {
+  it("syncs a thing that is a directory, not a path that looks like one", () => {
+    // `onSync` reports the string its caller passed, so a test that only
+    // compares strings proves the callback ran, not that a directory was
+    // synced. This checks the filesystem.
+    const dir = root();
+    expect(statSync(join(dir, "in")).isDirectory()).toBe(true);
+  });
+
+  it("reports the directory among the paths it synced, and it is one", async () => {
+    const dir = root();
+    const { sealed } = mint(input, mintContext("n"), 1000);
+    // Recorded at the moment of the call. Statting afterwards fails: the temp
+    // file is unlinked in the `finally` before `publish` returns, so by then one
+    // of the synced paths is gone — which is itself the temp cleanup working.
+    const kinds: { path: string; dir: boolean }[] = [];
+    await publish(sealed, "agent:mimo", dir, {
+      onSync: (p) => kinds.push({ path: p, dir: statSync(p).isDirectory() }),
+    });
+
+    expect(kinds.filter((k) => k.dir).map((k) => k.path)).toEqual([join(dir, "in")]);
+    // And one that is a file, so §4.1's pair is both present: durable bytes and
+    // a durable name.
+    expect(kinds.filter((k) => !k.dir)).toHaveLength(1);
+  });
+
+  it("pins why the directory is opened with 'r'", async () => {
+    // The implementation opens `in/` read-only to fsync it, which looks
+    // arbitrary until you try the other flag. Recorded so it is not
+    // "simplified" to "w" by someone who has not.
+    const dir = root();
+    await expect(openSync2(join(dir, "in"), "w")).rejects.toMatchObject({ code: "EISDIR" });
+  });
+});
+
+/** `fs.promises.open`, imported here so the EISDIR test reads as one line. */
+async function openSync2(path: string, flags: string) {
+  const { open } = await import("node:fs/promises");
+  const handle = await open(path, flags);
+  await handle.close();
+}
