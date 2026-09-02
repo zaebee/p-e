@@ -9,6 +9,11 @@ import { IJsonViolation, canonicalize } from "../src/relay-lite/canonical.js";
  * written by whoever wrote the code and shares its blind spots by construction.
  *
  * See tests/fixtures/rfc8785/README.md for provenance and licence.
+ *
+ * The trailing-newline strip tolerates CRLF, and `.gitattributes` marks these
+ * files `-text` so no checkout produces it. Both, because they fail differently:
+ * the attribute keeps the bytes right, and the regex keeps the test honest if a
+ * fixture ever arrives by some route git did not mediate.
  */
 
 const dir = fileURLToPath(new URL("./fixtures/rfc8785", import.meta.url));
@@ -20,7 +25,7 @@ describe("RFC 8785 reference vectors", () => {
   // case below.
   for (const name of ["arrays", "french", "structures", "unicode", "weird"]) {
     it(`${name} canonicalizes to the reference bytes`, () => {
-      const expected = read("output", name).replace(/\n$/, "");
+      const expected = read("output", name).replace(/\r?\n$/, "");
       expect(canonicalize(JSON.parse(read("input", name)))).toBe(expected);
     });
   }
@@ -47,7 +52,9 @@ describe("RFC 8785 reference vectors", () => {
       ...input,
       numbers: input.numbers.filter((n) => Math.abs(n) <= Number.MAX_SAFE_INTEGER),
     };
-    const expected = read("output", "values").replace(/\n$/, "").replace("1e+30,", "");
+    const expected = read("output", "values")
+      .replace(/\r?\n$/, "")
+      .replace("1e+30,", "");
     // Includes the vector's escape-torture string, which is the part of JCS most
     // easily got wrong: `"€$\nA'B\"\\\\\"/"`.
     expect(canonicalize(trimmed)).toBe(expected);
