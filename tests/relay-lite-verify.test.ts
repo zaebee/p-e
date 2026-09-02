@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type MintInput, mint, mintContext } from "../src/relay-lite/act.js";
 import { canonicalize, sha256Hex } from "../src/relay-lite/canonical.js";
-import { formatCns } from "../src/relay-lite/cns.js";
+import { formatCns, parseCns } from "../src/relay-lite/cns.js";
 import { HLC_START, type Hlc, ingest } from "../src/relay-lite/hlc.js";
 import {
   StoreCorruption,
@@ -237,6 +237,51 @@ describe("§7.3 store corruption names the record it found", () => {
 });
 
 describe("the store agreeing with itself", () => {
+  it("admits from, thread_id and to only if act.ts would mint them", () => {
+    // Third disagreement of this shape, after the clock and the digest.
+    // `from: "b;to=victim"` and `thread_id: "../../x"` were admitted here and
+    // refused by both `mint` and `formatCns` — an act this store could not have
+    // created and cannot republish, sitting inside it.
+    const cnsName = formatCns(parent.act, "agent:mimo");
+    for (const [field, value] of [
+      ["from", "b;to=victim"],
+      ["from", ""],
+      ["thread_id", "../../x"],
+      ["thread_id", "a b"],
+      ["to", ["a b"]],
+      ["to", [""]],
+    ] as const) {
+      const forged = { ...parent.act, [field]: value };
+      expect(stage2(canonicalize(forged), cnsName).ok).toBe(false);
+      expect(() => mint({ ...input, [field]: value } as never, mintContext("n"), 1001)).toThrow();
+    }
+  });
+
+  it("refuses a name that misrepresents the sender or the thread", () => {
+    // §2 makes only `CNS.to ∈ act.to[]` and `CNS.id == act.id` normative, so
+    // these are beyond its enumeration — and on the same test used elsewhere in
+    // this store: no conforming publisher can produce such a name, because
+    // `formatCns` writes the act's own fields and nothing else.
+    //
+    // Anything scanning `in/` by name — which is what §2.1 puts `from=` and
+    // `thread=` in the name for — read the sender the file claimed rather than
+    // the one the act attests.
+    const real = parseCns(formatCns(parent.act, "agent:mimo"));
+    expect(real).not.toBeNull();
+    const { from, thread, id } = real as NonNullable<typeof real>;
+
+    expect(
+      stage2(
+        parent.bytes,
+        `to=agent:mimo;from=agent:impostor;thread=${thread};ttl=0;id=${id}.json`,
+      ),
+    ).toEqual({ ok: false, reason: "from-mismatch" });
+
+    expect(
+      stage2(parent.bytes, `to=agent:mimo;from=${from};thread=other-thread;ttl=0;id=${id}.json`),
+    ).toEqual({ ok: false, reason: "thread-mismatch" });
+  });
+
   it("admits a parent_digest only if act.ts would mint it", () => {
     // The same shape as the clock: `act.ts` refuses a malformed
     // `parent.digest`, and stage 2 admitted one. Stage 3 then returned

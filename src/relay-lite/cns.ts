@@ -143,6 +143,8 @@ export type DeliveryCheck =
       readonly reason:
         | "recipient-not-in-audience"
         | "id-mismatch"
+        | "from-mismatch"
+        | "thread-mismatch"
         | "malformed-audience"
         | "malformed-name";
     };
@@ -155,6 +157,18 @@ export function checkDelivery(cns: CnsName, act: RelayAct): DeliveryCheck {
   if (cns === null || typeof cns !== "object") return { ok: false, reason: "malformed-name" };
   if (act === null || typeof act !== "object") return { ok: false, reason: "malformed-audience" };
   if (cns.id !== act.id) return { ok: false, reason: "id-mismatch" };
+
+  // §2 makes only `CNS.to ∈ act.to[]` and `CNS.id == act.id` normative, and
+  // these two are beyond that enumeration. They are here on the test this store
+  // uses elsewhere: no conforming publisher can produce such a name, because
+  // `formatCns` writes the act's own `from` and `thread_id` and nothing else.
+  //
+  // Without them a delivery file could say `from=agent:impostor` over a body
+  // saying `agent:claude`, and anything scanning `in/` by name — which is what
+  // §2.1 puts these fields in the name for — would read the sender the file
+  // claims rather than the one the act attests.
+  if (cns.from !== act.from) return { ok: false, reason: "from-mismatch" };
+  if (cns.thread !== act.thread_id) return { ok: false, reason: "thread-mismatch" };
 
   // `to` is checked for being a list before it is read as one. A string has
   // `.includes`, and it is a *substring* search: against an audience of

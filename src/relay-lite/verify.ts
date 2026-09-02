@@ -2,6 +2,7 @@ import type { RelayAct } from "./act.js";
 import { canonicalize, isDigest, parseIJson, sha256Hex } from "./canonical.js";
 import { checkDelivery, parseCns } from "./cns.js";
 import { isClockValue } from "./hlc.js";
+import { isNameable } from "./names.js";
 
 /**
  * Verification, §7, in the order the section makes normative.
@@ -65,9 +66,16 @@ function isRelayAct(v: unknown): v is RelayAct {
   const hlc = a.hlc;
   if (hlc === null || typeof hlc !== "object") return false;
   const h = hlc as Record<string, unknown>;
+  // `from`, `thread_id` and each recipient carry the delivery alphabet, checked
+  // with the same predicate `act.ts` mints against and `cns.ts` names against.
+  // Without it stage 2 admitted `from: "b;to=victim"` and
+  // `thread_id: "../../x"` — acts this store could not have minted and cannot
+  // republish, because `formatCns` refuses to name them. Third disagreement of
+  // this shape after the clock and the digest, and the same cause: a rule
+  // written down twice.
   return (
     str(a.id) &&
-    str(a.thread_id) &&
+    isNameable(a.thread_id) &&
     strOrNull(a.parent_id) &&
     // A digest or nothing, not any string. `act.ts` refuses a malformed one at
     // minting; admitting it here let an act nobody could have minted through,
@@ -78,9 +86,9 @@ function isRelayAct(v: unknown): v is RelayAct {
     (a.parent_digest === null || isDigest(a.parent_digest)) &&
     str(a.type) &&
     ACT_TYPES.has(a.type as string) &&
-    str(a.from) &&
+    isNameable(a.from) &&
     Array.isArray(a.to) &&
-    a.to.every(str) &&
+    a.to.every(isNameable) &&
     // The same rule `hlc.ts` enforces, imported rather than restated. It was
     // `typeof === "number"` here, so stage 2 called an act with `hlc.l = -1`
     // structurally conformant and `ingest` — the function that would then
