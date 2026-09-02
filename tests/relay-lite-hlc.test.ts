@@ -93,6 +93,24 @@ describe("domain checks at the boundary — §3.1, not §3.3 policy", () => {
     expect(r.hlc.c).toBe(2 ** 53);
   });
 
+  it("refuses a negative clock, which no conforming node can produce", () => {
+    // §3.1 admits negative integers, so this is a claim about §3.3: `c` starts
+    // at 0 and is only incremented or reset to 0, and `l` is `max(nowMs, l)`
+    // over a wall clock. Without it a peer can push our `c` below zero through
+    // the `l' == incoming.l` branch and bias where our acts land in §4's
+    // tie-break.
+    expect(() => ingest(HLC_START, { l: -1, c: 0, node_id: "p" }, N, 1000)).toThrow(TypeError);
+    expect(() => ingest({ l: 1000, c: 0 }, { l: 2000, c: -5, node_id: "p" }, N, 1500)).toThrow(
+      TypeError,
+    );
+    expect(() => emit(HLC_START, N, -1)).toThrow(TypeError);
+  });
+
+  it("names the sender, not a field, when the clock is absent entirely", () => {
+    expect(() => ingest(HLC_START, null as never, N, 1000)).toThrow(/must be an object/);
+    expect(() => ingest(HLC_START, undefined as never, N, 1000)).toThrow(/must be an object/);
+  });
+
   it("freezes the starting state", () => {
     expect(Object.isFrozen(HLC_START)).toBe(true);
   });

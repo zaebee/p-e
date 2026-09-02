@@ -62,8 +62,18 @@ export const HLC_START: HlcState = Object.freeze({ l: 0, c: 0 });
  * Twenty-four bytes, permanent, from any peer.
  */
 function assertClockValue(value: number, what: string): void {
-  if (!Number.isInteger(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) {
-    throw new TypeError(`${what} must be an integer within the safe range, got ${String(value)}`);
+  // Non-negative, which is a claim about §3.3 rather than about §3.1. §3.1
+  // admits negative integers, so this is not "the safe range" alone — but no
+  // conforming node can produce either value negative: `c` starts at 0 and is
+  // only incremented or reset to 0, and `l` is `max(nowMs, state.l)` over a
+  // wall clock and a state that starts at 0. A negative arrival is therefore
+  // not a message we are refusing to understand; it is one no correct sender
+  // wrote. Without the check a peer can push our `c` below zero through the
+  // `l' == incoming.l` branch and bias where our acts land in §4's tie-break.
+  if (!Number.isInteger(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) {
+    throw new TypeError(
+      `${what} must be a non-negative integer within the safe range, got ${String(value)}`,
+    );
   }
 }
 
@@ -95,7 +105,13 @@ export function ingest(
   // exactly MAX_SAFE_INTEGER passes here, because §3.1 admits it — which is
   // what makes the overflow in #32 a defect of the specification rather than
   // something this check could paper over.
-  assertClockValue(incoming?.l, "incoming.l");
+  // Checked before its fields, so a null sender is reported as one rather than
+  // as a bad `l`. The optional chain that stood here worked — `undefined` fails
+  // the value check — and named the wrong thing when it did.
+  if (incoming === null || typeof incoming !== "object") {
+    throw new TypeError(`incoming clock must be an object, got ${String(incoming)}`);
+  }
+  assertClockValue(incoming.l, "incoming.l");
   assertClockValue(incoming.c, "incoming.c");
   const l = Math.max(physical, state.l, incoming.l);
   let c: number;
