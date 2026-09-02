@@ -26,6 +26,14 @@
       "docs/experiments/clause-reader/corpus/**",
       "docs/experiments/suite-audit/suite/**",
 
+      // The same class again, and the clearest case of it: RFC 8785's reference
+      // vectors, whose whole value is that they are byte-for-byte what someone
+      // else produced. The comparison in
+      // `tests/relay-lite-rfc8785-vectors.test.ts` is byte-for-byte, so a
+      // formatter pass would not fail the test — it would rewrite both the
+      // question and the answer and leave it passing against ourselves.
+      "tests/fixtures/rfc8785/**",
+
       "node_modules/**"
     ]
   }
