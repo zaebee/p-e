@@ -37,7 +37,22 @@ export interface CnsName {
   readonly id: string;
 }
 
-const DEFAULT_TTL = 0;
+/**
+ * The value written when a caller does not choose one.
+ *
+ * Zero because that is what the plan wrote, and it is not obviously right. §2.1
+ * puts `ttl=<seconds>` in the name and §4.1 says a sweeper *"moves `.relay/in/`
+ * entries past their TTL to `.relay/errata/`"*. That is the whole of what the
+ * spec says about it, and it leaves two things open: what the seconds are
+ * counted from, and whether `0` means *never expires* or *already expired*.
+ * Under the second reading every delivery is past its TTL the moment it is
+ * written and the sweeper takes the lot.
+ *
+ * So the value is a parameter now rather than a constant nobody chose. Filed as
+ * #37. Until it is settled, a caller passing nothing gets the plan's zero and
+ * this comment.
+ */
+export const DEFAULT_TTL = 0;
 
 /** §2.1's field sequence. The grammar is an order, not a set. */
 const FIELDS = ["to", "from", "thread", "ttl", "id"] as const;
@@ -48,7 +63,7 @@ const SECONDS = /^(0|[1-9][0-9]*)$/;
 /** `<uuidv7>`: the shape task 2 mints. */
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-export function formatCns(act: RelayAct, recipient: string): string {
+export function formatCns(act: RelayAct, recipient: string, ttlSeconds = DEFAULT_TTL): string {
   // The recipient is this function's own argument and reaches no other check.
   // The act's fields were validated at minting, and are re-checked because an
   // act can also arrive from the wire, where nothing minted it.
@@ -56,7 +71,12 @@ export function formatCns(act: RelayAct, recipient: string): string {
   assertNameable(act.from, "act.from");
   assertNameable(act.thread_id, "act.thread_id");
   assertNameable(act.id, "act.id");
-  return `to=${recipient};from=${act.from};thread=${act.thread_id};ttl=${DEFAULT_TTL};id=${act.id}.json`;
+  // Checked against the same grammar `parseCns` reads, so this function cannot
+  // write a name it would then refuse.
+  if (!SECONDS.test(String(ttlSeconds))) {
+    throw new Error(`ttlSeconds must be a non-negative integer, got ${String(ttlSeconds)}`);
+  }
+  return `to=${recipient};from=${act.from};thread=${act.thread_id};ttl=${ttlSeconds};id=${act.id}.json`;
 }
 
 export function parseCns(filename: string): CnsName | null {

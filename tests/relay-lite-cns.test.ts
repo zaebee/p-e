@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { type MintInput, mint, mintContext } from "../src/relay-lite/act.js";
-import { type CnsName, checkDelivery, formatCns, parseCns } from "../src/relay-lite/cns.js";
+import {
+  type CnsName,
+  DEFAULT_TTL,
+  checkDelivery,
+  formatCns,
+  parseCns,
+} from "../src/relay-lite/cns.js";
 
 const base: MintInput = {
   thread_id: "t-1",
@@ -91,6 +97,30 @@ describe("the name is also a filename — issue #35", () => {
     expect(() => formatCns({ ...sealed.act, thread_id: "../x" }, "agent:mimo")).toThrow(
       /act\.thread_id/,
     );
+  });
+});
+
+describe("ttl, which the spec leaves open — issue #37", () => {
+  it("writes the ttl a caller chooses, and round-trips it", () => {
+    const name = formatCns(sealed.act, "agent:mimo", 3600);
+    expect(name).toContain(";ttl=3600;");
+    expect(parsed(name).ttl).toBe(3600);
+  });
+
+  it("refuses a ttl it would then refuse to parse", () => {
+    // The same grammar on both sides, so this function cannot write a name
+    // `parseCns` would reject.
+    for (const bad of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 1e21]) {
+      expect(() => formatCns(sealed.act, "agent:mimo", bad)).toThrow(/ttlSeconds/);
+    }
+  });
+
+  it("still defaults to the plan's zero", () => {
+    // Kept, not endorsed. §4.1 says a sweeper moves entries "past their TTL" to
+    // errata/ and never says what zero means; under one reading every delivery
+    // is expired the moment it is written. See #37.
+    expect(formatCns(sealed.act, "agent:mimo")).toContain(";ttl=0;");
+    expect(DEFAULT_TTL).toBe(0);
   });
 });
 
