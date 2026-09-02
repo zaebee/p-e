@@ -1,4 +1,4 @@
-import { assertIJsonValue, canonicalize, sha256Hex } from "./canonical.js";
+import { assertIJsonValue, canonicalize, isDigest, sha256Hex } from "./canonical.js";
 import { HLC_START, type Hlc, type HlcState, emit } from "./hlc.js";
 import { assertNameable } from "./names.js";
 import { UUID_START, type UuidState, uuidV7 } from "./uuid.js";
@@ -48,9 +48,6 @@ export interface MintInput<T = unknown> {
   readonly payload: T;
   readonly parent?: { readonly id: string; readonly digest: string } | null;
 }
-
-/** A sha256 as this store writes them: 64 lowercase hex digits. */
-const DIGEST = /^[0-9a-f]{64}$/;
 
 /**
  * A structural copy of an I-JSON value.
@@ -151,7 +148,7 @@ export function mint<T>(
     // is the difference between a producer's typo and a permanent accusation
     // against them.
     assertNameable(input.parent.id, "parent.id");
-    if (!DIGEST.test(input.parent.digest)) {
+    if (!isDigest(input.parent.digest)) {
       throw new Error(
         `parent.digest must be 64 lowercase hex digits, got ${JSON.stringify(input.parent.digest)}`,
       );

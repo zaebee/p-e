@@ -1,5 +1,5 @@
 import type { RelayAct } from "./act.js";
-import { canonicalize, parseIJson, sha256Hex } from "./canonical.js";
+import { canonicalize, isDigest, parseIJson, sha256Hex } from "./canonical.js";
 import { checkDelivery, parseCns } from "./cns.js";
 import { isClockValue } from "./hlc.js";
 
@@ -69,7 +69,13 @@ function isRelayAct(v: unknown): v is RelayAct {
     str(a.id) &&
     str(a.thread_id) &&
     strOrNull(a.parent_id) &&
-    strOrNull(a.parent_digest) &&
+    // A digest or nothing, not any string. `act.ts` refuses a malformed one at
+    // minting; admitting it here let an act nobody could have minted through,
+    // and stage 3 then returned DIVERGES — which §7.2 defines as "parent held,
+    // digest differs, author defect". An unparseable digest is not a differing
+    // one, and charging it to the author is the failure #21 is about, arriving
+    // from the receiving side where the author cannot answer.
+    (a.parent_digest === null || isDigest(a.parent_digest)) &&
     str(a.type) &&
     ACT_TYPES.has(a.type as string) &&
     str(a.from) &&

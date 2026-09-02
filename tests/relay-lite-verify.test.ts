@@ -216,6 +216,26 @@ describe("§7.3 store corruption names the record it found", () => {
 });
 
 describe("the store agreeing with itself", () => {
+  it("admits a parent_digest only if act.ts would mint it", () => {
+    // The same shape as the clock: `act.ts` refuses a malformed
+    // `parent.digest`, and stage 2 admitted one. Stage 3 then returned
+    // DIVERGES, which §7.2 defines as "parent held, digest differs — author
+    // defect". An unparseable digest is not a differing one, and this is the
+    // #21 failure arriving from the receiving side, where the author cannot
+    // answer for it.
+    const cnsName = formatCns(parent.act, "agent:mimo");
+    for (const digest of ["zz", "", "0".repeat(63), "A".repeat(64), `${parent.digest}0`]) {
+      const forged = { ...parent.act, parent_id: parent.act.id, parent_digest: digest };
+      expect(stage2(canonicalize(forged), cnsName)).toEqual({ ok: false, reason: "not-an-act" });
+      expect(() =>
+        mint({ ...input, parent: { id: parent.act.id, digest } }, mintContext("n"), 1002),
+      ).toThrow();
+    }
+    // A real digest passes both.
+    const good = { ...parent.act, parent_id: parent.act.id, parent_digest: parent.digest };
+    expect(stage2(canonicalize(good), cnsName).ok).toBe(true);
+  });
+
   it("admits an hlc only if hlc.ts would ingest it", () => {
     // Stage 2 decides what enters and `ingest` is what processes it next. When
     // the two disagreed, an act could be pronounced structurally conformant and
