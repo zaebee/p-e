@@ -36,7 +36,16 @@ export type PublishResult =
   | { readonly status: "RETRY_EXHAUSTED" };
 
 export interface PublishOptions {
-  readonly maxRetries?: number;
+  /**
+   * How many times the sequence may be attempted, not how many retries follow
+   * a first try.
+   *
+   * It was `maxRetries` and counted attempts: `maxRetries: 3` ran three, and
+   * `maxRetries: 0` ran none and returned `RETRY_EXHAUSTED` — a status
+   * asserting that no attempt established the name, when no attempt was made.
+   * `-1` did the same and `1.5` worked by accident.
+   */
+  readonly maxAttempts?: number;
   /** Every path `fsync` is issued against, so a test can assert the directory. */
   readonly onSync?: (path: string) => void;
   /** Seam for the vanished-target path, which a race alone cannot be made to take. */
@@ -105,6 +114,15 @@ export async function publish(
   root: string,
   options: PublishOptions = {},
 ): Promise<PublishResult> {
+  // Checked before its fields, like every other value this store is handed
+  // rather than makes. `publish` accepts an act off the wire — the tests feed
+  // it several — so `sealed` is not necessarily what `mint` returned.
+  if (sealed === null || typeof sealed !== "object") {
+    throw new TypeError(`sealed must be an object, got ${String(sealed)}`);
+  }
+  if (sealed.act === null || typeof sealed.act !== "object") {
+    throw new TypeError(`sealed.act must be an object, got ${String(sealed.act)}`);
+  }
   const inDir = join(root, "in");
   const tmpDir = join(root, "tmp");
   await mkdir(inDir, { recursive: true });
@@ -119,10 +137,13 @@ export async function publish(
   if (target !== join(inDir, basename(target))) {
     throw new Error(`delivery name escapes in/: ${JSON.stringify(target)}`);
   }
-  const maxRetries = options.maxRetries ?? 3;
+  const maxAttempts = options.maxAttempts ?? 3;
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
+    throw new TypeError(`maxAttempts must be a positive integer, got ${String(maxAttempts)}`);
+  }
   const readOne = options.readTarget ?? ((p: string) => readFile(p, "utf8"));
 
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     // Randomised, not `<id>.tmp`. A crash leaves no `finally` to run, and a
     // deterministic name would survive as an uncollectable file blocking
     // republication of exactly the message that was interrupted.
@@ -216,6 +237,14 @@ export async function publishAll(
   // Thrown rather than returned: this function's answer is one result per
   // recipient, and an audience that is not a list has no recipients to return
   // a result for.
+  if (
+    sealed === null ||
+    typeof sealed !== "object" ||
+    sealed.act === null ||
+    typeof sealed.act !== "object"
+  ) {
+    throw new TypeError("sealed must be an object containing an act");
+  }
   if (!Array.isArray(sealed.act.to)) {
     throw new TypeError(`act.to must be an array, got ${typeof sealed.act.to}`);
   }

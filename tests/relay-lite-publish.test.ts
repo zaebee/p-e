@@ -86,7 +86,7 @@ describe("publish — §4.1", () => {
     const { sealed } = mint(input, mintContext("n"), 1000);
     writeFileSync(join(dir, "in", formatCns(sealed.act, "agent:mimo")), '{"other":1}');
     const result = await publish(sealed, "agent:mimo", dir, {
-      maxRetries: 3,
+      maxAttempts: 3,
       readTarget: async () => {
         const e: NodeJS.ErrnoException = new Error("vanished");
         e.code = "ENOENT";
@@ -184,6 +184,40 @@ describe("what the publisher is handed, and does not mint", () => {
       await expect(publish(sealed, recipient, dir)).rejects.toThrow();
     }
     expect(readdirSync(join(dir, "in"))).toEqual([]);
+  });
+});
+
+describe("the options, and the act the publisher is handed", () => {
+  it("refuses an attempt budget that would publish nothing", async () => {
+    // The option counted attempts while being called `maxRetries`, so
+    // `maxRetries: 0` ran no attempt at all and returned RETRY_EXHAUSTED — a
+    // status asserting that no attempt established the name, when none was
+    // made. `-1` did the same and `1.5` worked by accident.
+    const dir = root();
+    const { sealed } = mint(input, mintContext("n"), 1000);
+    for (const maxAttempts of [0, -1, 1.5, Number.NaN]) {
+      await expect(publish(sealed, "agent:mimo", dir, { maxAttempts })).rejects.toThrow(
+        /maxAttempts must be a positive integer/,
+      );
+    }
+    expect(readdirSync(join(dir, "in"))).toEqual([]);
+    // One attempt is a legal budget and publishes.
+    expect(await publish(sealed, "agent:mimo", dir, { maxAttempts: 1 })).toEqual({
+      status: "PUBLISHED",
+    });
+  });
+
+  it("names a sealed act that is not one", async () => {
+    const dir = root();
+    for (const bad of [null, undefined, 7, "x"]) {
+      await expect(publish(bad as never, "agent:mimo", dir)).rejects.toThrow(
+        /sealed must be an object/,
+      );
+    }
+    await expect(publish({ bytes: "", digest: "" } as never, "agent:mimo", dir)).rejects.toThrow(
+      /sealed\.act must be an object/,
+    );
+    await expect(publishAll(null as never, dir)).rejects.toThrow(/sealed must be an object/);
   });
 });
 
