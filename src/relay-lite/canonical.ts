@@ -25,9 +25,11 @@ export class IJsonViolation extends Error {
 
 /**
  * JCS number formatting is ECMAScript's `Number::toString`, which `String(n)`
- * gives — `1e+21` included. Negative zero is the one case it gets wrong for our
- * purposes: JCS emits `0`, and `String(-0)` agrees, but `Object.is` is how you
- * tell them apart when it matters.
+ * gives. Negative zero is the one case needing a hand: JCS emits `0`, `String(-0)`
+ * agrees, and `Object.is` is the only way to tell the two zeros apart.
+ *
+ * The exponential forms `Number::toString` can produce are unreachable here —
+ * they start at 1e21, and the safe range stops three orders below that.
  */
 function num(n: number): string {
   if (!Number.isFinite(n)) {
@@ -66,19 +68,29 @@ function str(s: string): string {
  * every call, not somewhere in the caller's history.
  */
 export function canonicalize(value: unknown): string {
+  assertIJsonValue(value);
+  return emit(value);
+}
+
+/**
+ * The recursive half, after the domain is known good.
+ *
+ * Split from `canonicalize` so the check runs once over the value rather than
+ * once per node on the way down. Validating inside the recursion would re-walk
+ * every subtree at every level it appears under.
+ */
+function emit(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "boolean") return value ? "true" : "false";
   if (typeof value === "number") return num(value);
   if (typeof value === "string") return str(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalize).join(",")}]`;
+  if (Array.isArray(value)) return `[${value.map(emit).join(",")}]`;
   if (typeof value === "object") {
     // Sorted by UTF-16 code unit, which is what sorting strings does in
     // JavaScript. Not by code point: the two differ above the BMP, and JCS
     // names the code-unit ordering.
     const keys = Object.keys(value as object).sort();
-    const pairs = keys.map(
-      (k) => `${str(k)}:${canonicalize((value as Record<string, unknown>)[k])}`,
-    );
+    const pairs = keys.map((k) => `${str(k)}:${emit((value as Record<string, unknown>)[k])}`);
     return `{${pairs.join(",")}}`;
   }
   throw new IJsonViolation("invalid-string", `not representable in JSON: ${typeof value}`);

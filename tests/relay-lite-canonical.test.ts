@@ -24,10 +24,26 @@ describe("canonicalize — RFC 8785 (JCS)", () => {
   });
 
   it("formats numbers as ECMAScript does, which is what JCS requires", () => {
-    expect(canonicalize({ n: 1e21 })).toBe('{"n":1e+21}');
     expect(canonicalize({ n: -0 })).toBe('{"n":0}');
     expect(canonicalize({ n: 1.0 })).toBe('{"n":1}');
     expect(canonicalize({ n: 0.1 })).toBe('{"n":0.1}');
+    expect(canonicalize({ n: 9007199254740991 })).toBe('{"n":9007199254740991}');
+  });
+
+  it("enforces its own precondition rather than trusting the caller", () => {
+    // `canonicalize` is exported, so the precondition cannot live in a docstring:
+    // an unpaired surrogate reaching Node's encoder becomes U+FFFD, and these two
+    // distinct objects produced identical bytes and identical digests.
+    expect(() => canonicalize({ "\ud800": 1 })).toThrow(IJsonViolation);
+    expect(() => canonicalize({ t: "\udc00" })).toThrow(IJsonViolation);
+  });
+
+  it("refuses the out-of-domain number it used to format", () => {
+    // This case asserted `{"n":1e+21}` until `canonicalize` began enforcing its
+    // own precondition. JCS does specify that formatting, but 1e21 is outside
+    // the safe range, so no conforming act can carry it: the assertion was
+    // documenting behaviour on a value the protocol does not admit.
+    expect(() => canonicalize({ n: 1e21 })).toThrow(IJsonViolation);
   });
 
   it("emits non-ASCII as literal UTF-8, never as an escape", () => {
@@ -136,6 +152,24 @@ describe("parseIJson — RFC 7493, at verification", () => {
     // A message reporting `9007199254740992` would describe our rounding rather
     // than their act, and the sender could not find that value in what they sent.
     expect(() => parseIJson('{"n":9007199254740993}')).toThrow(/9007199254740993/);
+  });
+
+  it("terminates on exponents built to overflow the exactness check", () => {
+    // A huge positive exponent reaches `Infinity` and is refused before the
+    // decimal comparison runs; a huge negative one reaches zero, where the
+    // mantissa test returns early. Neither builds the enormous BigInt that a
+    // naive reading of the comparison suggests — the exponent that survives to
+    // the shift is bounded by the length of the token carrying it.
+    for (const t of [
+      '{"n":1e99999999999999999999}',
+      '{"n":1e-99999999999999999999}',
+      '{"n":1e400}',
+      '{"n":1e-400}',
+    ]) {
+      expect(() => parseIJson(t)).toThrow(IJsonViolation);
+    }
+    // Legitimate despite a large exponent: the zeros pay for it exactly.
+    expect(parseIJson(`{"n":0.${"0".repeat(500)}1e500}`)).toEqual({ n: 0.1 });
   });
 
   it("does not mistake a number inside a string for a number", () => {
