@@ -187,6 +187,38 @@ describe("what the publisher is handed, and does not mint", () => {
   });
 });
 
+describe("concurrency, which is what §4.1 is shaped for", () => {
+  it("gives one publisher the name and tells the rest it is already there", async () => {
+    // Every element of the sequence — the O_EXCL temp, `link` rather than
+    // `rename`, EEXIST read as a question rather than an answer — exists for
+    // simultaneous publishers, and nothing else here runs two at once.
+    //
+    // Same act, same recipient, same name: exactly one leg may create it, and
+    // the others must recognise their own bytes rather than refuse them.
+    const dir = root();
+    const { sealed } = mint(input, mintContext("n"), 1000);
+
+    const results = await Promise.all(
+      Array.from({ length: 24 }, () => publish(sealed, "agent:mimo", dir)),
+    );
+    const counts = results.reduce<Record<string, number>>((acc, r) => {
+      acc[r.status] = (acc[r.status] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    expect(counts.PUBLISHED).toBe(1);
+    expect(counts.ALREADY_PUBLISHED).toBe(23);
+    expect(counts.COLLISION_REFUSED).toBeUndefined();
+    expect(counts.RETRY_EXHAUSTED).toBeUndefined();
+
+    const files = readdirSync(join(dir, "in"));
+    expect(files).toHaveLength(1);
+    expect(readFileSync(join(dir, "in", files[0] as string), "utf8")).toBe(sealed.bytes);
+    // Twenty-four temp files were created and every one of them cleaned up.
+    expect(readdirSync(join(dir, "tmp"))).toEqual([]);
+  });
+});
+
 describe("the temp file, which is not the target", () => {
   it("retries a taken temp name instead of failing the publish", async () => {
     // 64 bits of `randomBytes` make this unreachable in practice, so it is
