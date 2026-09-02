@@ -125,6 +125,24 @@ describe("domain checks at the boundary — §3.1, not §3.3 policy", () => {
     expect(() => ingest(fromDisk("{}"), { l: 1, c: 0, node_id: "p" }, N, 2000)).toThrow(TypeError);
   });
 
+  it("refuses an empty node id, which §4 makes load-bearing", () => {
+    // The comparator is TopologicalDepth -> (l, c, node_id) -> id, so a blank
+    // node_id collapses that level: every act from such a node ties with every
+    // other and ordering falls through to `id`. Nothing downstream reports it —
+    // the string canonicalizes, the digest is well formed, and the defect shows
+    // up only as a presentation that quietly stopped grouping by node.
+    expect(() => emit(HLC_START, "", 1000)).toThrow(TypeError);
+    expect(() => emit(HLC_START, "   ", 1000)).toThrow(TypeError);
+    expect(() => ingest(HLC_START, { l: 1, c: 0, node_id: "p" }, "", 1000)).toThrow(TypeError);
+  });
+
+  it("does not judge the sender's node id, which it never reads", () => {
+    // `ingest` stamps the act with this node's identity, never the sender's, so
+    // refusing over that field would reject a message for a value we ignore.
+    const r = ingest(HLC_START, { l: 10, c: 0, node_id: "" }, N, 5);
+    expect(r.hlc.node_id).toBe(N);
+  });
+
   it("freezes the starting state", () => {
     expect(Object.isFrozen(HLC_START)).toBe(true);
   });

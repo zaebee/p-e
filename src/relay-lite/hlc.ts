@@ -118,12 +118,33 @@ function assertState(state: HlcState): void {
   assertClockValue(state.c, "state.c");
 }
 
+/**
+ * This node's own name, which §4 makes load-bearing.
+ *
+ * The comparator is `TopologicalDepth → HLC (l, c, node_id) → id`, so an empty
+ * or blank `node_id` collapses its whole level: every act from such a node ties
+ * with every other, and the ordering falls through to `id` — which is a valid
+ * result and not the one §4 describes. Nothing downstream would report it. The
+ * canonicalizer accepts an empty string, the digest is well formed, and the
+ * defect appears only as a presentation that quietly stopped grouping by node.
+ *
+ * Only ours. `incoming.node_id` is not checked because it is not read: `ingest`
+ * stamps the act with this node's identity, never the sender's, so refusing a
+ * message over that field would reject it for a value we ignore.
+ */
+function assertNodeId(nodeId: string): void {
+  if (typeof nodeId !== "string" || nodeId.trim() === "") {
+    throw new TypeError(`nodeId must be a non-empty string, got ${JSON.stringify(nodeId)}`);
+  }
+}
+
 export function emit(
   state: HlcState,
   nodeId: string,
   nowMs: number,
 ): { hlc: Hlc; state: HlcState } {
   assertState(state);
+  assertNodeId(nodeId);
   // Floored rather than refused: `l` is a wall clock in milliseconds, and a
   // caller holding `performance.timeOrigin + performance.now()` has a fractional
   // one through no fault of its own. Flooring is what "milliseconds" means and
@@ -142,6 +163,7 @@ export function ingest(
   nowMs: number,
 ): { hlc: Hlc; state: HlcState } {
   assertState(state);
+  assertNodeId(nodeId);
   const physical = Math.floor(nowMs);
   assertClockValue(physical, "nowMs");
   // The sender's clock, checked against §3.1 before it touches ours. `c` at
