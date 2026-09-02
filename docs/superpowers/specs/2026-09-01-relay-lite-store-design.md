@@ -32,21 +32,40 @@ spec's own defects.
 
 ## Scope
 
-The specification carries twelve normative claims. Ten belong to a store; two
-are obligations on a *consumer* and cannot be discharged by one.
+The specification carries twelve normative claims. **Eleven belong to a store;
+one is an obligation on a *consumer* and cannot be discharged by one.**
+
+This document first said ten and two, and was wrong. The correction is recorded
+here rather than applied silently, because the number was stated three times and
+a section was written to explain it.
 
 | section | claims | in step 1 |
 |---|---|---|
 | §2 filesystem layout and CNS names | 2 | yes |
 | §3 the canonical act | 4 | yes |
-| §4 ordering | 2 | **no** — consumer obligations |
+| §4 ordering | 2 | **one of two** — see below |
 | §7 verification | 4 | yes |
 
-§4's two claims are *"treat the graph as a DAG"* and *"MUST NOT present any
-linear projection as the causal history"*. Both address whoever reads and
-displays; a store cannot satisfy them on a consumer's behalf. They arrive with
-the projection function, which is step 2 and belongs with whatever displays the
-data.
+§4's two claims are not the same kind, and reading them as one pair was the
+error. The specification distinguishes them in its own words:
+
+> **[MUST]** The protocol **and storage model** treat the graph as a DAG — a
+> partial order.
+>
+> **[MUST NOT]** **A consumer** presents any linear projection as *the* causal
+> history.
+
+The first names the storage model. A store discharges it by imposing no total
+order of its own — this one keys acts by id and follows parent links, and never
+sorts — so it is in scope and gets a check. The second names a consumer, and no
+store can satisfy it on a reader's behalf; it arrives with the projection.
+
+**How this was got wrong is worth more than the correction.** The count of
+twelve was verified by measurement — `{§2: 2, §3: 4, §4: 2, §7: 4}`, run rather
+than assumed — and each claim's *addressee* was not. A correct measurement
+answering a question it was not asked, which `relay-0737` names as this
+project's recurring shape and which this is the fourth instance of. Raised in
+`relay-0742` and conceded in `relay-0743`.
 
 **Step 1 is complete on its own:** two agents mint sealed acts, publish them
 through the POSIX sequence, and verify each other's citations.
@@ -77,10 +96,19 @@ section can be cited by name.
 **JCS (RFC 8785)** — around forty lines, and the traps are ECMAScript number
 formatting (`1e21`, `-0`, precision) and key ordering by UTF-16 code units
 rather than code points. Written here and run against the RFC's **official test
-vectors**, because relay-ui's `canonicalJson` sorts keys and calls
-`JSON.stringify` — which is not JCS, since it normalises no numbers — and taking
-a dependency without checking would inherit that class of error rather than
-avoid it.
+vectors**.
+
+The reason is a policy, and an earlier form of this paragraph dressed it as a
+derivation. It argued that relay-ui's `canonicalJson` sorts keys and calls
+`JSON.stringify` — true, and not JCS, since it normalises no numbers — and
+concluded that a dependency would inherit that error. **The conclusion does not
+follow from the premise.** A non-conforming implementation somewhere argues for
+*checking* a dependency, not for writing one, and the RFC's vectors are the
+check either way.
+
+The actual reason is that this project takes no runtime dependency it can avoid.
+That is a choice, and stating it as one is the difference between a policy and a
+deduction that was never made.
 
 **UUIDv7** — not in the standard library; `crypto.randomUUID` produces v4.
 "Around fifteen lines" was too glib, and review said so. Two cases have to be
@@ -196,14 +224,18 @@ mixing the two would make a caller catch in two places. `STORE_CORRUPTION` is
 the exception, because it is about the store rather than about a record and must
 be noticeable rather than swallowed.
 
-## Verification: ten claims, twelve checks
+## Verification: eleven claims, thirteen checks
 
-The arithmetic is worth stating, because two twelves appear in this document and
-they are not the same twelve. The specification carries **twelve normative
-claims**, of which **ten** are in scope here. Those ten get one check each, and
-**two further checks** cover the publisher — which §4.1 describes at length
-without using a single RFC-2119 keyword, so nothing in it is a normative claim
-and all of it is load-bearing.
+The arithmetic is worth stating, and it has already been wrong once. The
+specification carries **twelve normative claims**, of which **eleven** are in
+scope here — the twelfth is §4's consumer obligation. Those eleven get one check
+each, and **two further checks** cover the publisher, which §4.1 describes at
+length without using a single RFC-2119 keyword, so nothing in it is a normative
+claim and all of it is load-bearing.
+
+Eleven plus two is thirteen. The earlier form of this section said ten and
+twelve, and explained the difference between its two twelves — a good
+explanation of a wrong number, which is a thing worth being able to recognise.
 
 Each check cites the clause it tests, so the suite reads as a conformance report
 against the specification rather than as unit tests of an implementation.
@@ -233,25 +265,29 @@ against the specification rather than as unit tests of an implementation.
 5. sealing: the same act republished produces the **same bytes**
 6. retrying an existing `id` changes neither `hlc` nor digest
 
+**§4 — ordering, the claim that names the storage model**
+7. the store imposes no total order of its own: acts come back keyed by id,
+   carrying no position and no rank a consumer could mistake for a history
+
 **§7 — verification**
-7. a verifier given non-canonical bytes **refuses** rather than silently
+8. a verifier given non-canonical bytes **refuses** rather than silently
    repairing them
-8. the citation matrix: `parent_id` without `parent_digest` is `LABEL_ONLY`, the
+9. the citation matrix: `parent_id` without `parent_digest` is `LABEL_ONLY`, the
    reverse is `UNANCHORED`, and all six corners are distinct
-9. the store invariant `digest == sha256(octets)` holds or is declared broken
-10. a discrepancy planted inside the store raises `STORE_CORRUPTION` and is not
+10. the store invariant `digest == sha256(octets)` holds or is declared broken
+11. a discrepancy planted inside the store raises `STORE_CORRUPTION` and is not
     charged to a child record
 
-**§4.1 — the publisher: two checks beyond the ten claims**
-11. `fsync` is **called on the directory** — verified by intercepting
+**§4.1 — the publisher: two checks beyond the eleven claims**
+12. `fsync` is **called on the directory** — verified by intercepting
     `FileHandle.sync` and asserting the directory appears among its targets
-12. `EEXIST` with equal bytes gives `ALREADY_PUBLISHED`, with differing bytes
+13. `EEXIST` with equal bytes gives `ALREADY_PUBLISHED`, with differing bytes
     `COLLISION_REFUSED`, a vanished target retries, and exhaustion gives
     `RETRY_EXHAUSTED`
 
-Checks 3 and 7 are the ones this exercise exists for. Check 3 catches an error
+Checks 3 and 8 are the ones this exercise exists for. Check 3 catches an error
 relay-ui has already made — key sorting plus `JSON.stringify`, called JCS.
-Check 7 tests a normative claim added during review in round 8 of issue #5 that
+Check 8 tests a normative claim added during review in round 8 of issue #5 that
 nothing has ever executed.
 
 ### Outside CI
