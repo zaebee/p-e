@@ -68,9 +68,30 @@ describe("stage 2 — §7.1 structural and I-JSON conformance", () => {
   });
 
   it("refuses an unanchored citation at ingest", () => {
-    const forged = canonicalize({ ...parent.act, parent_id: null, parent_digest: "aa" });
+    // A *well-formed* digest with no locator, which is what §7.2 calls
+    // UNANCHORED — "bytes claimed for nobody". The plan's fixture used `"aa"`,
+    // which is not a digest at all, so once stage 2 started checking the digest
+    // format this case was refused as `not-an-act` and the unanchored rule was
+    // no longer being exercised. Two different defects were sharing one test.
+    const forged = canonicalize({
+      ...parent.act,
+      parent_id: null,
+      parent_digest: parent.digest,
+    });
     const r = stage2(forged, formatCns(parent.act, "agent:mimo"));
     expect(r).toMatchObject({ ok: false, reason: "unanchored" });
+  });
+
+  it("separates a malformed digest from an unanchored one", () => {
+    const name = formatCns(parent.act, "agent:mimo");
+    // No locator, real digest: unanchored.
+    expect(
+      stage2(canonicalize({ ...parent.act, parent_id: null, parent_digest: parent.digest }), name),
+    ).toMatchObject({ reason: "unanchored" });
+    // A locator, and something that is not a digest: not an act.
+    expect(
+      stage2(canonicalize({ ...parent.act, parent_id: parent.act.id, parent_digest: "aa" }), name),
+    ).toMatchObject({ reason: "not-an-act" });
   });
 
   it("refuses non-canonical bytes rather than silently repairing them", () => {
