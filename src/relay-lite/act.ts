@@ -114,11 +114,15 @@ export const mintContext = (nodeId: string): MintContext => ({
   uuid: UUID_START,
 });
 
-export function mint<T>(
-  input: MintInput<T>,
-  ctx: MintContext,
-  nowMs: number,
-): { sealed: SealedAct<T>; ctx: MintContext } {
+/**
+ * Everything a caller may hand `mint`, refused before anything is sealed.
+ *
+ * Gathered here for the reason `publish`'s checks were: SonarCloud counts the
+ * function that follows at the complexity limit, and a reader asking what
+ * minting refuses should find the answer in one place rather than in front of
+ * the code that builds the act.
+ */
+function checkInput(input: MintInput<unknown>): void {
   if (!Array.isArray(input.to)) {
     // A string has `.length` and iterates, so `to: "agent"` passed every check
     // below and produced five recipients named `a`, `g`, `e`, `n`, `t` — each
@@ -181,7 +185,14 @@ export function mint<T>(
       );
     }
   }
+}
 
+export function mint<T>(
+  input: MintInput<T>,
+  ctx: MintContext,
+  nowMs: number,
+): { sealed: SealedAct<T>; ctx: MintContext } {
+  checkInput(input);
   assertIJsonValue(input.payload);
 
   const u = uuidV7(ctx.uuid, nowMs);

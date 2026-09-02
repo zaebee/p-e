@@ -61,7 +61,6 @@ function isRelayAct(v: unknown): v is RelayAct {
   if (v === null || typeof v !== "object") return false;
   const a = v as Record<string, unknown>;
   const str = (x: unknown): boolean => typeof x === "string";
-  const strOrNull = (x: unknown): boolean => x === null || typeof x === "string";
   const hlc = a.hlc;
   if (hlc === null || typeof hlc !== "object") return false;
   const h = hlc as Record<string, unknown>;
@@ -74,7 +73,7 @@ function isRelayAct(v: unknown): v is RelayAct {
   // written down twice.
   return (
     // Ids and predecessor locators are uuidv7 — §3 annotates `id` as one, and a
-    // predecessor locator locates an act whose id is one. `strOrNull` here let
+    // predecessor locator locates an act whose id is one. A bare string check let
     // `parent_id: "../x"` through, which `mint` refuses; my own agreement
     // matrix missed the field, having enumerated values rather than fields.
     isUuidV7(a.id) &&
