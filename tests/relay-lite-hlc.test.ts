@@ -252,3 +252,79 @@ describe("causality, over a simulated network", () => {
     }
   });
 });
+
+// External ground truth, from the paper §3.3 is copied from: Kulkarni,
+// Demirbas, Madeppa, Avva and Leone, "Logical Physical Clocks and Consistent
+// Snapshots in Globally Distributed Databases" (2014). Its Figure 5 is the
+// algorithm; §3.3 reproduces both rules exactly, checked line by line.
+//
+// What it does not reproduce is the assumption the paper's boundedness rests
+// on — clock synchronization within some epsilon. Corollary 3 states
+// `c.f <= N * (eps + 1)`, and Corollary 1 bounds `|l - pt|` by the same eps.
+// §3.3 states neither, which is what makes the counter overflow in #32
+// reachable at all: under the paper's assumption `c` cannot approach 2^53.
+describe("the published bound, reproduced — Kulkarni et al. 2014", () => {
+  const simulate = (epsCap: number) => {
+    let seed = 424_242;
+    const rnd = () => {
+      seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+      return seed / 0x80000000;
+    };
+    const NODES = 5;
+    const state: HlcState[] = Array.from({ length: NODES }, () => HLC_START);
+    const clock: number[] = Array.from({ length: NODES }, () => 1_700_000_000_000);
+    const inFlight: { to: number; hlc: Hlc }[] = [];
+    const counters: number[] = [];
+    let observedEps = 0;
+
+    for (let i = 0; i < 20_000; i++) {
+      const n = Math.floor(rnd() * NODES);
+      // The paper's own constraint: a node's clock advances by at least one
+      // between any two events on it. Corollary 3's proof depends on it.
+      clock[n] = (clock[n] as number) + 1 + Math.floor(rnd() * 2);
+      // Standing in for NTP, which the paper superposes HLC on rather than
+      // replacing. Without it eps grows without bound and so does c.
+      const hi = Math.max(...clock);
+      for (let k = 0; k < NODES; k++) {
+        if (hi - (clock[k] as number) > epsCap) clock[k] = hi - epsCap;
+      }
+      observedEps = Math.max(observedEps, hi - Math.min(...clock));
+
+      const waiting = inFlight.findIndex((m) => m.to === n);
+      let hlc: Hlc;
+      if (waiting >= 0 && rnd() < 0.45) {
+        const msg = inFlight.splice(waiting, 1)[0] as { hlc: Hlc };
+        const r = ingest(state[n] as HlcState, msg.hlc, `node-${n}`, clock[n] as number);
+        state[n] = r.state;
+        hlc = r.hlc;
+      } else {
+        const r = emit(state[n] as HlcState, `node-${n}`, clock[n] as number);
+        state[n] = r.state;
+        hlc = r.hlc;
+        if (rnd() < 0.35) {
+          const to = Math.floor(rnd() * NODES);
+          if (to !== n) inFlight.push({ to, hlc });
+        }
+      }
+      counters.push(hlc.c);
+    }
+    return { counters, observedEps, nodes: NODES };
+  };
+
+  it("keeps c under Corollary 3's bound, N * (eps + 1)", () => {
+    for (const epsCap of [2, 10, 50]) {
+      const { counters, observedEps, nodes } = simulate(epsCap);
+      expect(Math.max(...counters)).toBeLessThanOrEqual(nodes * (observedEps + 1));
+    }
+  });
+
+  it("reproduces the paper's distribution when its assumption holds", () => {
+    // Section 5: "for more than 99% of events, the c value was 4 or less".
+    // That is a published measurement of the algorithm, not of this code, so
+    // it is the one check here that our own tests cannot agree with by
+    // construction — they are all derived from §3.3, and this is not.
+    const { counters } = simulate(10);
+    const small = counters.filter((c) => c <= 4).length;
+    expect(small / counters.length).toBeGreaterThan(0.99);
+  });
+});

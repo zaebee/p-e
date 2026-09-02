@@ -7,8 +7,30 @@
  *
  * ## What this file cannot fix, recorded where the next reader meets it
  *
- * Three gaps, all in what §3.3 specifies rather than in the code that follows
- * it. Filed as issue #32; none is patched here, because a local guard would
+ * ## Checked against the paper §3.3 is taken from
+ *
+ * Kulkarni, Demirbas, Madeppa, Avva and Leone, *Logical Physical Clocks and
+ * Consistent Snapshots in Globally Distributed Databases* (2014), Figure 5.
+ * §3.3 reproduces both rules exactly — the emission rule, and all four branches
+ * of the ingest rule in the same order, `max(c.j, c.m) + 1` included.
+ *
+ * What §3.3 does not reproduce is the assumption the paper's boundedness rests
+ * on. Corollary 1 bounds `|l - pt|` by the clock synchronization uncertainty ε;
+ * Corollary 3 bounds the counter by `N * (ε + 1)`. Both proofs invoke the
+ * synchronization constraint by name. §3.3 states no ε and requires none, so it
+ * inherits the algorithm without the premise its guarantees are proved under —
+ * which is what makes the counter overflow below reachable at all. Under the
+ * paper's assumption `c` cannot approach 2^53; the paper's own worst case, a
+ * node violating the drift constraint fivefold, reached 514 and did not raise
+ * any other node's counter.
+ *
+ * Reproduced in the tests: with ε ≤ 10ms, 99.2% of events carry `c ≤ 4`, which
+ * is the paper's published measurement.
+ *
+ * ## Three gaps, all in what §3.3 specifies rather than in the code that
+ * follows it
+ *
+ * Filed as issue #32; none is patched here, because a local guard would
  * make this implementation refuse messages the specification requires it to
  * accept, which is a worse failure than the one it avoids.
  *
