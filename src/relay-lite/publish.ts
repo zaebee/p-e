@@ -137,7 +137,19 @@ export async function publish(
     let created = false;
 
     try {
-      const handle = await open(tmp, "wx");
+      // EEXIST here is a temp-name collision, not a publish collision, and the
+      // two must not share a verdict — that distinction is why the `link` catch
+      // below tests for EEXIST at its own level rather than around the whole
+      // block. With 64 bits from `randomBytes` this is not reachable in
+      // practice; retrying it costs four lines and turns an exception out of a
+      // publish that did nothing into a publish that completes.
+      let handle: Awaited<ReturnType<typeof open>>;
+      try {
+        handle = await open(tmp, "wx");
+      } catch (error) {
+        if (errnoOf(error) === "EEXIST") continue;
+        throw error;
+      }
       created = true;
       try {
         await handle.writeFile(sealed.bytes, "utf8");
@@ -170,9 +182,15 @@ export async function publish(
     }
   }
 
-  // Reachable only through the vanished-target path, which means every attempt
-  // found the name free. Reporting that as a collision would assert another
-  // writer holds a name nobody holds.
+  // Reached when no attempt established the name: the target vanished between
+  // `link` and the read, or the temp name was taken. Neither says another
+  // writer holds the target — the vanished path found it free and the temp path
+  // never reached it — so reporting this as a collision would assert something
+  // nobody observed.
+  //
+  // The second path was added with the temp-collision retry above. Before that
+  // this comment said "reachable only through the vanished-target path", which
+  // stopped being true the moment a second `continue` existed.
   return { status: "RETRY_EXHAUSTED" };
 }
 

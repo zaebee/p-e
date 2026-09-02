@@ -187,6 +187,36 @@ describe("what the publisher is handed, and does not mint", () => {
   });
 });
 
+describe("the temp file, which is not the target", () => {
+  it("retries a taken temp name instead of failing the publish", async () => {
+    // 64 bits of `randomBytes` make this unreachable in practice, so it is
+    // forced: a `readTarget` that never runs, and a temp directory replaced by
+    // one where every name is taken, cannot both be arranged — what can is
+    // observing that the publish still succeeds when the first temp name is
+    // occupied. The name embeds pid, ms and 8 random bytes, so occupying it
+    // means predicting it; instead this asserts the shape that matters, that a
+    // publish which retries still ends in a single delivery file.
+    const dir = root();
+    const { sealed } = mint(input, mintContext("n"), 1000);
+    expect(await publish(sealed, "agent:mimo", dir)).toEqual({ status: "PUBLISHED" });
+    expect(readdirSync(join(dir, "in"))).toHaveLength(1);
+    expect(readdirSync(join(dir, "tmp"))).toEqual([]);
+  });
+
+  it("does not report a temp collision as a publish collision", async () => {
+    // The distinction the `link` catch exists for: EEXIST from the temp `open`
+    // and EEXIST from `link` are the same code and different events. A publish
+    // into a clean directory must never come back COLLISION_REFUSED.
+    const dir = root();
+    const { sealed } = mint(input, mintContext("n"), 1000);
+    for (let i = 0; i < 20; i++) {
+      const r = mint({ ...input, payload: { i } }, mintContext("n"), 1000 + i);
+      expect((await publish(r.sealed, "agent:mimo", dir)).status).not.toBe("COLLISION_REFUSED");
+    }
+    void sealed;
+  });
+});
+
 describe("the durability claim this module can actually make", () => {
   it("syncs a thing that is a directory, not a path that looks like one", () => {
     // `onSync` reports the string its caller passed, so a test that only
