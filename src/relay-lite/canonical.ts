@@ -54,6 +54,17 @@ function str(s: string): string {
   return `${out}"`;
 }
 
+/**
+ * Serialize a value to its RFC 8785 canonical form.
+ *
+ * Precondition: `value` has passed `assertIJsonValue`, or came from
+ * `parseIJson`. This function does not re-validate, and it is not safe to call
+ * on unvalidated input: an unpaired surrogate reaches Node's UTF-8 encoder,
+ * which substitutes U+FFFD, so `{"\ud800":1}` and `{"\ud801":1}` both serialize
+ * to the same bytes and hash to the same digest. Distinct values must not share
+ * a digest — that is the whole contract — so the guard belongs in front of
+ * every call, not somewhere in the caller's history.
+ */
 export function canonicalize(value: unknown): string {
   if (value === null) return "null";
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -71,6 +82,31 @@ export function canonicalize(value: unknown): string {
     return `{${pairs.join(",")}}`;
   }
   throw new IJsonViolation("invalid-string", `not representable in JSON: ${typeof value}`);
+}
+
+/**
+ * Refuse a string that has no UTF-8 encoding.
+ *
+ * A lone surrogate is a well-formed JS string and an ill-formed Unicode one.
+ * Encoders do not agree on what to do with it and Node's substitutes U+FFFD,
+ * which turns distinct inputs into identical bytes. `where` names the position
+ * so a refusal points at the member name rather than at some value inside it.
+ */
+function assertWellFormed(value: string, where: "string" | "key"): void {
+  for (let i = 0; i < value.length; i++) {
+    const code = value.charCodeAt(i);
+    const isHigh = code >= 0xd800 && code <= 0xdbff;
+    const isLow = code >= 0xdc00 && code <= 0xdfff;
+    if (isHigh) {
+      const next = value.charCodeAt(i + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) {
+        throw new IJsonViolation("invalid-string", `unpaired high surrogate in ${where}`);
+      }
+      i++;
+    } else if (isLow) {
+      throw new IJsonViolation("invalid-string", `unpaired low surrogate in ${where}`);
+    }
+  }
 }
 
 /** The domain check a producer runs against a value it already holds. */
@@ -96,20 +132,7 @@ export function assertIJsonValue(value: unknown): void {
     return;
   }
   if (typeof value === "string") {
-    for (let i = 0; i < value.length; i++) {
-      const code = value.charCodeAt(i);
-      const isHigh = code >= 0xd800 && code <= 0xdbff;
-      const isLow = code >= 0xdc00 && code <= 0xdfff;
-      if (isHigh) {
-        const next = value.charCodeAt(i + 1);
-        if (!(next >= 0xdc00 && next <= 0xdfff)) {
-          throw new IJsonViolation("invalid-string", "unpaired high surrogate");
-        }
-        i++;
-      } else if (isLow) {
-        throw new IJsonViolation("invalid-string", "unpaired low surrogate");
-      }
-    }
+    assertWellFormed(value, "string");
     return;
   }
   if (value === null || typeof value === "boolean") return;
@@ -130,7 +153,16 @@ export function assertIJsonValue(value: unknown): void {
         `only plain objects: ${(value as object).constructor?.name ?? "unknown"}`,
       );
     }
-    for (const v of Object.values(value as object)) assertIJsonValue(v);
+    // Keys, not only values. RFC 7493 §2.1 constrains member names the same way
+    // it constrains strings, and skipping them was not cosmetic: Node's UTF-8
+    // encoder replaces an unpaired surrogate with U+FFFD, so `{"\ud800":1}` and
+    // `{"\ud801":1}` canonicalized to the same nine bytes and hashed to the same
+    // digest. Two distinct objects, one digest — a collision in the one function
+    // whose whole purpose is to give distinct values distinct bytes.
+    for (const [k, v] of Object.entries(value as object)) {
+      assertWellFormed(k, "key");
+      assertIJsonValue(v);
+    }
     return;
   }
   // Everything else — undefined, symbol, function, bigint — has no JSON form.

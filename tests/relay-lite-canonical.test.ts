@@ -56,6 +56,24 @@ describe("assertIJsonValue — RFC 7493, at minting", () => {
     expect(() => assertIJsonValue({ t: "\ud800" })).toThrow(IJsonViolation);
   });
 
+  it("refuses an unpaired surrogate in a key, not only in a value", () => {
+    expect(() => assertIJsonValue({ "\ud800": 1 })).toThrow(IJsonViolation);
+  });
+
+  it("refuses the two keys that canonicalized to one digest", () => {
+    // Regression, and the reason the key check is not cosmetic. Node's UTF-8
+    // encoder maps every unpaired surrogate to U+FFFD, so these two distinct
+    // objects produced the same nine bytes — `7b 22 ef bf bd 22 3a 31 7d` —
+    // and therefore the same sha256. The guard is what keeps the collision
+    // unreachable, so the test asserts the refusal, not the equality.
+    expect(() => assertIJsonValue({ "\ud800": 1 })).toThrow(IJsonViolation);
+    expect(() => assertIJsonValue({ "\ud801": 1 })).toThrow(IJsonViolation);
+  });
+
+  it("admits a key whose surrogates are paired", () => {
+    expect(() => assertIJsonValue({ "\ud83d\udc1d": 1 })).not.toThrow();
+  });
+
   it("refuses a value with no JSON form rather than leaving it to canonicalize", () => {
     for (const bad of [undefined, Symbol("s"), () => 1, 10n]) {
       expect(() => assertIJsonValue({ v: bad })).toThrow(IJsonViolation);
