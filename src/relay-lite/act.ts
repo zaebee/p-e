@@ -100,6 +100,16 @@ export function mint(
   ctx: MintContext,
   nowMs: number,
 ): { sealed: SealedAct; ctx: MintContext } {
+  if (!Array.isArray(input.to)) {
+    // A string has `.length` and iterates, so `to: "agent"` passed every check
+    // below and produced five recipients named `a`, `g`, `e`, `n`, `t` — each
+    // getting its own delivery leg. Whether it passed depended on spelling:
+    // `"mimo"` was refused as naming a recipient twice, which described a
+    // defect that was not there, and `""` was refused for the right reason by
+    // accident. `readonly string[]` is a compile-time claim and this is the
+    // producer's entry point.
+    throw new Error(`to must be an array, got ${typeof input.to}`);
+  }
   if (input.to.length === 0) {
     // §2 requires every delivery leg to name a member of `to[]`. An act with an
     // empty audience can have no conforming delivery, so it is refused here
@@ -119,7 +129,13 @@ export function mint(
     throw new Error(`to[] names a recipient twice: ${JSON.stringify(input.to)}`);
   }
 
-  if (input.parent) {
+  if (input.parent !== null && input.parent !== undefined) {
+    if (typeof input.parent !== "object") {
+      // Checked before its fields, so a non-object citation is reported as one
+      // rather than as `parent.id must be a non-empty string, got undefined`,
+      // which names a field of something that is not there.
+      throw new Error(`parent must be an object or null, got ${typeof input.parent}`);
+    }
     // §7.2 [MUST]: "A citation carries both handles — the locator and the
     // digest." Its table reads `null` against *set*, and an empty string is
     // set — so half a citation minted this way is not `NO_PARENT`, it is a

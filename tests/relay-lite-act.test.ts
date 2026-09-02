@@ -127,6 +127,27 @@ describe("what mint refuses, and where the reason comes from", () => {
     expect(() => mint({ ...input, to: [""] }, ctx, 1)).toThrow(/recipient/);
   });
 
+  it("refuses a string audience, which used to be shredded into letters", () => {
+    // A string has `.length` and iterates, so `to: "agent"` passed every check
+    // and produced five recipients — `a`, `g`, `e`, `n`, `t` — each with its own
+    // delivery leg. Whether it passed depended on spelling: `"mimo"` was refused
+    // as naming a recipient twice, describing a defect that was not there, and
+    // `""` was refused for the right reason by accident.
+    const ctx = mintContext("n");
+    for (const to of ["agent", "mimo", ""]) {
+      expect(() => mint({ ...input, to: to as never }, ctx, 1)).toThrow(/must be an array/);
+    }
+  });
+
+  it("names a non-object citation as one, not as a missing field", () => {
+    expect(() => mint({ ...input, parent: "abc" as never }, mintContext("n"), 1)).toThrow(
+      /parent must be an object/,
+    );
+    // null and undefined stay the way to say "no parent".
+    expect(() => mint({ ...input, parent: null }, mintContext("n"), 1)).not.toThrow();
+    expect(() => mint({ ...input, parent: undefined }, mintContext("n"), 1)).not.toThrow();
+  });
+
   it("refuses the same recipient twice, which is one act colliding with itself", () => {
     // The CNS name is identical for both legs, so `in/` would hold one file
     // where the act asked for two and the publisher's O_EXCL cannot tell a
