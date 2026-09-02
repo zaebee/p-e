@@ -1,4 +1,4 @@
-import { randomBytes, randomFillSync } from "node:crypto";
+import { randomFillSync } from "node:crypto";
 
 /**
  * UUIDv7, with the two cases a timestamp alone does not cover.
@@ -37,6 +37,29 @@ const COUNTER_MAX = (1 << COUNTER_BITS) - 1;
 export function uuidV7(state: UuidState, nowMs: number): { id: string; state: UuidState } {
   let ms = Math.max(nowMs, state.lastMs);
 
+  // Eighteen bytes for a sixteen-byte id. The last two are scratch: they seed
+  // the counter on a new millisecond and are never published.
+  //
+  // The obvious saving is to seed from the id's own random bytes, which costs
+  // no extra fill. It also prints the counter in the id twice — once in
+  // `rand_a`, once in the bytes it was read from, where the variant mask leaves
+  // every bit of it recoverable. Measured over 5000 ids: 5000 recovered. That
+  // makes `rand_a` a function of the published bytes rather than independent of
+  // them, and drops cross-node collision resistance by the eleven bits it was
+  // contributing. Two bytes nobody sees costs less than eleven bits everybody
+  // relies on.
+  //
+  // `Buffer.alloc`, not `allocUnsafe`: every byte of the id is written below, so
+  // the zeroing is redundant *today* and costs 143ns of 1275. What it buys is
+  // that an edit narrowing one of these writes leaves a zero rather than pooled
+  // heap memory in an identifier that gets published and digested.
+  const bytes = Buffer.alloc(18);
+  // One fill for both purposes. `randomBytes(2)` for the seed was a second
+  // syscall-backed call at 1111ns, and it ran on every mint that entered a new
+  // millisecond — which, for a store whose acts arrive seconds apart, is nearly
+  // every mint.
+  randomFillSync(bytes, 8, 10);
+
   let counter: number;
   if (ms === state.lastMs) {
     counter = state.counter + 1;
@@ -49,28 +72,20 @@ export function uuidV7(state: UuidState, nowMs: number): { id: string; state: Uu
     }
   } else {
     // Seeded randomly rather than at zero, so two nodes starting in the same
-    // millisecond do not walk the same sequence.
-    counter = randomBytes(2).readUInt16BE(0) & (COUNTER_MAX >> 1);
+    // millisecond do not walk the same sequence. From the scratch bytes, which
+    // leave the id no way to disclose it.
+    counter = bytes.readUInt16BE(16) & (COUNTER_MAX >> 1);
   }
 
-  // `Buffer.alloc`, not `allocUnsafe`. Every one of the sixteen bytes is written
-  // below, so the zeroing is redundant *today* — and it costs 143ns of the
-  // 1275ns an id takes, measured. What it buys is that a future edit narrowing
-  // one of these writes leaks pooled heap memory into an identifier that gets
-  // published and digested, rather than a zero. Uniqueness is the load-bearing
-  // property of this module; that is not the place to trade a guarantee for 7%.
-  const bytes = Buffer.alloc(16);
   bytes.writeUIntBE(ms, 0, 6);
   bytes.writeUInt16BE(((0x7 << 12) | counter) & 0xffff, 6);
-  // Filled in place: an intermediate buffer and its copy cost 505ns per id and
-  // bought nothing.
-  randomFillSync(bytes, 8, 8);
   // RFC 4122 variant, in the top two bits of the ninth byte. Read and written
   // through the typed accessors rather than by index, which would type the read
   // as possibly absent and need a fallback for a case that cannot arise.
   bytes.writeUInt8((bytes.readUInt8(8) & 0x3f) | 0x80, 8);
 
-  const hex = bytes.toString("hex");
+  // Sixteen, not eighteen: the scratch bytes stop here.
+  const hex = bytes.toString("hex", 0, 16);
   const id = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
   return { id, state: { lastMs: ms, counter } };
 }

@@ -41,6 +41,24 @@ describe("uuidV7", () => {
     expect([...ids].sort()).toEqual(ids);
   });
 
+  // The counter must not be readable out of the id it labels. Seeding it from
+  // the id's own random bytes is the cheap way to avoid a second fill, and it
+  // prints the counter twice — once in `rand_a`, once in the bytes it came
+  // from, where the variant mask leaves every bit recoverable. That would make
+  // `rand_a` a function of the published bytes rather than independent of them,
+  // costing the eleven bits it contributes to cross-node collision resistance.
+  it("does not disclose the counter through the id", () => {
+    let matches = 0;
+    for (let i = 0; i < 5000; i++) {
+      const r = uuidV7({ lastMs: i, counter: 0 }, i + 1000);
+      const hex = r.id.replace(/-/g, "");
+      if ((Number.parseInt(hex.slice(16, 20), 16) & (4095 >> 1)) === r.state.counter) matches++;
+    }
+    // Chance alone gives 5000/2048, about 2. A disclosing implementation gives
+    // 5000. The bound is loose because the point is the order of magnitude.
+    expect(matches).toBeLessThan(30);
+  });
+
   // The overflow branch, which no other test reaches: the counter is seeded in
   // the lower half of rand_a, so a millisecond holds around 2300 ids and the 500
   // above stop well short of it. Uniqueness is the load-bearing property here —
