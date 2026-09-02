@@ -108,21 +108,60 @@ async function resolveExisting(
   return { status: "COLLISION_REFUSED" };
 }
 
-export async function publish(
-  sealed: SealedAct,
-  recipient: string,
-  root: string,
-  options: PublishOptions = {},
-): Promise<PublishResult> {
-  // Checked before its fields, like every other value this store is handed
-  // rather than makes. `publish` accepts an act off the wire — the tests feed
-  // it several — so `sealed` is not necessarily what `mint` returned.
+/**
+ * Everything `publish` is handed, checked before any of it reaches the disk.
+ *
+ * Gathered into one function for two reasons. Sonar counts the sequence's
+ * nested error paths at the complexity limit already, so guards inline push it
+ * over — and a reader asking "what does this refuse" should find the answer in
+ * one place rather than threaded through the retry.
+ *
+ * Returns the attempt budget because validating it and reading it are the same
+ * act.
+ */
+function checkArguments(sealed: SealedAct, root: string, options: PublishOptions): number {
+  // `sealed` is not necessarily what `mint` returned: this module accepts an
+  // act off the wire and several tests feed it one.
   if (sealed === null || typeof sealed !== "object") {
     throw new TypeError(`sealed must be an object, got ${String(sealed)}`);
   }
   if (sealed.act === null || typeof sealed.act !== "object") {
     throw new TypeError(`sealed.act must be an object, got ${String(sealed.act)}`);
   }
+
+  // An empty root is the one that matters. `join("", "in")` is `"in"` — a
+  // relative path — so the publisher created `in/` and `tmp/` in whatever
+  // directory the process happened to be running from and reported PUBLISHED.
+  // A relative root a caller *chose* is their business; an empty one is an
+  // unset value that happened to work.
+  if (typeof root !== "string" || root === "") {
+    throw new TypeError(`root must be a non-empty path, got ${JSON.stringify(root)}`);
+  }
+
+  if (options === null || typeof options !== "object") {
+    throw new TypeError(`options must be an object, got ${String(options)}`);
+  }
+  if (options.onSync !== undefined && typeof options.onSync !== "function") {
+    throw new TypeError("options.onSync must be a function");
+  }
+  if (options.readTarget !== undefined && typeof options.readTarget !== "function") {
+    throw new TypeError("options.readTarget must be a function");
+  }
+
+  const maxAttempts = options.maxAttempts ?? 3;
+  if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
+    throw new TypeError(`maxAttempts must be a positive integer, got ${String(maxAttempts)}`);
+  }
+  return maxAttempts;
+}
+
+export async function publish(
+  sealed: SealedAct,
+  recipient: string,
+  root: string,
+  options: PublishOptions = {},
+): Promise<PublishResult> {
+  const maxAttempts = checkArguments(sealed, root, options);
   const inDir = join(root, "in");
   const tmpDir = join(root, "tmp");
   await mkdir(inDir, { recursive: true });
@@ -136,10 +175,6 @@ export async function publish(
   // own, and this is one comparison in front of a durable write. Issue #35.
   if (target !== join(inDir, basename(target))) {
     throw new Error(`delivery name escapes in/: ${JSON.stringify(target)}`);
-  }
-  const maxAttempts = options.maxAttempts ?? 3;
-  if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {
-    throw new TypeError(`maxAttempts must be a positive integer, got ${String(maxAttempts)}`);
   }
   const readOne = options.readTarget ?? ((p: string) => readFile(p, "utf8"));
 

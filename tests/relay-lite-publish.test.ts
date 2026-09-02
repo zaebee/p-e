@@ -1,4 +1,5 @@
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -205,6 +206,37 @@ describe("the options, and the act the publisher is handed", () => {
     expect(await publish(sealed, "agent:mimo", dir, { maxAttempts: 1 })).toEqual({
       status: "PUBLISHED",
     });
+  });
+
+  it("refuses an empty root, which published into the working directory", async () => {
+    // `join("", "in")` is `"in"` — a relative path — so this created `in/` and
+    // `tmp/` in whatever directory the process was running from and reported
+    // PUBLISHED. Found by enumerating the arguments rather than by review, and
+    // the probe that found it left an `in/` in the repository root.
+    //
+    // A relative root a caller chose is their business. An empty one is an
+    // unset value that happened to work.
+    const { sealed } = mint(input, mintContext("n"), 1000);
+    for (const bad of ["", null, undefined, 7]) {
+      await expect(publish(sealed, "agent:mimo", bad as never)).rejects.toThrow(
+        /root must be a non-empty path/,
+      );
+    }
+    expect(existsSync(join(process.cwd(), "in"))).toBe(false);
+  });
+
+  it("refuses options it cannot use", async () => {
+    const dir = root();
+    const { sealed } = mint(input, mintContext("n"), 1000);
+    await expect(publish(sealed, "agent:mimo", dir, null as never)).rejects.toThrow(
+      /options must be an object/,
+    );
+    await expect(publish(sealed, "agent:mimo", dir, { onSync: 7 as never })).rejects.toThrow(
+      /onSync must be a function/,
+    );
+    await expect(publish(sealed, "agent:mimo", dir, { readTarget: 7 as never })).rejects.toThrow(
+      /readTarget must be a function/,
+    );
   });
 
   it("names a sealed act that is not one", async () => {
