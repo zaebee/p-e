@@ -259,7 +259,10 @@ describe("round-trip stability, over generated values", () => {
 
   it("canonicalize, parse, canonicalize gives the same bytes and digest", () => {
     let seed = 987654321;
-    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    const rnd = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
     const pick = <T>(a: T[]): T => a[Math.floor(rnd() * a.length)] as T;
     const gen = (d: number): unknown => {
       const r = rnd();
