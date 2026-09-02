@@ -24,6 +24,21 @@ export interface UuidState {
 export const UUID_START: UuidState = { lastMs: 0, counter: 0 };
 
 /**
+ * What `uuidV7` produces, as a predicate.
+ *
+ * Beside the function that makes them, for the reason `isDigest` sits beside
+ * `sha256Hex`: three modules were each deciding separately what an id looks
+ * like — `cns.ts` strictly, `act.ts` only as a nameable string, `verify.ts` not
+ * at all — and a rule written down three times is how they came to disagree.
+ */
+export function isUuidV7(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)
+  );
+}
+
+/**
  * `rand_a` is twelve bits, so the counter has 4096 values — but not 4096 slots.
  * The seed is random in the lower half, per RFC 9562 §6.2's advice to leave
  * headroom rather than start at a predictable zero, so a millisecond holds

@@ -3,6 +3,7 @@ import { canonicalize, isDigest, parseIJson, sha256Hex } from "./canonical.js";
 import { checkDelivery, parseCns } from "./cns.js";
 import { isClockValue } from "./hlc.js";
 import { isNameable } from "./names.js";
+import { isUuidV7 } from "./uuid.js";
 
 /**
  * Verification, §7, in the order the section makes normative.
@@ -72,9 +73,13 @@ function isRelayAct(v: unknown): v is RelayAct {
   // this shape after the clock and the digest, and the same cause: a rule
   // written down twice.
   return (
-    str(a.id) &&
+    // Ids and predecessor locators are uuidv7 — §3 annotates `id` as one, and a
+    // predecessor locator locates an act whose id is one. `strOrNull` here let
+    // `parent_id: "../x"` through, which `mint` refuses; my own agreement
+    // matrix missed the field, having enumerated values rather than fields.
+    isUuidV7(a.id) &&
+    (a.parent_id === null || isUuidV7(a.parent_id)) &&
     isNameable(a.thread_id) &&
-    strOrNull(a.parent_id) &&
     // A digest or nothing, not any string. `act.ts` refuses a malformed one at
     // minting; admitting it here let an act nobody could have minted through,
     // and stage 3 then returned DIVERGES — which §7.2 defines as "parent held,

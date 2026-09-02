@@ -357,6 +357,16 @@ describe("mint and stage 2 admit the same acts", () => {
     ["type", null],
     ["parent_digest", "zz"],
     ["parent_digest", "A".repeat(64)],
+    // Added after the matrix missed the field entirely: it enumerated values
+    // across five fields and the summary called that "fields checked", which
+    // was the wrong noun for what it covered. `parent_id` disagreed on four
+    // values while the matrix reported zero disagreements.
+    ["parent_id", "a b"],
+    ["parent_id", "../x"],
+    ["parent_id", "b;to=v"],
+    ["parent_id", ""],
+    ["parent_id", "not-a-uuid"],
+    ["parent_id", 7],
   ];
 
   it("agrees on every field §3 declares", () => {
@@ -368,6 +378,7 @@ describe("mint and stage 2 admit the same acts", () => {
       try {
         const patched: Record<string, unknown> = { ...input };
         if (field === "parent_digest") patched.parent = { id: parent.act.id, digest: value };
+        else if (field === "parent_id") patched.parent = { id: value, digest: parent.digest };
         else patched[field] = value;
         mint(patched as unknown as MintInput, mintContext("n"), 1001);
       } catch {
@@ -380,6 +391,9 @@ describe("mint and stage 2 admit the same acts", () => {
         if (field === "parent_digest") {
           forged.parent_id = parent.act.id;
           forged.parent_digest = value;
+        } else if (field === "parent_id") {
+          forged.parent_id = value;
+          forged.parent_digest = parent.digest;
         } else {
           forged[field] = value;
         }

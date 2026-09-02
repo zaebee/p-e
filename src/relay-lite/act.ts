@@ -1,7 +1,7 @@
 import { assertIJsonValue, canonicalize, isDigest, sha256Hex } from "./canonical.js";
 import { HLC_START, type Hlc, type HlcState, emit } from "./hlc.js";
 import { assertNameable } from "./names.js";
-import { UUID_START, type UuidState, uuidV7 } from "./uuid.js";
+import { UUID_START, type UuidState, isUuidV7, uuidV7 } from "./uuid.js";
 
 /**
  * The canonical act, and the only place that produces one.
@@ -168,7 +168,13 @@ export function mint<T>(
     // then returns DIVERGES, which §7.2 marks an author defect. Refusing here
     // is the difference between a producer's typo and a permanent accusation
     // against them.
-    assertNameable(input.parent.id, "parent.id");
+    // A uuidv7, not merely a nameable string. `parent_id` locates a
+    // predecessor, and predecessors are acts whose ids this store mints — so a
+    // non-uuid parent_id names nothing that can exist, and stage 2 admitted it
+    // because it was checking a weaker rule than this one.
+    if (!isUuidV7(input.parent.id)) {
+      throw new Error(`parent.id must be a uuidv7, got ${JSON.stringify(input.parent.id)}`);
+    }
     if (!isDigest(input.parent.digest)) {
       throw new Error(
         `parent.digest must be 64 lowercase hex digits, got ${JSON.stringify(input.parent.digest)}`,
