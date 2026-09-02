@@ -77,11 +77,31 @@ function assertClockValue(value: number, what: string): void {
   }
 }
 
+/**
+ * The node's own clock, checked because it does not stay in this process.
+ *
+ * §3.3 requires per-node monotonicity and says nothing about where `l` and `c`
+ * live between restarts (#32), so a caller that satisfies the requirement has
+ * to write this state somewhere and read it back. It re-enters as data from a
+ * file, not as the value we returned — truncated by a crash mid-write, or
+ * hand-edited, or restored from a backup taken during one. Unchecked, a `null`
+ * there propagates as 0 and a missing field as NaN, and either silently ends
+ * the monotonicity the persistence was for.
+ */
+function assertState(state: HlcState): void {
+  if (state === null || typeof state !== "object") {
+    throw new TypeError(`state must be an object, got ${String(state)}`);
+  }
+  assertClockValue(state.l, "state.l");
+  assertClockValue(state.c, "state.c");
+}
+
 export function emit(
   state: HlcState,
   nodeId: string,
   nowMs: number,
 ): { hlc: Hlc; state: HlcState } {
+  assertState(state);
   // Floored rather than refused: `l` is a wall clock in milliseconds, and a
   // caller holding `performance.timeOrigin + performance.now()` has a fractional
   // one through no fault of its own. Flooring is what "milliseconds" means and
@@ -99,6 +119,7 @@ export function ingest(
   nodeId: string,
   nowMs: number,
 ): { hlc: Hlc; state: HlcState } {
+  assertState(state);
   const physical = Math.floor(nowMs);
   assertClockValue(physical, "nowMs");
   // The sender's clock, checked against §3.1 before it touches ours. `c` at

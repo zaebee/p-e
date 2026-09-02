@@ -111,6 +111,20 @@ describe("domain checks at the boundary — §3.1, not §3.3 policy", () => {
     expect(() => ingest(HLC_START, undefined as never, N, 1000)).toThrow(/must be an object/);
   });
 
+  it("refuses a state that did not survive persistence intact", () => {
+    // §3.3 requires per-node monotonicity and does not say where `l` and `c`
+    // live between restarts (#32), so a caller meeting that requirement writes
+    // this state to a file and reads it back. What returns is data, not the
+    // value we handed out: truncated by a crash mid-write, or restored from a
+    // backup taken during one. Unchecked, `null` propagates as 0 and a missing
+    // field as NaN, ending the monotonicity the persistence was for.
+    const fromDisk = (text: string) => JSON.parse(text) as never;
+    expect(() => emit(fromDisk('{"l":1000}'), N, 2000)).toThrow(/state\.c/);
+    expect(() => emit(fromDisk('{"l":null,"c":0}'), N, 2000)).toThrow(/state\.l/);
+    expect(() => emit(null as never, N, 2000)).toThrow(/state must be an object/);
+    expect(() => ingest(fromDisk("{}"), { l: 1, c: 0, node_id: "p" }, N, 2000)).toThrow(TypeError);
+  });
+
   it("freezes the starting state", () => {
     expect(Object.isFrozen(HLC_START)).toBe(true);
   });
@@ -166,8 +180,17 @@ describe("causality, over a simulated network", () => {
   it("never orders a cause at or after its effect", () => {
     let seed = 424_242;
     const rnd = () => {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      return seed / 0x7fffffff;
+      // `Math.imul`, not `*`: at seed ~2^31 the product passes 2^53 and the
+      // float rounds its low bits away, so three quarters of the draws had a
+      // zero low byte and successive values were never closer than 34760. The
+      // generator looked uniform and was coarse, which quietly shrank the space
+      // these properties explore.
+      //
+      // Divided by 2^31 rather than 2^31 - 1, so a draw of exactly 1.0 is
+      // structurally impossible rather than merely unobserved — `rnd() * n`
+      // would otherwise index one past the end.
+      seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+      return seed / 0x80000000;
     };
     const NODES = 5;
     const state: HlcState[] = Array.from({ length: NODES }, () => HLC_START);
