@@ -180,10 +180,72 @@ export function assertIJsonValue(value: unknown): void {
  * attributing the same act to different authors.
  */
 export function parseIJson(text: string): unknown {
-  refuseDuplicateKeys(text);
+  refuseTextOnlyViolations(text);
   const value = JSON.parse(text) as unknown;
   assertIJsonValue(value);
   return value;
+}
+
+/**
+ * Decide whether two decimal literals denote the same number, exactly.
+ *
+ * Both sides are decimal, so this needs no float arithmetic: align the two
+ * mantissas to a common power of ten and compare them as integers. Comparing
+ * with `Number` instead would ask the very rounding under test to judge itself.
+ */
+function sameDecimalValue(a: string, b: string): boolean {
+  const parse = (t: string): { neg: boolean; mant: bigint; e10: number } => {
+    const m = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(t);
+    if (m === null) throw new IJsonViolation("number-range", `not a JSON number: ${t}`);
+    const [, sign, int, frac = "", exp = "0"] = m;
+    return {
+      neg: sign === "-",
+      mant: BigInt(int + frac),
+      e10: Number(exp) - frac.length,
+    };
+  };
+  const x = parse(a);
+  const y = parse(b);
+  // Zero is zero at every exponent, and `-0` canonicalizes to `0` anyway, so
+  // sign carries no information once the mantissa is empty.
+  if (x.mant === 0n || y.mant === 0n) return x.mant === y.mant;
+  if (x.neg !== y.neg) return false;
+  const shift = (v: { mant: bigint; e10: number }, to: number): bigint =>
+    v.mant * 10n ** BigInt(v.e10 - to);
+  const low = Math.min(x.e10, y.e10);
+  return shift(x, low) === shift(y, low);
+}
+
+/**
+ * Refuse a number the parse would silently alter.
+ *
+ * `String(v)` is the shortest decimal that round-trips to `v`, so it denotes
+ * `v` exactly. The token therefore survived the parse if and only if it denotes
+ * the same value as `String(v)` — and if it does not, the digest would cover a
+ * number nobody sent, which §3.1 of the spec forbids by name.
+ *
+ * This is what the integer range check cannot reach. `9007199254740993` is
+ * caught because rounding leaves it above the safe range, but
+ * `9007199254740991.1` rounds *down* onto the boundary and `0.1000000000000000055511`
+ * rounds to `0.1`; both land on a legal value and neither is the value sent.
+ */
+function assertNumberTokenExact(token: string): void {
+  const v = Number(token);
+  if (!Number.isFinite(v)) {
+    throw new IJsonViolation("number-range", `not a finite number: ${token}`);
+  }
+  if (Math.abs(v) > MAX_SAFE) {
+    throw new IJsonViolation(
+      "number-range",
+      `integer outside the safe range, encode it as a string: ${token}`,
+    );
+  }
+  if (!sameDecimalValue(token, String(v))) {
+    throw new IJsonViolation(
+      "number-range",
+      `number altered by parsing, it denotes ${String(v)}: ${token}`,
+    );
+  }
 }
 
 /**
@@ -201,33 +263,38 @@ export function parseIJson(text: string): unknown {
  */
 type Frame = { readonly kind: "object"; readonly keys: Set<string> } | { readonly kind: "array" };
 
-function refuseDuplicateKeys(text: string): void {
+function refuseTextOnlyViolations(text: string): void {
   const stack: Frame[] = [];
   let i = 0;
   let expectKey = false;
 
-  const readString = (): string => {
-    let out = "";
+  // `isKey` is not an optimization detail. A non-key string is scanned only to
+  // find where it ends, so unescaping it would build a value nothing reads —
+  // and on a 1.3KB act that discarded work was most of the cost, 28 strings
+  // unescaped to compare 9 keys.
+  const readString = (isKey: boolean): string => {
+    const open = i;
+    let escaped = false;
     i++;
     while (i < text.length) {
-      const ch = text[i];
-      if (ch === "\\") {
-        // Both characters, kept escaped: `JSON.parse` below turns the pair back
-        // into the character it denotes. `ch` is known here and the next may be
-        // absent at the end of a truncated string, which `?? ""` carries into
-        // the parse rather than into a silent `"undefined"`.
-        out += ch + (text[i + 1] ?? "");
+      const c = text.charCodeAt(i);
+      if (c === 0x5c) {
+        escaped = true;
         i += 2;
         continue;
       }
-      if (ch === '"') {
+      if (c === 0x22) {
+        const close = i;
         i++;
+        if (!isKey) return "";
         // Unescaped before comparison, because `"a"` and `"\u0061"` are the same
         // key after parsing and different as text. A duplicate written one of
-        // each way escaped detection exactly when it was disguised.
-        return JSON.parse(`"${out}"`) as string;
+        // each way escaped detection exactly when it was disguised. A key with
+        // no escape needs none of that and is its own slice.
+        return escaped
+          ? (JSON.parse(text.slice(open, close + 1)) as string)
+          : text.slice(open + 1, close);
       }
-      out += ch;
       i++;
     }
     throw new IJsonViolation("invalid-string", "unterminated string");
@@ -236,27 +303,47 @@ function refuseDuplicateKeys(text: string): void {
   const top = (): Frame | undefined => stack[stack.length - 1];
 
   while (i < text.length) {
-    const ch = text[i];
-    if (ch === '"') {
-      const s = readString();
+    const c0 = text.charCodeAt(i);
+    if (c0 === 0x22) {
       const frame = top();
-      if (expectKey && frame?.kind === "object") {
+      const isKey = expectKey && frame?.kind === "object";
+      const s = readString(isKey);
+      if (isKey && frame?.kind === "object") {
         if (frame.keys.has(s)) throw new IJsonViolation("duplicate-key", `duplicate key: ${s}`);
         frame.keys.add(s);
         expectKey = false;
       }
       continue;
     }
-    if (ch === "{") {
+    if (c0 === 0x2d || (c0 >= 0x30 && c0 <= 0x39)) {
+      // A number is checked here rather than after `JSON.parse`, because the
+      // parse is what destroys the evidence: by the time a value exists, the
+      // digits that prove it was altered are gone.
+      const from = i;
+      // Char codes rather than `text[i]`, which allocates a one-character string
+      // per character scanned. That allocation, not the validation, was what
+      // made this scan cost four times a plain `JSON.parse` of the same text.
+      while (i < text.length) {
+        const c = text.charCodeAt(i);
+        const isDigit = c >= 0x30 && c <= 0x39;
+        const isSign = c === 0x2b || c === 0x2d;
+        const isExp = c === 0x65 || c === 0x45;
+        if (!(isDigit || isSign || isExp || c === 0x2e)) break;
+        i++;
+      }
+      assertNumberTokenExact(text.slice(from, i));
+      continue;
+    }
+    if (c0 === 0x7b) {
       stack.push({ kind: "object", keys: new Set() });
       expectKey = true;
-    } else if (ch === "[") {
+    } else if (c0 === 0x5b) {
       stack.push({ kind: "array" });
       expectKey = false;
-    } else if (ch === "}" || ch === "]") {
+    } else if (c0 === 0x7d || c0 === 0x5d) {
       stack.pop();
       expectKey = false;
-    } else if (ch === ",") {
+    } else if (c0 === 0x2c) {
       expectKey = top()?.kind === "object";
     }
     i++;

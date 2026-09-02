@@ -106,6 +106,31 @@ describe("assertIJsonValue — RFC 7493, at minting", () => {
 });
 
 describe("parseIJson — RFC 7493, at verification", () => {
+  it("refuses a number the parse would round onto a legal value", () => {
+    // The range check cannot reach these. `…993` is caught because rounding
+    // leaves it above the safe range; `…991.1` rounds *down* onto the boundary
+    // and `0.1000000000000000055511` rounds to `0.1`. Both land on a value that
+    // passes every check, and neither is the value that was sent.
+    expect(() => parseIJson('{"n":9007199254740991.1}')).toThrow(IJsonViolation);
+    expect(() => parseIJson('{"n":0.1000000000000000055511}')).toThrow(IJsonViolation);
+  });
+
+  it("admits a number that survives the parse exactly", () => {
+    expect(parseIJson('{"n":1.0000000000000002}')).toEqual({ n: 1.0000000000000002 });
+    expect(parseIJson('{"n":-0.5}')).toEqual({ n: -0.5 });
+    expect(parseIJson('{"n":1e2}')).toEqual({ n: 100 });
+  });
+
+  it("names the digits that were sent, not the ones we parsed", () => {
+    // A message reporting `9007199254740992` would describe our rounding rather
+    // than their act, and the sender could not find that value in what they sent.
+    expect(() => parseIJson('{"n":9007199254740993}')).toThrow(/9007199254740993/);
+  });
+
+  it("does not mistake a number inside a string for a number", () => {
+    expect(parseIJson('{"n":"9007199254740991.1"}')).toEqual({ n: "9007199254740991.1" });
+  });
+
   // A duplicate key is gone by the time JSON.parse returns: JavaScript keeps the
   // last one. Only the text carries the evidence, so only this can refuse it.
   it("refuses duplicate keys in the text", () => {
