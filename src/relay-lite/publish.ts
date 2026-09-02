@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { link, mkdir, open, readFile, unlink } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { SealedAct } from "./act.js";
@@ -52,6 +53,52 @@ async function syncPath(path: string, flags: string, onSync?: (p: string) => voi
   }
 }
 
+/**
+ * The errno of a thrown value, when it has one.
+ *
+ * `readTarget` is a caller-supplied seam, so what it throws is not necessarily
+ * an `Error` — reading `.code` off `null` throws from inside the catch and
+ * loses the original. Node's own `link` always throws a SystemError, so this
+ * costs nothing there and is the only honest reader for the other.
+ */
+function errnoOf(value: unknown): string | undefined {
+  return value instanceof Error ? (value as NodeJS.ErrnoException).code : undefined;
+}
+
+/**
+ * What to do about a name `link` refused with EEXIST.
+ *
+ * Split out because §4.1's sequence nests two error paths inside a retry, and
+ * a reader tracing the retry should not have to hold the collision rules at the
+ * same time.
+ */
+async function resolveExisting(
+  target: string,
+  inDir: string,
+  sealed: SealedAct,
+  readOne: (p: string) => Promise<string>,
+  onSync?: (p: string) => void,
+): Promise<PublishResult | "retry"> {
+  let existing: string;
+  try {
+    existing = await readOne(target);
+  } catch (readError) {
+    // ENOENT is interpreted only for reading the target. The directory fsync
+    // below produces ENOENT too, and the two are indistinguishable by code.
+    if (errnoOf(readError) === "ENOENT") return "retry";
+    throw readError;
+  }
+
+  if (sha256Hex(existing) === sealed.digest) {
+    // The recovery path completes the guarantee it is recovering: the first
+    // attempt may have linked and failed before its directory fsync, leaving a
+    // name visible in page cache and never persisted.
+    await syncPath(inDir, "r", onSync);
+    return { status: "ALREADY_PUBLISHED" };
+  }
+  return { status: "COLLISION_REFUSED" };
+}
+
 export async function publish(
   sealed: SealedAct,
   recipient: string,
@@ -81,7 +128,11 @@ export async function publish(
     // republication of exactly the message that was interrupted.
     const tmp = join(
       tmpDir,
-      `.dep-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      // `randomBytes`, not `Math.random`: `O_EXCL` below already refuses to
+      // follow a symlink planted at this path, so the classic attack is closed
+      // either way — but a predictable name in a directory other processes can
+      // reach is a weakness with no upside, and this costs nothing.
+      `.dep-${process.pid}-${Date.now()}-${randomBytes(8).toString("hex")}`,
     );
     let created = false;
 
@@ -104,27 +155,11 @@ export async function publish(
         // EEXIST is interpreted only for `link`. The temp `open` above uses
         // O_EXCL and produces EEXIST too, and catching it at this level would
         // report a temp-name collision as a publish collision.
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+        if (errnoOf(error) !== "EEXIST") throw error;
 
-        let existing: string;
-        try {
-          existing = await readOne(target);
-        } catch (readError) {
-          // ENOENT is interpreted only for reading the target. The directory
-          // fsync below produces ENOENT too, and the two are indistinguishable
-          // by code.
-          if ((readError as NodeJS.ErrnoException).code === "ENOENT") continue;
-          throw readError;
-        }
-
-        if (sha256Hex(existing) === sealed.digest) {
-          // The recovery path completes the guarantee it is recovering: the
-          // first attempt may have linked and failed before its directory
-          // fsync, leaving a name visible in page cache and never persisted.
-          await syncPath(inDir, "r", options.onSync);
-          return { status: "ALREADY_PUBLISHED" };
-        }
-        return { status: "COLLISION_REFUSED" };
+        const verdict = await resolveExisting(target, inDir, sealed, readOne, options.onSync);
+        if (verdict !== "retry") return verdict;
+        continue;
       }
 
       // Durable bytes are not a durable name.
@@ -164,7 +199,7 @@ export async function publishAll(
   // recipient, and an audience that is not a list has no recipients to return
   // a result for.
   if (!Array.isArray(sealed.act.to)) {
-    throw new Error(`act.to must be an array, got ${typeof sealed.act.to}`);
+    throw new TypeError(`act.to must be an array, got ${typeof sealed.act.to}`);
   }
   const out: { recipient: string; result: PublishResult }[] = [];
   for (const recipient of sealed.act.to) {

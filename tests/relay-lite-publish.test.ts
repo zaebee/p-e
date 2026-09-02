@@ -1,7 +1,7 @@
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { type MintInput, mint, mintContext } from "../src/relay-lite/act.js";
 import { formatCns } from "../src/relay-lite/cns.js";
 import { publish, publishAll } from "../src/relay-lite/publish.js";
@@ -21,12 +21,22 @@ const input: MintInput = {
  * they failed with ENOENT against the implementation rather than against the
  * behaviour they were testing.
  */
+const roots: string[] = [];
 const root = () => {
   const dir = mkdtempSync(join(tmpdir(), "relay-lite-"));
   mkdirSync(join(dir, "in"), { recursive: true });
   mkdirSync(join(dir, "tmp"), { recursive: true });
+  roots.push(dir);
   return dir;
 };
+
+// Each test that publishes leaves a directory tree behind, and the suite runs
+// on every commit. Without this the machine's temp directory accumulates one
+// per test per run.
+afterEach(() => {
+  for (const dir of roots) rmSync(dir, { recursive: true, force: true });
+  roots.length = 0;
+});
 
 describe("publish — §4.1", () => {
   it("writes the act under its delivery name", async () => {
