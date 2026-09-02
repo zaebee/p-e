@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { type MintInput, mint, mintContext } from "../src/relay-lite/act.js";
 import { canonicalize, sha256Hex } from "../src/relay-lite/canonical.js";
 import { formatCns } from "../src/relay-lite/cns.js";
+import { HLC_START, type Hlc, ingest } from "../src/relay-lite/hlc.js";
 import {
   StoreCorruption,
   type StoredAct,
@@ -137,6 +138,13 @@ describe("what stage 2 looks at, enumerated", () => {
       { l: 1, c: 0 },
       { l: 1, node_id: "n" },
       { l: "1", c: 0, node_id: "n" },
+      // These were admitted. `typeof === "number"` let stage 2 call an act with
+      // `hlc.l = -1` structurally conformant while `ingest` — the function that
+      // would then process it — refused it as "must be a non-negative integer".
+      { l: -1, c: 0, node_id: "n" },
+      { l: 1000, c: -5, node_id: "n" },
+      { l: 1.5, c: 0, node_id: "n" },
+      { l: 1000, c: 0.5, node_id: "n" },
       null,
     ]) {
       const a = { ...parent.act, hlc };
@@ -203,6 +211,35 @@ describe("§7.3 store corruption names the record it found", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(StoreCorruption);
       expect((error as StoreCorruption).locator).toBe(parent.act.id);
+    }
+  });
+});
+
+describe("the store agreeing with itself", () => {
+  it("admits an hlc only if hlc.ts would ingest it", () => {
+    // Stage 2 decides what enters and `ingest` is what processes it next. When
+    // the two disagreed, an act could be pronounced structurally conformant and
+    // then refused by the module that had to act on it.
+    //
+    // One rule, imported from `hlc.ts`, so a change to either lands in both.
+    // Same lesson as the name alphabet in `names.ts`.
+    const cnsName = formatCns(parent.act, "agent:mimo");
+    for (const hlc of [
+      { l: 0, c: 0, node_id: "n" },
+      { l: 1000, c: 7, node_id: "n" },
+      { l: Number.MAX_SAFE_INTEGER, c: 0, node_id: "n" },
+      { l: -1, c: 0, node_id: "n" },
+      { l: 1.5, c: 0, node_id: "n" },
+      { l: 1000, c: -1, node_id: "n" },
+    ]) {
+      const admitted = stage2(canonicalize({ ...parent.act, hlc }), cnsName).ok;
+      let ingested = true;
+      try {
+        ingest(HLC_START, hlc as Hlc, "me", 2000);
+      } catch {
+        ingested = false;
+      }
+      expect(admitted).toBe(ingested);
     }
   });
 });

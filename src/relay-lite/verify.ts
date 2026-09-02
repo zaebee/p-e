@@ -1,6 +1,7 @@
 import type { RelayAct } from "./act.js";
 import { canonicalize, parseIJson, sha256Hex } from "./canonical.js";
 import { checkDelivery, parseCns } from "./cns.js";
+import { isClockValue } from "./hlc.js";
 
 /**
  * Verification, §7, in the order the section makes normative.
@@ -74,8 +75,15 @@ function isRelayAct(v: unknown): v is RelayAct {
     str(a.from) &&
     Array.isArray(a.to) &&
     a.to.every(str) &&
-    typeof h.l === "number" &&
-    typeof h.c === "number" &&
+    // The same rule `hlc.ts` enforces, imported rather than restated. It was
+    // `typeof === "number"` here, so stage 2 called an act with `hlc.l = -1`
+    // structurally conformant and `ingest` — the function that would then
+    // process it — refused it as "must be a non-negative integer". Two modules
+    // of one store disagreeing about one value, with stage 2 deciding what
+    // enters. Same lesson as the name alphabet in `names.ts`: one copy, so they
+    // cannot drift apart again.
+    isClockValue(h.l) &&
+    isClockValue(h.c) &&
     str(h.node_id) &&
     "payload" in a
   );
