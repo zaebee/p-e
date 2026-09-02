@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HLC_START, emit, ingest } from "../src/relay-lite/hlc.js";
+import { HLC_START, type Hlc, type HlcState, emit, ingest } from "../src/relay-lite/hlc.js";
 
 const N = "node-1";
 
@@ -130,5 +130,84 @@ describe("§3.3 defects, recorded — see issue #32", () => {
     expect(state.l).toBe(Number.MAX_SAFE_INTEGER);
     // Past the range of a Date, so anything rendering it gets an invalid one.
     expect(Number.isNaN(new Date(state.l).getTime())).toBe(true);
+  });
+});
+
+// The property the HLC exists to have, which none of the cases above states:
+// if A happens-before B then hlc(A) < hlc(B), under the comparator §4 names,
+// (l, c, node_id). Each example test checks one transition; this checks the
+// guarantee those transitions are for, over a run where clocks drift and
+// sometimes step backwards — the case §3.3 was written for.
+describe("causality, over a simulated network", () => {
+  const cmp = (a: Hlc, b: Hlc): number => {
+    if (a.l !== b.l) return a.l - b.l;
+    if (a.c !== b.c) return a.c - b.c;
+    return a.node_id < b.node_id ? -1 : a.node_id > b.node_id ? 1 : 0;
+  };
+
+  it("never orders a cause at or after its effect", () => {
+    let seed = 424_242;
+    const rnd = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    const NODES = 5;
+    const state: HlcState[] = Array.from({ length: NODES }, () => HLC_START);
+    const clock: number[] = Array.from({ length: NODES }, () => 1_700_000_000_000);
+    const lastOn: (number | null)[] = Array.from({ length: NODES }, () => null);
+    const events: { hlc: Hlc; node: number; causes: number[] }[] = [];
+    const inFlight: { to: number; hlc: Hlc; index: number }[] = [];
+
+    for (let step = 0; step < 8000; step++) {
+      const n = Math.floor(rnd() * NODES);
+      const drift = rnd();
+      // Backwards steps are the point: NTP, VM restore, suspend.
+      if (drift < 0.6) clock[n] = (clock[n] as number) + Math.floor(rnd() * 3);
+      else if (drift < 0.68) clock[n] = (clock[n] as number) - Math.floor(rnd() * 50);
+
+      const waiting = inFlight.findIndex((m) => m.to === n);
+      const causes: number[] = [];
+      if (lastOn[n] !== null) causes.push(lastOn[n] as number);
+
+      let hlc: Hlc;
+      if (waiting >= 0 && rnd() < 0.45) {
+        const msg = inFlight.splice(waiting, 1)[0] as { hlc: Hlc; index: number };
+        causes.push(msg.index);
+        const r = ingest(state[n] as HlcState, msg.hlc, `node-${n}`, clock[n] as number);
+        state[n] = r.state;
+        hlc = r.hlc;
+      } else {
+        const r = emit(state[n] as HlcState, `node-${n}`, clock[n] as number);
+        state[n] = r.state;
+        hlc = r.hlc;
+        if (rnd() < 0.35) {
+          const to = Math.floor(rnd() * NODES);
+          if (to !== n) inFlight.push({ to, hlc, index: events.length });
+        }
+      }
+      events.push({ hlc, node: n, causes });
+      lastOn[n] = events.length - 1;
+    }
+
+    let edges = 0;
+    const violations: string[] = [];
+    for (const e of events) {
+      for (const c of e.causes) {
+        edges++;
+        const cause = events[c]?.hlc as Hlc;
+        if (cmp(cause, e.hlc) >= 0) {
+          violations.push(`${JSON.stringify(cause)} !< ${JSON.stringify(e.hlc)}`);
+        }
+      }
+    }
+    expect(edges).toBeGreaterThan(8000);
+    expect(violations).toEqual([]);
+
+    // And per node, the tuple never goes backwards despite the clock doing so.
+    for (let n = 0; n < NODES; n++) {
+      const own = events.filter((e) => e.node === n).map((e) => e.hlc);
+      const breaks = own.filter((h, i) => i > 0 && cmp(own[i - 1] as Hlc, h) >= 0);
+      expect(breaks).toEqual([]);
+    }
   });
 });
