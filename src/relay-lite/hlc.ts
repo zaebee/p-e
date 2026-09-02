@@ -43,14 +43,42 @@ export interface HlcState {
   readonly c: number;
 }
 
-export const HLC_START: HlcState = { l: 0, c: 0 };
+export const HLC_START: HlcState = Object.freeze({ l: 0, c: 0 });
+
+/**
+ * §3.1's own domain, checked at this module's boundary.
+ *
+ * This is not the drift bound or the `c` ceiling of #32 — those would refuse
+ * messages §3.1 admits, which is why they are not here. This refuses only what
+ * §3.1 already forbids, and it closes a hole that is reachable over the wire.
+ *
+ * `{"c":0,"node_id":"peer"}` is valid I-JSON. §7.1 stage 2 enumerates its
+ * checks — duplicate keys, numbers outside the safe range, `CNS.id`, `CNS.to`,
+ * an unanchored citation — and none of them is about a field being present, so
+ * the message reaches ingest with `l` undefined. `Math.max(now, last, undefined)`
+ * is NaN; `Math.max(anything, NaN)` is NaN; and `NaN !== NaN` means the equal
+ * branch never fires again, so `c` sticks at 0 too. The node emits the same
+ * tuple for every act it ever seals afterwards, and no later clock recovers it.
+ * Twenty-four bytes, permanent, from any peer.
+ */
+function assertClockValue(value: number, what: string): void {
+  if (!Number.isInteger(value) || Math.abs(value) > Number.MAX_SAFE_INTEGER) {
+    throw new TypeError(`${what} must be an integer within the safe range, got ${String(value)}`);
+  }
+}
 
 export function emit(
   state: HlcState,
   nodeId: string,
   nowMs: number,
 ): { hlc: Hlc; state: HlcState } {
-  const l = Math.max(nowMs, state.l);
+  // Floored rather than refused: `l` is a wall clock in milliseconds, and a
+  // caller holding `performance.timeOrigin + performance.now()` has a fractional
+  // one through no fault of its own. Flooring is what "milliseconds" means and
+  // preserves order; refusing would buy nothing.
+  const physical = Math.floor(nowMs);
+  assertClockValue(physical, "nowMs");
+  const l = Math.max(physical, state.l);
   const c = l === state.l ? state.c + 1 : 0;
   return { hlc: { l, c, node_id: nodeId }, state: { l, c } };
 }
@@ -61,7 +89,15 @@ export function ingest(
   nodeId: string,
   nowMs: number,
 ): { hlc: Hlc; state: HlcState } {
-  const l = Math.max(nowMs, state.l, incoming.l);
+  const physical = Math.floor(nowMs);
+  assertClockValue(physical, "nowMs");
+  // The sender's clock, checked against §3.1 before it touches ours. `c` at
+  // exactly MAX_SAFE_INTEGER passes here, because §3.1 admits it — which is
+  // what makes the overflow in #32 a defect of the specification rather than
+  // something this check could paper over.
+  assertClockValue(incoming?.l, "incoming.l");
+  assertClockValue(incoming.c, "incoming.c");
+  const l = Math.max(physical, state.l, incoming.l);
   let c: number;
   if (l === state.l && l === incoming.l) c = Math.max(state.c, incoming.c) + 1;
   else if (l === state.l) c = state.c + 1;

@@ -51,6 +51,53 @@ describe("ingest — §3.3 ingest rule", () => {
   });
 });
 
+describe("domain checks at the boundary — §3.1, not §3.3 policy", () => {
+  it("refuses a wire message whose hlc has no `l`", () => {
+    // `{"c":0,"node_id":"peer"}` is valid I-JSON, and §7.1 stage 2 enumerates
+    // its checks without one about a field being present — so before this
+    // guard the message reached ingest, `Math.max(now, last, undefined)` gave
+    // NaN, and NaN !== NaN kept the equal branch from ever firing again. The
+    // node emitted {l: NaN, c: 0} for every act it sealed afterwards, with no
+    // later clock recovering it. Twenty-four bytes, permanent, from any peer.
+    const fromWire = JSON.parse('{"c":0,"node_id":"peer"}');
+    expect(() => ingest(HLC_START, fromWire, N, 1000)).toThrow(TypeError);
+  });
+
+  it("refuses a null or fractional clock rather than carrying it", () => {
+    expect(() => ingest(HLC_START, JSON.parse('{"l":null,"c":0}'), N, 1000)).toThrow(TypeError);
+    expect(() => ingest(HLC_START, { l: 1.5, c: 0, node_id: "p" }, N, 1000)).toThrow(TypeError);
+    expect(() => ingest(HLC_START, { l: 1000, c: 0.5, node_id: "p" }, N, 1000)).toThrow(TypeError);
+  });
+
+  it("refuses a NaN or out-of-range nowMs from its own caller", () => {
+    expect(() => emit(HLC_START, N, Number.NaN)).toThrow(TypeError);
+    expect(() => emit(HLC_START, N, Number.POSITIVE_INFINITY)).toThrow(TypeError);
+  });
+
+  it("floors a fractional nowMs rather than refusing it", () => {
+    // A caller holding `performance.timeOrigin + performance.now()` has a
+    // fractional millisecond through no fault of its own.
+    expect(emit(HLC_START, N, 1000.9).hlc.l).toBe(1000);
+    expect(emit({ l: 1000, c: 0 }, N, 1001.1).hlc).toMatchObject({ l: 1001, c: 0 });
+  });
+
+  it("still admits the values §3.1 admits, including the one that overflows", () => {
+    // The guard must not paper over #32: MAX_SAFE_INTEGER is legal input, and
+    // the defect is that §3.3 then adds one to it.
+    const r = ingest(
+      { l: 2000, c: 0 },
+      { l: 2000, c: Number.MAX_SAFE_INTEGER, node_id: "p" },
+      N,
+      2000,
+    );
+    expect(r.hlc.c).toBe(2 ** 53);
+  });
+
+  it("freezes the starting state", () => {
+    expect(Object.isFrozen(HLC_START)).toBe(true);
+  });
+});
+
 // These pin defects, not expectations. §3.3 as written produces each of them,
 // so the tests state the current behaviour and name it wrong; whichever way
 // issue #32 is resolved they fail and force an update, rather than quietly
