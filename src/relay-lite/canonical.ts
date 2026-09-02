@@ -14,6 +14,9 @@ import { createHash } from "node:crypto";
 
 const MAX_SAFE = Number.MAX_SAFE_INTEGER;
 
+/** JSON's number grammar, hoisted: a literal here allocates on every call. */
+const DECIMAL = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/;
+
 export class IJsonViolation extends Error {
   readonly rule: "number-range" | "invalid-string" | "duplicate-key" | "unsupported-type";
   constructor(rule: IJsonViolation["rule"], message: string) {
@@ -42,16 +45,36 @@ function num(n: number): string {
 function str(s: string): string {
   let out = '"';
   for (const ch of s) {
-    const code = ch.codePointAt(0) as number;
-    if (ch === '"') out += String.raw`\"`;
-    else if (ch === "\\") out += String.raw`\\`;
-    else if (ch === "\b") out += String.raw`\b`;
-    else if (ch === "\f") out += String.raw`\f`;
-    else if (ch === "\n") out += String.raw`\n`;
-    else if (ch === "\r") out += String.raw`\r`;
-    else if (ch === "\t") out += String.raw`\t`;
-    else if (code < 0x20) out += `\\u${code.toString(16).padStart(4, "0")}`;
-    else out += ch;
+    switch (ch) {
+      case '"':
+        out += String.raw`\"`;
+        break;
+      case "\\":
+        out += String.raw`\\`;
+        break;
+      case "\b":
+        out += String.raw`\b`;
+        break;
+      case "\f":
+        out += String.raw`\f`;
+        break;
+      case "\n":
+        out += String.raw`\n`;
+        break;
+      case "\r":
+        out += String.raw`\r`;
+        break;
+      case "\t":
+        out += String.raw`\t`;
+        break;
+      default: {
+        // `codePointAt` only here: every character above the C0 range is emitted
+        // as itself, and asking for its code point first was work thrown away on
+        // the overwhelming majority of a record's bytes.
+        const code = ch.codePointAt(0) as number;
+        out += code < 0x20 ? `\\u${code.toString(16).padStart(4, "0")}` : ch;
+      }
+    }
   }
   return `${out}"`;
 }
@@ -93,7 +116,11 @@ function emit(value: unknown): string {
     const pairs = keys.map((k) => `${str(k)}:${emit((value as Record<string, unknown>)[k])}`);
     return `{${pairs.join(",")}}`;
   }
-  throw new IJsonViolation("invalid-string", `not representable in JSON: ${typeof value}`);
+  // `unsupported-type`, not `invalid-string`: the complaint is about the type,
+  // and a caller switching on `rule` would have been told the wrong thing.
+  // Defensive — `canonicalize` validates before calling in — but a defence that
+  // misreports is worth less than the line it costs.
+  throw new IJsonViolation("unsupported-type", `not representable in JSON: ${typeof value}`);
 }
 
 /**
@@ -221,7 +248,7 @@ export function parseIJson(text: string): unknown {
  */
 function sameDecimalValue(a: string, b: string): boolean {
   const parse = (t: string): { neg: boolean; mant: bigint; e10: number } => {
-    const m = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(t);
+    const m = DECIMAL.exec(t);
     if (m === null) throw new IJsonViolation("number-range", `not a JSON number: ${t}`);
     const [, sign, int, frac = "", exp = "0"] = m;
     return {
