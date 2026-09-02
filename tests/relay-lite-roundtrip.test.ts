@@ -1,6 +1,5 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { formatCns } from "../src/relay-lite/cns.js";
@@ -14,12 +13,13 @@ import {
   stage2,
   stage3,
 } from "../src/relay-lite/index.js";
+import { relayRoot } from "./relay-tmp.js";
 
 // §4: "The protocol and storage model treat the graph as a DAG — a partial
 // order." A store discharges it by imposing no total order of its own.
 describe("§4 — the store imposes no order", () => {
   it("returns acts keyed by id, with no sequence and no sort", async () => {
-    const root = mkdtempSync(join(tmpdir(), "relay-lite-dag-"));
+    const root = relayRoot("relay-lite-dag-");
     let ctx = mintContext("n");
     const ids: string[] = [];
     for (let i = 0; i < 3; i++) {
@@ -44,7 +44,7 @@ describe("§4 — the store imposes no order", () => {
 
 describe("readDelivered", () => {
   it("skips a file deleted between the listing and the read", async () => {
-    const root = mkdtempSync(join(tmpdir(), "relay-lite-gap-"));
+    const root = relayRoot("relay-lite-gap-");
     const { sealed } = mint(
       { thread_id: "t", type: "message", from: "agent:a", to: ["agent:b"], payload: { n: 1 } },
       mintContext("n"),
@@ -58,7 +58,7 @@ describe("readDelivered", () => {
   });
 
   it("refuses two copies of one id that disagree, rather than picking one", async () => {
-    const root = mkdtempSync(join(tmpdir(), "relay-lite-dup-"));
+    const root = relayRoot("relay-lite-dup-");
     const { sealed } = mint(
       {
         thread_id: "t",
@@ -80,7 +80,7 @@ describe("readDelivered", () => {
 
 describe("round trip — two agents and a citation between them", () => {
   it("mints, publishes, reads back, and verifies the citation", async () => {
-    const root = mkdtempSync(join(tmpdir(), "relay-lite-rt-"));
+    const root = relayRoot("relay-lite-rt-");
     let ctx = mintContext("node-a");
 
     const first = mint(
