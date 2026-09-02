@@ -73,8 +73,13 @@ export function formatCns(act: RelayAct, recipient: string, ttlSeconds = DEFAULT
   assertNameable(act.id, "act.id");
   // Checked against the same grammar `parseCns` reads, so this function cannot
   // write a name it would then refuse.
-  if (!SECONDS.test(String(ttlSeconds))) {
-    throw new Error(`ttlSeconds must be a non-negative integer, got ${String(ttlSeconds)}`);
+  // Safe-integer rather than the regex alone: `String(2**53)` is all digits and
+  // passes `SECONDS`, so the regex would admit a value that is no longer the
+  // number it was written from. Two readers of that name disagree about it, and
+  // `parseCns` refuses it — which would make this function able to write a name
+  // it would then reject.
+  if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 0) {
+    throw new Error(`ttlSeconds must be a non-negative safe integer, got ${String(ttlSeconds)}`);
   }
   return `to=${recipient};from=${act.from};thread=${act.thread_id};ttl=${ttlSeconds};id=${act.id}.json`;
 }
@@ -106,9 +111,15 @@ export function parseCns(filename: string): CnsName | null {
   // §2.1's `<seconds>` admits, and each of which lets two readers of one name
   // disagree about when it expires.
   if (!SECONDS.test(ttl)) return null;
+  // The grammar admits any run of digits, so a thirty-digit ttl passes it and
+  // then loses precision — or reaches Infinity — on the way to a number. A name
+  // whose ttl cannot be read back as the value written is not one this store
+  // can act on.
+  const seconds = Number(ttl);
+  if (!Number.isSafeInteger(seconds)) return null;
   if (!UUID_V7.test(id)) return null;
 
-  return { to, from, thread, ttl: Number(ttl), id };
+  return { to, from, thread, ttl: seconds, id };
 }
 
 export type DeliveryCheck =

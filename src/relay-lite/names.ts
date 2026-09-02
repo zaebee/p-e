@@ -20,8 +20,18 @@
  * is that the type is a claim rather than a fact.
  *
  * See issue #35. Widening this set is a deliberate act: every character admitted
- * has to be inert in §2.1's grammar and safe in a filename on every platform
+ * has to be inert in §2.1's grammar and safe in a filename on the platforms
  * that will hold the store.
+ *
+ * "The platforms", not "every platform", because `:` is already not universal:
+ * on NTFS `a:b` names an alternate data stream, so a delivery for `agent:mimo`
+ * would not fail — it would write a stream on a file called `to=agent` and
+ * vanish from the directory listing. §4.1 builds on `link`, `O_EXCL` and a
+ * directory `fsync`, which is a POSIX store, so this is recorded rather than
+ * fixed. Nothing in the corpus uses a colon in an identity — `bee.claude`,
+ * `relay-mimo`, `bee.chatgpt`, `bee.zae` — and `agent:mimo` appears only in the
+ * plan's fixtures, so dropping it would cost little. That is #35's call, not one
+ * to make quietly here.
  */
 
 /** Letters, digits, and the punctuation this corpus's identities already use. */

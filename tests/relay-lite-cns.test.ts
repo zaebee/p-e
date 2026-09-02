@@ -110,9 +110,31 @@ describe("ttl, which the spec leaves open — issue #37", () => {
   it("refuses a ttl it would then refuse to parse", () => {
     // The same grammar on both sides, so this function cannot write a name
     // `parseCns` would reject.
-    for (const bad of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 1e21]) {
+    for (const bad of [
+      -1,
+      1.5,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      1e21,
+      Number.MAX_SAFE_INTEGER + 1,
+    ]) {
       expect(() => formatCns(sealed.act, "agent:mimo", bad)).toThrow(/ttlSeconds/);
     }
+    // The boundary itself is fine.
+    expect(() => formatCns(sealed.act, "agent:mimo", Number.MAX_SAFE_INTEGER)).not.toThrow();
+  });
+
+  it("refuses a ttl on disk that cannot be read back as itself", () => {
+    // The grammar admits any run of digits, so this passes `SECONDS` and then
+    // loses precision on the way to a number — a name whose ttl is not the
+    // value it was written from.
+    const ID = sealed.act.id;
+    expect(parseCns(`to=a;from=c;thread=t;ttl=9007199254740993;id=${ID}.json`)).toBeNull();
+    expect(parseCns(`to=a;from=c;thread=t;ttl=${"9".repeat(30)};id=${ID}.json`)).toBeNull();
+    // And the boundary parses.
+    expect(parseCns(`to=a;from=c;thread=t;ttl=9007199254740991;id=${ID}.json`)?.ttl).toBe(
+      Number.MAX_SAFE_INTEGER,
+    );
   });
 
   it("still defaults to the plan's zero", () => {
