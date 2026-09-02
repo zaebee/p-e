@@ -97,6 +97,27 @@ describe("the name is also a filename — issue #35", () => {
     expect(() => formatCns({ ...sealed.act, thread_id: "../x" }, "agent:mimo")).toThrow(
       /act\.thread_id/,
     );
+    // `assertNameable` admits `not-a-uuid` — letters and hyphens — so this wrote
+    // `…;id=not-a-uuid.json` and `parseCns` returned null for it.
+    expect(() => formatCns({ ...sealed.act, id: "not-a-uuid" }, "agent:mimo")).toThrow(/act\.id/);
+  });
+
+  it("cannot write a name it would then refuse", () => {
+    // The invariant stated in the module, tested as an invariant rather than as
+    // a list of the ways it was broken. It was broken: `ttlSeconds` was checked
+    // against the parser's grammar and `act.id` was not.
+    const ttls = [0, 1, 3600, 86_400, Number.MAX_SAFE_INTEGER];
+    const recipients = ["agent:mimo", "all", "bee.zae", "relay-mimo", "x_1", "a.b:c@d-e"];
+    for (const ttl of ttls) {
+      for (const recipient of recipients) {
+        const name = formatCns(sealed.act, recipient, ttl);
+        const back = parseCns(name);
+        expect(back).not.toBeNull();
+        expect(back?.to).toBe(recipient);
+        expect(back?.ttl).toBe(ttl);
+        expect(back?.id).toBe(sealed.act.id);
+      }
+    }
   });
 });
 
@@ -188,5 +209,42 @@ describe("parseCns reads a disk nobody here wrote", () => {
       const name = formatCns(sealed.act, recipient);
       expect(parsed(name).to).toBe(recipient);
     }
+  });
+});
+
+describe("checkDelivery reads an act it did not mint", () => {
+  const name = parsed(formatCns(sealed.act, "agent:mimo"));
+
+  it("refuses an audience that is not a list, and says which it is", () => {
+    // A string has `.includes`, and it is a substring search. Against an
+    // audience of "agent:mimo" the name `to=gen` was admitted, because "gen"
+    // sits inside "agent" — §2's MUST is that CNS.to is an *element* of to[],
+    // and substring containment is not element membership.
+    const wire = { ...sealed.act, to: "agent:mimo" as never };
+    for (const to of ["mimo", "agent", "gen", "agent:mimo"]) {
+      expect(checkDelivery({ ...name, to }, wire)).toEqual({
+        ok: false,
+        reason: "malformed-audience",
+      });
+    }
+  });
+
+  it("refuses a missing audience instead of throwing", () => {
+    for (const to of [undefined, null, 7, {}]) {
+      expect(checkDelivery(name, { ...sealed.act, to: to as never })).toEqual({
+        ok: false,
+        reason: "malformed-audience",
+      });
+    }
+  });
+
+  it("keeps the two reasons distinct", () => {
+    // `malformed-audience` rather than `recipient-not-in-audience`, which would
+    // be a true refusal explaining itself wrongly: the audience did not exclude
+    // this recipient, there was no audience to consult.
+    expect(checkDelivery({ ...name, to: "agent:nobody" }, sealed.act)).toEqual({
+      ok: false,
+      reason: "recipient-not-in-audience",
+    });
   });
 });

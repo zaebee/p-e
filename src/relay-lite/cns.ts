@@ -70,7 +70,13 @@ export function formatCns(act: RelayAct, recipient: string, ttlSeconds = DEFAULT
   assertNameable(recipient, "recipient");
   assertNameable(act.from, "act.from");
   assertNameable(act.thread_id, "act.thread_id");
-  assertNameable(act.id, "act.id");
+  // Against the parser's grammar, not merely the alphabet. `assertNameable`
+  // admits `not-a-uuid` — letters and hyphens — so this function wrote
+  // `…;id=not-a-uuid.json` and `parseCns` returned null for it. The invariant
+  // above was stated for `ttlSeconds` and enforced for `ttlSeconds` only.
+  if (!UUID_V7.test(act.id)) {
+    throw new Error(`act.id must be a uuidv7, got ${JSON.stringify(act.id)}`);
+  }
   // Checked against the same grammar `parseCns` reads, so this function cannot
   // write a name it would then refuse.
   // Safe-integer rather than the regex alone: `String(2**53)` is all digits and
@@ -124,10 +130,26 @@ export function parseCns(filename: string): CnsName | null {
 
 export type DeliveryCheck =
   | { readonly ok: true }
-  | { readonly ok: false; readonly reason: "recipient-not-in-audience" | "id-mismatch" };
+  | {
+      readonly ok: false;
+      readonly reason: "recipient-not-in-audience" | "id-mismatch" | "malformed-audience";
+    };
 
 export function checkDelivery(cns: CnsName, act: RelayAct): DeliveryCheck {
   if (cns.id !== act.id) return { ok: false, reason: "id-mismatch" };
+
+  // `to` is checked for being a list before it is read as one. A string has
+  // `.includes`, and it is a *substring* search: against an audience of
+  // `"agent:mimo"` the name `to=gen` was admitted, because "gen" sits inside
+  // "agent". §2's MUST is that `CNS.to` is an *element* of `to[]`, and
+  // substring containment is not element membership. `undefined` threw a raw
+  // TypeError from `.length` instead.
+  //
+  // Its own reason rather than `recipient-not-in-audience`, which would be a
+  // true refusal explaining itself wrongly: the audience did not exclude this
+  // recipient, there was no audience to consult.
+  if (!Array.isArray(act.to)) return { ok: false, reason: "malformed-audience" };
+
   const open = act.to.length === 1 && act.to[0] === "all";
   if (!open && !act.to.includes(cns.to)) {
     return { ok: false, reason: "recipient-not-in-audience" };
