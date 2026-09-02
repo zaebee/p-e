@@ -260,8 +260,17 @@ describe("round-trip stability, over generated values", () => {
   it("canonicalize, parse, canonicalize gives the same bytes and digest", () => {
     let seed = 987654321;
     const rnd = () => {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      return seed / 0x7fffffff;
+      // `Math.imul`, not `*`: at seed ~2^31 the product passes 2^53 and the
+      // float rounds its low bits away, so three quarters of the draws had a
+      // zero low byte and successive values were never closer than 34760. The
+      // generator looked uniform and was coarse, which quietly shrank the space
+      // these properties explore.
+      //
+      // Divided by 2^31 rather than 2^31 - 1, so a draw of exactly 1.0 is
+      // structurally impossible rather than merely unobserved — `rnd() * n`
+      // would otherwise index one past the end.
+      seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+      return seed / 0x80000000;
     };
     const pick = <T>(a: T[]): T => a[Math.floor(rnd() * a.length)] as T;
     const gen = (d: number): unknown => {
