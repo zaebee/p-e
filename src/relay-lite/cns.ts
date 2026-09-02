@@ -1,5 +1,6 @@
 import type { RelayAct } from "./act.js";
 import { assertNameable, isNameable } from "./names.js";
+import { isUuidV7 } from "./uuid.js";
 
 /**
  * The delivery filename, and the two things it must agree with.
@@ -60,9 +61,6 @@ const FIELDS = ["to", "from", "thread", "ttl", "id"] as const;
 /** `<seconds>`: decimal digits, no sign, no exponent, no leading zero. */
 const SECONDS = /^(0|[1-9][0-9]*)$/;
 
-/** `<uuidv7>`: the shape task 2 mints. */
-const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
 export function formatCns(act: RelayAct, recipient: string, ttlSeconds = DEFAULT_TTL): string {
   if (act === null || typeof act !== "object") {
     throw new Error(`act must be an object, got ${String(act)}`);
@@ -77,7 +75,7 @@ export function formatCns(act: RelayAct, recipient: string, ttlSeconds = DEFAULT
   // admits `not-a-uuid` — letters and hyphens — so this function wrote
   // `…;id=not-a-uuid.json` and `parseCns` returned null for it. The invariant
   // above was stated for `ttlSeconds` and enforced for `ttlSeconds` only.
-  if (!UUID_V7.test(act.id)) {
+  if (!isUuidV7(act.id)) {
     throw new Error(`act.id must be a uuidv7, got ${JSON.stringify(act.id)}`);
   }
   // Checked against the same grammar `parseCns` reads, so this function cannot
@@ -131,7 +129,7 @@ export function parseCns(filename: unknown): CnsName | null {
   // can act on.
   const seconds = Number(ttl);
   if (!Number.isSafeInteger(seconds)) return null;
-  if (!UUID_V7.test(id)) return null;
+  if (!isUuidV7(id)) return null;
 
   return { to, from, thread, ttl: seconds, id };
 }
@@ -143,6 +141,8 @@ export type DeliveryCheck =
       readonly reason:
         | "recipient-not-in-audience"
         | "id-mismatch"
+        | "from-mismatch"
+        | "thread-mismatch"
         | "malformed-audience"
         | "malformed-name";
     };
@@ -155,6 +155,18 @@ export function checkDelivery(cns: CnsName, act: RelayAct): DeliveryCheck {
   if (cns === null || typeof cns !== "object") return { ok: false, reason: "malformed-name" };
   if (act === null || typeof act !== "object") return { ok: false, reason: "malformed-audience" };
   if (cns.id !== act.id) return { ok: false, reason: "id-mismatch" };
+
+  // §2 makes only `CNS.to ∈ act.to[]` and `CNS.id == act.id` normative, and
+  // these two are beyond that enumeration. They are here on the test this store
+  // uses elsewhere: no conforming publisher can produce such a name, because
+  // `formatCns` writes the act's own `from` and `thread_id` and nothing else.
+  //
+  // Without them a delivery file could say `from=agent:impostor` over a body
+  // saying `agent:claude`, and anything scanning `in/` by name — which is what
+  // §2.1 puts these fields in the name for — would read the sender the file
+  // claims rather than the one the act attests.
+  if (cns.from !== act.from) return { ok: false, reason: "from-mismatch" };
+  if (cns.thread !== act.thread_id) return { ok: false, reason: "thread-mismatch" };
 
   // `to` is checked for being a list before it is read as one. A string has
   // `.includes`, and it is a *substring* search: against an audience of

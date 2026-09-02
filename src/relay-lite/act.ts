@@ -1,7 +1,7 @@
-import { assertIJsonValue, canonicalize, sha256Hex } from "./canonical.js";
+import { assertIJsonValue, canonicalize, isDigest, sha256Hex } from "./canonical.js";
 import { HLC_START, type Hlc, type HlcState, emit } from "./hlc.js";
 import { assertNameable } from "./names.js";
-import { UUID_START, type UuidState, uuidV7 } from "./uuid.js";
+import { UUID_START, type UuidState, isUuidV7, uuidV7 } from "./uuid.js";
 
 /**
  * The canonical act, and the only place that produces one.
@@ -15,6 +15,24 @@ import { UUID_START, type UuidState, uuidV7 } from "./uuid.js";
  * cannot be rebuilt cannot be rebuilt differently, and a retry republishes the
  * bytes it already has.
  */
+
+/**
+ * §3's five act types, as a value rather than only a type.
+ *
+ * The union was a compile-time claim and `mint` checked nothing at runtime, on
+ * the reasoning that TypeScript covers the producer. It covers the *typed*
+ * producer: `mint({...input, type: "gossip" as never})` sealed and published an
+ * act that this store's own stage 2 refuses as `not-an-act`. A node that can
+ * mint what it will not accept has no use for either answer.
+ *
+ * Exported so `verify.ts` reads the same set instead of restating it — the
+ * fourth rule in this store to have been written down twice.
+ */
+export const ACT_TYPES = new Set(["message", "claim", "challenge", "ruling", "erratum"]);
+
+export function isActType(value: unknown): value is RelayAct["type"] {
+  return typeof value === "string" && ACT_TYPES.has(value);
+}
 
 export interface RelayAct<T = unknown> {
   readonly id: string;
@@ -48,9 +66,6 @@ export interface MintInput<T = unknown> {
   readonly payload: T;
   readonly parent?: { readonly id: string; readonly digest: string } | null;
 }
-
-/** A sha256 as this store writes them: 64 lowercase hex digits. */
-const DIGEST = /^[0-9a-f]{64}$/;
 
 /**
  * A structural copy of an I-JSON value.
@@ -99,11 +114,53 @@ export const mintContext = (nodeId: string): MintContext => ({
   uuid: UUID_START,
 });
 
-export function mint<T>(
-  input: MintInput<T>,
-  ctx: MintContext,
-  nowMs: number,
-): { sealed: SealedAct<T>; ctx: MintContext } {
+/**
+ * Everything a caller may hand `mint`, refused before anything is sealed.
+ *
+ * Gathered here for the reason `publish`'s checks were: SonarCloud counts the
+ * function that follows at the complexity limit, and a reader asking what
+ * minting refuses should find the answer in one place rather than in front of
+ * the code that builds the act.
+ */
+/**
+ * §7.2's citation, checked as a pair or not at all.
+ *
+ * Its own function because a citation is its own question — and because the
+ * checks around it were enough, together, to put `checkInput` over the
+ * complexity limit on their own.
+ */
+function checkCitation(parent: MintInput<unknown>["parent"]): void {
+  if (parent === null || parent === undefined) return;
+  if (typeof parent !== "object" || Array.isArray(parent)) {
+    // Checked before its fields, so a citation that is not a citation is
+    // reported as one rather than as `parent.id must be a non-empty string,
+    // got undefined`, which names a field of something that has none. Arrays
+    // need saying separately: `typeof []` is "object".
+    const what = Array.isArray(parent) ? "array" : typeof parent;
+    throw new Error(`parent must be an object or null, got ${what}`);
+  }
+
+  // §7.2 [MUST]: "A citation carries both handles — the locator and the
+  // digest." Its table reads `null` against *set*, and an empty string is set —
+  // so half a citation minted this way is not `NO_PARENT`, it is a pair that
+  // matches no stored record. Every verifier holding the parent then returns
+  // DIVERGES, which §7.2 marks an author defect. Refusing here is the
+  // difference between a producer's typo and a permanent accusation.
+  //
+  // A uuidv7 rather than merely a nameable string: `parent_id` locates a
+  // predecessor, and predecessors are acts whose ids this store mints, so a
+  // non-uuid names nothing that can exist.
+  if (!isUuidV7(parent.id)) {
+    throw new Error(`parent.id must be a uuidv7, got ${JSON.stringify(parent.id)}`);
+  }
+  if (!isDigest(parent.digest)) {
+    throw new Error(
+      `parent.digest must be 64 lowercase hex digits, got ${JSON.stringify(parent.digest)}`,
+    );
+  }
+}
+
+function checkInput(input: MintInput<unknown>): void {
   if (!Array.isArray(input.to)) {
     // A string has `.length` and iterates, so `to: "agent"` passed every check
     // below and produced five recipients named `a`, `g`, `e`, `n`, `t` — each
@@ -120,6 +177,9 @@ export function mint<T>(
     // rather than at publication, where the reason would be less obvious.
     throw new Error("an act must name at least one recipient");
   }
+  if (!isActType(input.type)) {
+    throw new TypeError(`type must be one of §3's five, got ${JSON.stringify(input.type)}`);
+  }
   assertNameable(input.from, "from");
   assertNameable(input.thread_id, "thread_id");
   for (const recipient of input.to) assertNameable(recipient, "recipient");
@@ -133,31 +193,15 @@ export function mint<T>(
     throw new Error(`to[] names a recipient twice: ${JSON.stringify(input.to)}`);
   }
 
-  if (input.parent !== null && input.parent !== undefined) {
-    if (typeof input.parent !== "object" || Array.isArray(input.parent)) {
-      // Checked before its fields, so a citation that is not a citation is
-      // reported as one rather than as `parent.id must be a non-empty string,
-      // got undefined`, which names a field of something that has none. Arrays
-      // need saying separately: `typeof []` is "object", so `parent: []` passed
-      // this and produced that exact misleading message.
-      const what = Array.isArray(input.parent) ? "array" : typeof input.parent;
-      throw new Error(`parent must be an object or null, got ${what}`);
-    }
-    // §7.2 [MUST]: "A citation carries both handles — the locator and the
-    // digest." Its table reads `null` against *set*, and an empty string is
-    // set — so half a citation minted this way is not `NO_PARENT`, it is a
-    // pair that matches no stored record. Every verifier holding the parent
-    // then returns DIVERGES, which §7.2 marks an author defect. Refusing here
-    // is the difference between a producer's typo and a permanent accusation
-    // against them.
-    assertNameable(input.parent.id, "parent.id");
-    if (!DIGEST.test(input.parent.digest)) {
-      throw new Error(
-        `parent.digest must be 64 lowercase hex digits, got ${JSON.stringify(input.parent.digest)}`,
-      );
-    }
-  }
+  checkCitation(input.parent);
+}
 
+export function mint<T>(
+  input: MintInput<T>,
+  ctx: MintContext,
+  nowMs: number,
+): { sealed: SealedAct<T>; ctx: MintContext } {
+  checkInput(input);
   assertIJsonValue(input.payload);
 
   const u = uuidV7(ctx.uuid, nowMs);

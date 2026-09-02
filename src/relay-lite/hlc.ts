@@ -54,6 +54,8 @@
  * as an argument so a caller *can* persist it, and cannot make a caller do so.
  */
 
+const MAX_SAFE = Number.MAX_SAFE_INTEGER;
+
 export interface Hlc {
   readonly l: number;
   readonly c: number;
@@ -83,6 +85,10 @@ export const HLC_START: HlcState = Object.freeze({ l: 0, c: 0 });
  * tuple for every act it ever seals afterwards, and no later clock recovers it.
  * Twenty-four bytes, permanent, from any peer.
  */
+export function isClockValue(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_SAFE;
+}
+
 function assertClockValue(value: number, what: string): void {
   // Non-negative, which is a claim about §3.3 rather than about §3.1. §3.1
   // admits negative integers, so this is not "the safe range" alone — but no
@@ -92,7 +98,7 @@ function assertClockValue(value: number, what: string): void {
   // not a message we are refusing to understand; it is one no correct sender
   // wrote. Without the check a peer can push our `c` below zero through the
   // `l' == incoming.l` branch and bias where our acts land in §4's tie-break.
-  if (!Number.isInteger(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) {
+  if (!isClockValue(value)) {
     throw new TypeError(
       `${what} must be a non-negative integer within the safe range, got ${String(value)}`,
     );

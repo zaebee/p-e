@@ -123,18 +123,23 @@ describe("what mint refuses, and where the reason comes from", () => {
     // which §7.2 marks an author defect. The refusal is the difference between
     // a producer's typo and a permanent accusation against them.
     const ctx = mintContext("node-1");
-    expect(() => mint({ ...input, parent: { id: "x", digest: "" } }, ctx, 1)).toThrow(
+    // A real uuidv7 for the locator, so each assertion is about the field it
+    // names. The fixture used `id: "x"`, and once `parent.id` was required to
+    // be a uuidv7 the digest assertions started failing on the id instead —
+    // a test using an invalid value for a field it is not testing.
+    const pid = mint(input, ctx, 1).sealed.act.id;
+    expect(() => mint({ ...input, parent: { id: pid, digest: "" } }, ctx, 1)).toThrow(
       /parent\.digest/,
     );
     expect(() => mint({ ...input, parent: { id: "", digest: "a".repeat(64) } }, ctx, 1)).toThrow(
       /parent\.id/,
     );
-    expect(() => mint({ ...input, parent: { id: "x", digest: "not-a-sha256" } }, ctx, 1)).toThrow(
+    expect(() => mint({ ...input, parent: { id: pid, digest: "not-a-sha256" } }, ctx, 1)).toThrow(
       /64 lowercase hex/,
     );
     // A well-formed pair still passes.
     expect(() =>
-      mint({ ...input, parent: { id: "x", digest: "a".repeat(64) } }, ctx, 1),
+      mint({ ...input, parent: { id: pid, digest: "a".repeat(64) } }, ctx, 1),
     ).not.toThrow();
   });
 

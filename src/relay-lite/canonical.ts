@@ -445,6 +445,20 @@ function refuseTextOnlyViolations(text: string): void {
   }
 }
 
+/**
+ * What `sha256Hex` produces, as a predicate.
+ *
+ * Lives beside the function that makes them so the three callers cannot each
+ * decide separately what a digest looks like. `act.ts` refuses a malformed
+ * `parent.digest` at minting and `verify.ts` has to refuse the same thing on
+ * the way in, or an act nobody could have minted is admitted and then charged
+ * to its author as `DIVERGES` — which §7.2 defines as a differing digest, not
+ * an unparseable one.
+ */
+export function isDigest(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+}
+
 export function sha256Hex(text: string): string {
   return createHash("sha256").update(text, "utf8").digest("hex");
 }
