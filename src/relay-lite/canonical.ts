@@ -41,13 +41,13 @@ function str(s: string): string {
   let out = '"';
   for (const ch of s) {
     const code = ch.codePointAt(0) as number;
-    if (ch === '"') out += '\\"';
-    else if (ch === "\\") out += "\\\\";
-    else if (ch === "\b") out += "\\b";
-    else if (ch === "\f") out += "\\f";
-    else if (ch === "\n") out += "\\n";
-    else if (ch === "\r") out += "\\r";
-    else if (ch === "\t") out += "\\t";
+    if (ch === '"') out += String.raw`\"`;
+    else if (ch === "\\") out += String.raw`\\`;
+    else if (ch === "\b") out += String.raw`\b`;
+    else if (ch === "\f") out += String.raw`\f`;
+    else if (ch === "\n") out += String.raw`\n`;
+    else if (ch === "\r") out += String.raw`\r`;
+    else if (ch === "\t") out += String.raw`\t`;
     else if (code < 0x20) out += `\\u${code.toString(16).padStart(4, "0")}`;
     else out += ch;
   }
@@ -112,23 +112,7 @@ function assertWellFormed(value: string, where: "string" | "key"): void {
 /** The domain check a producer runs against a value it already holds. */
 export function assertIJsonValue(value: unknown): void {
   if (typeof value === "number") {
-    if (!Number.isFinite(value)) {
-      throw new IJsonViolation("number-range", `not a finite number: ${String(value)}`);
-    }
-    // An integer past 2^53 stays past it after rounding, because doubles hold
-    // every integer to 2^53 exactly and anything above rounds no smaller. So
-    // this catches the violation even though the original digits are gone.
-    //
-    // No `Number.isInteger` guard: every finite double above 2^52 is integral,
-    // so the guard excluded nothing and only made a reader wonder which
-    // non-integer case it was for. RFC 7493 §2.2 constrains numbers, not
-    // integers, and this now says that.
-    if (Math.abs(value) > MAX_SAFE) {
-      throw new IJsonViolation(
-        "number-range",
-        `integer outside the safe range, encode it as a string: ${value}`,
-      );
-    }
+    assertSafeNumber(value);
     return;
   }
   if (typeof value === "string") {
@@ -141,18 +125,7 @@ export function assertIJsonValue(value: unknown): void {
     return;
   }
   if (typeof value === "object") {
-    // Plain objects only. `typeof` says "object" for Date, Map, Set, RegExp and
-    // every class instance, and `Object.values` on all of them is `[]` — so this
-    // passed them and `canonicalize` turned each into `{}`. Silent corruption,
-    // not a refusal: a caller who checked their value with `JSON.stringify`
-    // would have seen an ISO date and received an empty object from us.
-    const proto = Object.getPrototypeOf(value);
-    if (proto !== Object.prototype && proto !== null) {
-      throw new IJsonViolation(
-        "unsupported-type",
-        `only plain objects: ${(value as object).constructor?.name ?? "unknown"}`,
-      );
-    }
+    assertPlainObject(value);
     // Keys, not only values. RFC 7493 §2.1 constrains member names the same way
     // it constrains strings, and skipping them was not cosmetic: Node's UTF-8
     // encoder replaces an unpaired surrogate with U+FFFD, so `{"\ud800":1}` and
@@ -169,6 +142,47 @@ export function assertIJsonValue(value: unknown): void {
   // Falling through silently made this validator admit what `canonicalize`
   // refuses a moment later, which is a check asserting more than it verified.
   throw new IJsonViolation("unsupported-type", `no JSON representation: ${typeof value}`);
+}
+
+/** RFC 7493 §2.2, against a value whose digits the parse has already spent. */
+function assertSafeNumber(value: number): void {
+  if (!Number.isFinite(value)) {
+    throw new IJsonViolation("number-range", `not a finite number: ${String(value)}`);
+  }
+  // An integer past 2^53 stays past it after rounding, because doubles hold
+  // every integer to 2^53 exactly and anything above rounds no smaller. So this
+  // catches the violation even though the original digits are gone.
+  //
+  // No `Number.isInteger` guard: every finite double above 2^52 is integral, so
+  // the guard excluded nothing and only made a reader wonder which non-integer
+  // case it was for. RFC 7493 §2.2 constrains numbers, not integers, and this
+  // now says that. What it cannot reach is a fraction that rounds onto a legal
+  // value — `assertNumberTokenExact` covers that, from the text.
+  if (Math.abs(value) > MAX_SAFE) {
+    throw new IJsonViolation(
+      "number-range",
+      `integer outside the safe range, encode it as a string: ${value}`,
+    );
+  }
+}
+
+/**
+ * Refuse anything whose `typeof` says "object" but whose shape is not one.
+ *
+ * `typeof` says it for Date, Map, Set, RegExp and every class instance, and
+ * `Object.values` on all of them is `[]` — so these passed and `canonicalize`
+ * turned each into `{}`. Silent corruption, not a refusal: a caller who checked
+ * their value with `JSON.stringify` would have seen an ISO date and received an
+ * empty object from us.
+ */
+function assertPlainObject(value: object): void {
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) {
+    throw new IJsonViolation(
+      "unsupported-type",
+      `only plain objects: ${value.constructor?.name ?? "unknown"}`,
+    );
+  }
 }
 
 /**
@@ -249,6 +263,53 @@ function assertNumberTokenExact(token: string): void {
 }
 
 /**
+ * Index just past the number token starting at `from`.
+ *
+ * Char codes rather than `text[i]`, which allocates a one-character string per
+ * character scanned. That allocation, not the validation, was what made this
+ * scan cost four times a plain `JSON.parse` of the same text.
+ *
+ * Deliberately loose: it collects the characters a JSON number can contain and
+ * lets `assertNumberTokenExact` judge the result, so a malformed token is
+ * refused by the rule that describes it rather than by a scan that stopped early.
+ */
+function endOfNumber(text: string, from: number): number {
+  let i = from;
+  while (i < text.length) {
+    const c = text.charCodeAt(i);
+    const isDigit = c >= 0x30 && c <= 0x39;
+    const isSign = c === 0x2b || c === 0x2d;
+    const isExp = c === 0x65 || c === 0x45;
+    if (!(isDigit || isSign || isExp || c === 0x2e)) break;
+    i++;
+  }
+  return i;
+}
+
+/**
+ * Apply one structural character to the frame stack, and say whether a key is
+ * expected next. A key is expected after `{` and after a `,` whose innermost
+ * frame is an object — which is what keeps a repeated string inside an array
+ * from being read as a duplicate key.
+ */
+function afterStructural(code: number, stack: Frame[], expectKey: boolean): boolean {
+  if (code === 0x7b) {
+    stack.push({ kind: "object", keys: new Set() });
+    return true;
+  }
+  if (code === 0x5b) {
+    stack.push({ kind: "array" });
+    return false;
+  }
+  if (code === 0x7d || code === 0x5d) {
+    stack.pop();
+    return false;
+  }
+  if (code === 0x2c) return stack.at(-1)?.kind === "object";
+  return expectKey;
+}
+
+/**
  * Walk the text and refuse an object naming a key twice.
  *
  * The stack remembers *which kind* of container each frame is, not only that
@@ -300,7 +361,7 @@ function refuseTextOnlyViolations(text: string): void {
     throw new IJsonViolation("invalid-string", "unterminated string");
   };
 
-  const top = (): Frame | undefined => stack[stack.length - 1];
+  const top = (): Frame | undefined => stack.at(-1);
 
   while (i < text.length) {
     const c0 = text.charCodeAt(i);
@@ -316,36 +377,15 @@ function refuseTextOnlyViolations(text: string): void {
       continue;
     }
     if (c0 === 0x2d || (c0 >= 0x30 && c0 <= 0x39)) {
-      // A number is checked here rather than after `JSON.parse`, because the
-      // parse is what destroys the evidence: by the time a value exists, the
-      // digits that prove it was altered are gone.
+      // Checked here rather than after `JSON.parse`, because the parse is what
+      // destroys the evidence: by the time a value exists, the digits that
+      // prove it was altered are gone.
       const from = i;
-      // Char codes rather than `text[i]`, which allocates a one-character string
-      // per character scanned. That allocation, not the validation, was what
-      // made this scan cost four times a plain `JSON.parse` of the same text.
-      while (i < text.length) {
-        const c = text.charCodeAt(i);
-        const isDigit = c >= 0x30 && c <= 0x39;
-        const isSign = c === 0x2b || c === 0x2d;
-        const isExp = c === 0x65 || c === 0x45;
-        if (!(isDigit || isSign || isExp || c === 0x2e)) break;
-        i++;
-      }
+      i = endOfNumber(text, i);
       assertNumberTokenExact(text.slice(from, i));
       continue;
     }
-    if (c0 === 0x7b) {
-      stack.push({ kind: "object", keys: new Set() });
-      expectKey = true;
-    } else if (c0 === 0x5b) {
-      stack.push({ kind: "array" });
-      expectKey = false;
-    } else if (c0 === 0x7d || c0 === 0x5d) {
-      stack.pop();
-      expectKey = false;
-    } else if (c0 === 0x2c) {
-      expectKey = top()?.kind === "object";
-    }
+    expectKey = afterStructural(c0, stack, expectKey);
     i++;
   }
 }

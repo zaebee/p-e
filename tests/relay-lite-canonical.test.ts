@@ -7,6 +7,17 @@ import {
 } from "../src/relay-lite/canonical.js";
 
 describe("canonicalize — RFC 8785 (JCS)", () => {
+  it("sorts by UTF-16 code unit, not by locale", () => {
+    // Locked against a static-analysis suggestion to sort with `localeCompare`.
+    // JCS names the code-unit ordering, and `localeCompare` is locale-dependent:
+    // sv-SE orders these `a B z Z ä ø` while en-US gives `a ä B ø z Z`. Taking
+    // that suggestion would make an act's digest depend on the machine that
+    // canonicalized it, which is the one thing a digest may never do.
+    expect(canonicalize({ z: 1, ä: 1, B: 1, a: 1, ø: 1, Z: 1 })).toBe(
+      '{"B":1,"Z":1,"a":1,"z":1,"ä":1,"ø":1}',
+    );
+  });
+
   // §3.1: "Producers mint canonical wire bytes per RFC 8785 (JCS) encoded as raw UTF-8."
   it("sorts object keys by UTF-16 code unit", () => {
     expect(canonicalize({ b: 1, a: 2, C: 3 })).toBe('{"C":3,"a":2,"b":1}');
