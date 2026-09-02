@@ -1,0 +1,39 @@
+# Line endings are content here, not formatting.
+#
+# Git normalises line endings on checkout when `core.autocrlf` is set, which is
+# the default on Windows installs. For ordinary source that is invisible and
+# harmless. For a file whose bytes are pinned by a digest it is silent
+# corruption: the working tree differs from what was hashed, every recorded
+# digest is wrong, and nothing reports it — the file still parses, still reads
+# correctly, and still looks exactly like itself.
+#
+# `-text` disables the conversion in both directions regardless of the user's
+# `core.autocrlf`.
+#
+# This is the same class the formatter is kept out of in `biome.jsonc`, and the
+# rule stated there applies unchanged: the rule is the class, not the file. A
+# repository that stores captured artefacts beside its own source has two kinds
+# of file with opposite rules. Anything added to one ignore list belongs in the
+# other.
+
+# The relay corpus. Each record cites its parent by `parent-sha256`, so a
+# rewritten byte anywhere breaks the chain from that record forward — and the
+# break would be discovered by a verifier, long after the checkout that caused it.
+relay/** -text
+
+# Bytes pinned by `corpus/manifest.json`.
+corpus/** -text
+
+# Retrieval evidence, pinned in `docs/experiments/debian-rb-retrieval.md`.
+docs/experiments/debian-rb-bytes/** -text
+
+# Material handed to blind readers. Changing what a reader was shown, after the
+# fact, makes their report unattributable to anything.
+docs/experiments/clause-reader/corpus/** -text
+docs/experiments/suite-audit/suite/** -text
+
+# RFC 8785's reference vectors. Their whole value is being byte-for-byte what
+# someone else produced, and `tests/relay-lite-rfc8785-vectors.test.ts` compares
+# byte-for-byte — so a rewrite would not fail the test, it would rewrite the
+# question and the answer together.
+tests/fixtures/rfc8785/** -text
