@@ -7,6 +7,20 @@ describe("uuidV7", () => {
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
+  // External ground truth for the field layout. RFC 9562 Appendix B.2 gives
+  // 017F22E2-79B0-7CC3-98C4-DC0C0C07398F as a UUIDv7, whose first 48 bits are
+  // the millisecond 1645557742000 — 2022-02-22 19:22:22 UTC. Minting at that
+  // instant must reproduce those bits exactly. Endianness, unit and epoch are
+  // each easy to get wrong and impossible to catch with tests we wrote
+  // ourselves, because they would agree with whatever the code does.
+  it("encodes the timestamp as RFC 9562's own example does", () => {
+    const { id } = uuidV7(UUID_START, 1_645_557_742_000);
+    expect(id.slice(0, 13)).toBe("017f22e2-79b0");
+    expect(id[14]).toBe("7");
+    // Variant is the top two bits of the seventeenth nibble, and must be 10.
+    expect(Number.parseInt(id[19] as string, 16) >> 2).toBe(0b10);
+  });
+
   it("orders by time across milliseconds", () => {
     const a = uuidV7(UUID_START, 1_700_000_000_000);
     const b = uuidV7(a.state, 1_700_000_000_001);
