@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { IJsonViolation, canonicalize } from "../src/relay-lite/canonical.js";
 
@@ -16,9 +15,10 @@ import { IJsonViolation, canonicalize } from "../src/relay-lite/canonical.js";
  * fixture ever arrives by some route git did not mediate.
  */
 
-const dir = fileURLToPath(new URL("./fixtures/rfc8785", import.meta.url));
+// `readFileSync` takes a `file:` URL directly, which resolves relative to this
+// module without a path-separator question to get wrong on either platform.
 const read = (side: "input" | "output", name: string) =>
-  readFileSync(`${dir}/${side}/${name}.json`, "utf8");
+  readFileSync(new URL(`./fixtures/rfc8785/${side}/${name}.json`, import.meta.url), "utf8");
 
 describe("RFC 8785 reference vectors", () => {
   // `values` is the one vector I-JSON puts partly out of domain; it has its own
