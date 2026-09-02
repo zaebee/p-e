@@ -122,6 +122,44 @@ export const mintContext = (nodeId: string): MintContext => ({
  * minting refuses should find the answer in one place rather than in front of
  * the code that builds the act.
  */
+/**
+ * §7.2's citation, checked as a pair or not at all.
+ *
+ * Its own function because a citation is its own question — and because the
+ * checks around it were enough, together, to put `checkInput` over the
+ * complexity limit on their own.
+ */
+function checkCitation(parent: MintInput<unknown>["parent"]): void {
+  if (parent === null || parent === undefined) return;
+  if (typeof parent !== "object" || Array.isArray(parent)) {
+    // Checked before its fields, so a citation that is not a citation is
+    // reported as one rather than as `parent.id must be a non-empty string,
+    // got undefined`, which names a field of something that has none. Arrays
+    // need saying separately: `typeof []` is "object".
+    const what = Array.isArray(parent) ? "array" : typeof parent;
+    throw new Error(`parent must be an object or null, got ${what}`);
+  }
+
+  // §7.2 [MUST]: "A citation carries both handles — the locator and the
+  // digest." Its table reads `null` against *set*, and an empty string is set —
+  // so half a citation minted this way is not `NO_PARENT`, it is a pair that
+  // matches no stored record. Every verifier holding the parent then returns
+  // DIVERGES, which §7.2 marks an author defect. Refusing here is the
+  // difference between a producer's typo and a permanent accusation.
+  //
+  // A uuidv7 rather than merely a nameable string: `parent_id` locates a
+  // predecessor, and predecessors are acts whose ids this store mints, so a
+  // non-uuid names nothing that can exist.
+  if (!isUuidV7(parent.id)) {
+    throw new Error(`parent.id must be a uuidv7, got ${JSON.stringify(parent.id)}`);
+  }
+  if (!isDigest(parent.digest)) {
+    throw new Error(
+      `parent.digest must be 64 lowercase hex digits, got ${JSON.stringify(parent.digest)}`,
+    );
+  }
+}
+
 function checkInput(input: MintInput<unknown>): void {
   if (!Array.isArray(input.to)) {
     // A string has `.length` and iterates, so `to: "agent"` passed every check
@@ -155,36 +193,7 @@ function checkInput(input: MintInput<unknown>): void {
     throw new Error(`to[] names a recipient twice: ${JSON.stringify(input.to)}`);
   }
 
-  if (input.parent !== null && input.parent !== undefined) {
-    if (typeof input.parent !== "object" || Array.isArray(input.parent)) {
-      // Checked before its fields, so a citation that is not a citation is
-      // reported as one rather than as `parent.id must be a non-empty string,
-      // got undefined`, which names a field of something that has none. Arrays
-      // need saying separately: `typeof []` is "object", so `parent: []` passed
-      // this and produced that exact misleading message.
-      const what = Array.isArray(input.parent) ? "array" : typeof input.parent;
-      throw new Error(`parent must be an object or null, got ${what}`);
-    }
-    // §7.2 [MUST]: "A citation carries both handles — the locator and the
-    // digest." Its table reads `null` against *set*, and an empty string is
-    // set — so half a citation minted this way is not `NO_PARENT`, it is a
-    // pair that matches no stored record. Every verifier holding the parent
-    // then returns DIVERGES, which §7.2 marks an author defect. Refusing here
-    // is the difference between a producer's typo and a permanent accusation
-    // against them.
-    // A uuidv7, not merely a nameable string. `parent_id` locates a
-    // predecessor, and predecessors are acts whose ids this store mints — so a
-    // non-uuid parent_id names nothing that can exist, and stage 2 admitted it
-    // because it was checking a weaker rule than this one.
-    if (!isUuidV7(input.parent.id)) {
-      throw new Error(`parent.id must be a uuidv7, got ${JSON.stringify(input.parent.id)}`);
-    }
-    if (!isDigest(input.parent.digest)) {
-      throw new Error(
-        `parent.digest must be 64 lowercase hex digits, got ${JSON.stringify(input.parent.digest)}`,
-      );
-    }
-  }
+  checkCitation(input.parent);
 }
 
 export function mint<T>(
