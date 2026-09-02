@@ -60,10 +60,31 @@ const DIGEST = /^[0-9a-f]{64}$/;
  * back. The plan refuses an empty audience here rather than at publication
  * because the reason is legible here; these are the same act with the same
  * defect, one field over.
+ *
+ * The character set is narrow because that name is also a path. `;` and `=`
+ * are the format's own delimiters, and a value carrying them injects fields:
+ * `from` of `b;to=someone` yields a name whose *last* `to=` wins in the
+ * parser, so the sender picks who the file claims to be for. `/` is worse —
+ * `thread_id` of `../../../tmp/x` makes the publisher's `join(inDir, name)`
+ * resolve outside `in/` entirely, and enough of them leave the relay root.
+ * Filed as issue #35, because the name is built in task 5 and joined in task 6;
+ * this is the producer's gate, not the only one it should have.
+ *
+ * A whitelist rather than a blacklist, since the failure of a blacklist here is
+ * silent. Widening it is a deliberate act: every character admitted has to be
+ * safe in a filename on every platform that will hold this store, and inert in
+ * §2.1's grammar.
  */
+const NAMEABLE = /^[A-Za-z0-9._:@-]+$/;
+
 function assertNameable(value: string, what: string): void {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${what} must be a non-empty string, got ${JSON.stringify(value)}`);
+  }
+  if (!NAMEABLE.test(value)) {
+    throw new Error(
+      `${what} may only contain letters, digits and ._:@- , got ${JSON.stringify(value)}`,
+    );
   }
 }
 

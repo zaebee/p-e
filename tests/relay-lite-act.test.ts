@@ -147,6 +147,36 @@ describe("what mint refuses, and where the reason comes from", () => {
     expect(() => mint({ ...input, to: [""] }, ctx, 1)).toThrow(/recipient/);
   });
 
+  it("refuses a name component that would inject a field or a path", () => {
+    // §2.1's name is also a filename, and the plan's `formatCns` interpolates
+    // without escaping while `parseCns` lets the last duplicate field win.
+    //
+    //   from = "b;to=bee.victim"  ->  ...;from=b;to=bee.victim;thread=...
+    //                             ->  parses as to=bee.victim
+    //
+    //   thread_id = "../../../tmp/x"
+    //                             ->  join(inDir, name) resolves outside in/
+    //
+    // See #35: the name is built in task 5 and joined in task 6, so this is the
+    // producer's gate rather than the only one it should have.
+    const ctx = mintContext("node-1");
+    for (const bad of ["b;to=bee.victim", "../../../tmp/x", "a=b", "a/b", "a\\b", "a b"]) {
+      expect(() => mint({ ...input, from: bad }, ctx, 1)).toThrow(/may only contain/);
+      expect(() => mint({ ...input, thread_id: bad }, ctx, 1)).toThrow(/may only contain/);
+      expect(() => mint({ ...input, to: [bad] }, ctx, 1)).toThrow(/may only contain/);
+    }
+  });
+
+  it("admits the identities this corpus actually uses", () => {
+    // The whitelist has to be narrow without being useless.
+    const ctx = mintContext("node-1");
+    for (const good of ["bee.claude", "relay-mimo", "agent:mimo", "all", "bee.zae", "t-1", "x_1"]) {
+      expect(() =>
+        mint({ ...input, from: good, thread_id: good, to: [good] }, ctx, 1),
+      ).not.toThrow();
+    }
+  });
+
   it("refuses a string audience, which used to be shredded into letters", () => {
     // A string has `.length` and iterates, so `to: "agent"` passed every check
     // and produced five recipients — `a`, `g`, `e`, `n`, `t` — each with its own
