@@ -117,3 +117,41 @@ describe("round trip — two agents and a citation between them", () => {
     if (parsed.ok) expect(stage3(parsed.act, held)).toBe("MATCHES");
   });
 });
+
+describe("readDelivered, at the boundary and at scale", () => {
+  it("refuses an empty root, which read the working directory", async () => {
+    // `join("", "in")` is `"in"`, a relative path. The same defect #38 fixed in
+    // `publish` and this function still had: an empty root reported whatever
+    // was in the process's own directory as the store's contents.
+    for (const bad of ["", null, undefined, 7]) {
+      await expect(readDelivered(bad as never)).rejects.toThrow(/root must be a non-empty path/);
+    }
+  });
+
+  it("reads a store larger than one batch", async () => {
+    // Reads are batched at 64 now. A store of exactly one batch, or of none,
+    // are the sizes a batching loop gets wrong.
+    const root = relayRoot("relay-lite-batch-");
+    let ctx = mintContext("n");
+    const ids: string[] = [];
+    for (let i = 0; i < 150; i++) {
+      const m = mint(
+        { thread_id: "t", type: "message", from: "agent:a", to: ["agent:b"], payload: { i } },
+        ctx,
+        1_756_800_000_000 + i,
+      );
+      ctx = m.ctx;
+      ids.push(m.sealed.act.id);
+      await publishAll(m.sealed, root);
+    }
+    const held = await readDelivered(root);
+    expect(held.size).toBe(150);
+    expect(new Set(held.keys())).toEqual(new Set(ids));
+  });
+
+  it("returns an empty map for a root with no in/", async () => {
+    const root = relayRoot("relay-lite-empty-");
+    rmSync(join(root, "in"), { recursive: true });
+    expect((await readDelivered(root)).size).toBe(0);
+  });
+});
