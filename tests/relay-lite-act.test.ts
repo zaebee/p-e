@@ -1,6 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { type MintInput, mint, mintContext } from "../src/relay-lite/act.js";
-import { canonicalize, sha256Hex } from "../src/relay-lite/canonical.js";
+import { canonicalize, parseIJson, sha256Hex } from "../src/relay-lite/canonical.js";
 
 const input: MintInput = {
   thread_id: "t-1",
@@ -155,5 +156,85 @@ describe("what mint refuses, and where the reason comes from", () => {
     expect(() => mint({ ...input, to: ["agent:mimo", "agent:mimo"] }, mintContext("n"), 1)).toThrow(
       /twice/,
     );
+  });
+});
+
+describe("the sealed act, checked against the spec and over many mints", () => {
+  it("carries exactly the fields §3 declares, read from the spec itself", () => {
+    // Read rather than transcribed: a hardcoded list would drift with the spec
+    // and agree with whatever this module happens to do. §3's `RelayAct` is the
+    // wire contract, and the wire cares about field names, not type names —
+    // which is why `HLC` there and `Hlc` here is not a difference.
+    const spec = readFileSync(
+      new URL("../docs/specs/relay-lite-v0.12-draft.md", import.meta.url),
+      "utf8",
+    );
+    const start = spec.indexOf("export interface RelayAct");
+    const declared = [
+      ...spec.slice(start, spec.indexOf("}", start)).matchAll(/readonly (\w+):/g),
+    ].map((m) => m[1]);
+
+    const { sealed } = mint(input, mintContext("node-1"), 1000);
+    expect(Object.keys(sealed.act).sort()).toEqual([...declared].sort());
+    expect(declared).toHaveLength(9);
+  });
+
+  it("holds the seal over many mints, not only the one the examples use", () => {
+    // The property §3.2 states: sealed at creation, bytes canonicalized once.
+    // Each example above checks it for a single input; this checks that no
+    // combination of parent, audience, type and payload breaks it.
+    let seed = 20260902;
+    const rnd = () => {
+      seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+      return seed / 0x80000000;
+    };
+    const types = ["message", "claim", "challenge", "ruling", "erratum"] as const;
+    const agents = ["agent:mimo", "agent:mistral", "agent:zae", "all"];
+
+    let ctx = mintContext("node-1");
+    let nowMs = 1_756_800_000_000;
+    let parent: { id: string; digest: string } | null = null;
+    const ids = new Set<string>();
+    const digests = new Set<string>();
+    let previous: { l: number; c: number } | null = null;
+
+    for (let i = 0; i < 1500; i++) {
+      if (rnd() < 0.4) nowMs += Math.floor(rnd() * 3);
+      const to = agents.filter(() => rnd() < 0.5);
+      const r = mint(
+        {
+          thread_id: `t-${Math.floor(rnd() * 4)}`,
+          type: types[Math.floor(rnd() * types.length)] as (typeof types)[number],
+          from: "agent:claude",
+          to: to.length > 0 ? to : ["agent:mimo"],
+          payload: rnd() < 0.5 ? { n: i } : { text: "не репарируем", tags: [i, "q1"] },
+          parent: rnd() < 0.6 ? parent : null,
+        },
+        ctx,
+        nowMs,
+      );
+      ctx = r.ctx;
+      const { act, bytes, digest } = r.sealed;
+
+      expect(bytes).toBe(canonicalize(act));
+      expect(digest).toBe(sha256Hex(bytes));
+      expect(canonicalize(parseIJson(bytes))).toBe(bytes);
+      expect(Object.isFrozen(act)).toBe(true);
+
+      ids.add(act.id);
+      digests.add(digest);
+      if (previous !== null) {
+        // Strictly increasing per node, which is what makes the HLC usable as
+        // §4's comparator key.
+        expect(act.hlc.l > previous.l || (act.hlc.l === previous.l && act.hlc.c > previous.c)).toBe(
+          true,
+        );
+      }
+      previous = { l: act.hlc.l, c: act.hlc.c };
+      parent = { id: act.id, digest };
+    }
+
+    expect(ids.size).toBe(1500);
+    expect(digests.size).toBe(1500);
   });
 });
