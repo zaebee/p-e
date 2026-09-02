@@ -27,8 +27,8 @@ export interface RelayAct<T = unknown> {
   readonly payload: T;
 }
 
-export interface SealedAct {
-  readonly act: RelayAct;
+export interface SealedAct<T = unknown> {
+  readonly act: RelayAct<T>;
   readonly bytes: string;
   readonly digest: string;
 }
@@ -39,12 +39,12 @@ export interface MintContext {
   readonly uuid: UuidState;
 }
 
-export interface MintInput {
+export interface MintInput<T = unknown> {
   readonly thread_id: string;
   readonly type: RelayAct["type"];
   readonly from: string;
   readonly to: readonly string[];
-  readonly payload: unknown;
+  readonly payload: T;
   readonly parent?: { readonly id: string; readonly digest: string } | null;
 }
 
@@ -135,11 +135,11 @@ export const mintContext = (nodeId: string): MintContext => ({
   uuid: UUID_START,
 });
 
-export function mint(
-  input: MintInput,
+export function mint<T>(
+  input: MintInput<T>,
   ctx: MintContext,
   nowMs: number,
-): { sealed: SealedAct; ctx: MintContext } {
+): { sealed: SealedAct<T>; ctx: MintContext } {
   if (!Array.isArray(input.to)) {
     // A string has `.length` and iterates, so `to: "agent"` passed every check
     // below and produced five recipients named `a`, `g`, `e`, `n`, `t` — each
@@ -170,11 +170,14 @@ export function mint(
   }
 
   if (input.parent !== null && input.parent !== undefined) {
-    if (typeof input.parent !== "object") {
-      // Checked before its fields, so a non-object citation is reported as one
-      // rather than as `parent.id must be a non-empty string, got undefined`,
-      // which names a field of something that is not there.
-      throw new Error(`parent must be an object or null, got ${typeof input.parent}`);
+    if (typeof input.parent !== "object" || Array.isArray(input.parent)) {
+      // Checked before its fields, so a citation that is not a citation is
+      // reported as one rather than as `parent.id must be a non-empty string,
+      // got undefined`, which names a field of something that has none. Arrays
+      // need saying separately: `typeof []` is "object", so `parent: []` passed
+      // this and produced that exact misleading message.
+      const what = Array.isArray(input.parent) ? "array" : typeof input.parent;
+      throw new Error(`parent must be an object or null, got ${what}`);
     }
     // §7.2 [MUST]: "A citation carries both handles — the locator and the
     // digest." Its table reads `null` against *set*, and an empty string is
@@ -198,7 +201,7 @@ export function mint(
 
   // A citation is a pair or it is nothing: §7.2 has no state for half of one
   // that a producer may mint on purpose.
-  const act: RelayAct = {
+  const act: RelayAct<T> = {
     id: u.id,
     thread_id: input.thread_id,
     parent_id: input.parent ? input.parent.id : null,

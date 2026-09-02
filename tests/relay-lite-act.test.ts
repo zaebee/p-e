@@ -110,7 +110,8 @@ describe("what mint refuses, and where the reason comes from", () => {
     payload.text = "edited after minting";
     payload.tags.push("b");
 
-    expect((sealed.act.payload as { text: string }).text).toBe("draft");
+    // No cast: `mint` is generic over the payload, so this is typed.
+    expect(sealed.act.payload.text).toBe("draft");
     expect(sealed.act.payload).not.toBe(payload);
     expect(canonicalize(sealed.act)).toBe(sealed.bytes);
   });
@@ -189,6 +190,13 @@ describe("what mint refuses, and where the reason comes from", () => {
     }
   });
 
+  it("names an array citation as an array, not as a missing field", () => {
+    // `typeof []` is "object", so `parent: []` passed the object check and came
+    // out as `parent.id must be a non-empty string, got undefined` — a true
+    // refusal naming a field of something that has none.
+    expect(() => mint({ ...input, parent: [] as never }, mintContext("n"), 1)).toThrow(/got array/);
+  });
+
   it("names a non-object citation as one, not as a missing field", () => {
     expect(() => mint({ ...input, parent: "abc" as never }, mintContext("n"), 1)).toThrow(
       /parent must be an object/,
@@ -250,18 +258,18 @@ describe("the sealed act, checked against the spec and over many mints", () => {
     for (let i = 0; i < 1500; i++) {
       if (rnd() < 0.4) nowMs += Math.floor(rnd() * 3);
       const to = agents.filter(() => rnd() < 0.5);
-      const r = mint(
-        {
-          thread_id: `t-${Math.floor(rnd() * 4)}`,
-          type: types[Math.floor(rnd() * types.length)] as (typeof types)[number],
-          from: "agent:claude",
-          to: to.length > 0 ? to : ["agent:mimo"],
-          payload: rnd() < 0.5 ? { n: i } : { text: "не репарируем", tags: [i, "q1"] },
-          parent: rnd() < 0.6 ? parent : null,
-        },
-        ctx,
-        nowMs,
-      );
+      // Annotated rather than inferred: `parent` is fed from the previous act,
+      // so leaving `T` to inference makes the input's type depend on `r` and
+      // `r`'s on the input.
+      const next: MintInput<Record<string, unknown>> = {
+        thread_id: `t-${Math.floor(rnd() * 4)}`,
+        type: types[Math.floor(rnd() * types.length)] as (typeof types)[number],
+        from: "agent:claude",
+        to: to.length > 0 ? to : ["agent:mimo"],
+        payload: rnd() < 0.5 ? { n: i } : { text: "не репарируем", tags: [i, "q1"] },
+        parent: rnd() < 0.6 ? parent : null,
+      };
+      const r = mint(next, ctx, nowMs);
       ctx = r.ctx;
       const { act, bytes, digest } = r.sealed;
 
