@@ -80,6 +80,25 @@ function str(s: string): string {
 }
 
 /**
+ * Order two keys by UTF-16 code unit, which is the ordering RFC 8785 names.
+ *
+ * Written out rather than left to a bare `.sort()`, which does the same thing,
+ * because static analysis reads a missing comparator as an oversight and
+ * proposes `localeCompare` — and that would be a defect of the worst kind here.
+ * `localeCompare` is locale-dependent: sv-SE orders these `a B z Z ä ø` where
+ * en-US gives `a ä B ø z Z`. Taking it would make an act's canonical bytes, and
+ * so its digest, depend on the locale of the machine that produced them, and
+ * two honest implementations would disagree about the same act.
+ *
+ * Comparing with `<` and `>` is code-unit order by definition of the operators.
+ * Not code-point order: the two differ above the BMP, and JCS names code units.
+ */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1;
+  return a > b ? 1 : 0;
+}
+
+/**
  * Serialize a value to its RFC 8785 canonical form.
  *
  * Precondition: `value` has passed `assertIJsonValue`, or came from
@@ -109,10 +128,7 @@ function emit(value: unknown): string {
   if (typeof value === "string") return str(value);
   if (Array.isArray(value)) return `[${value.map(emit).join(",")}]`;
   if (typeof value === "object") {
-    // Sorted by UTF-16 code unit, which is what sorting strings does in
-    // JavaScript. Not by code point: the two differ above the BMP, and JCS
-    // names the code-unit ordering.
-    const keys = Object.keys(value as object).sort();
+    const keys = Object.keys(value as object).sort(byCodeUnit);
     const pairs = keys.map((k) => `${str(k)}:${emit((value as Record<string, unknown>)[k])}`);
     return `{${pairs.join(",")}}`;
   }
