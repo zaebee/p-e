@@ -155,6 +155,38 @@ function checkArguments(sealed: SealedAct, root: string, options: PublishOptions
   return maxAttempts;
 }
 
+/**
+ * Write the sealed bytes to a temp file and make them durable.
+ *
+ * `false` means the name was taken, which is a temp-name collision and not a
+ * publish collision — the two must not share a verdict, and that distinction is
+ * why the `link` catch tests for EEXIST at its own level rather than around the
+ * whole block. With 64 bits from `randomBytes` it is not reachable in practice;
+ * handling it turns an exception out of a publish that did nothing into a
+ * publish that completes.
+ */
+async function writeTemp(
+  tmp: string,
+  bytes: string,
+  onSync?: (path: string) => void,
+): Promise<boolean> {
+  let handle: Awaited<ReturnType<typeof open>>;
+  try {
+    handle = await open(tmp, "wx");
+  } catch (error) {
+    if (errnoOf(error) === "EEXIST") return false;
+    throw error;
+  }
+  try {
+    await handle.writeFile(bytes, "utf8");
+    await handle.sync();
+    onSync?.(tmp);
+  } finally {
+    await handle.close();
+  }
+  return true;
+}
+
 export async function publish(
   sealed: SealedAct,
   recipient: string,
@@ -192,29 +224,11 @@ export async function publish(
     );
     let created = false;
 
-    try {
-      // EEXIST here is a temp-name collision, not a publish collision, and the
-      // two must not share a verdict — that distinction is why the `link` catch
-      // below tests for EEXIST at its own level rather than around the whole
-      // block. With 64 bits from `randomBytes` this is not reachable in
-      // practice; retrying it costs four lines and turns an exception out of a
-      // publish that did nothing into a publish that completes.
-      let handle: Awaited<ReturnType<typeof open>>;
-      try {
-        handle = await open(tmp, "wx");
-      } catch (error) {
-        if (errnoOf(error) === "EEXIST") continue;
-        throw error;
-      }
-      created = true;
-      try {
-        await handle.writeFile(sealed.bytes, "utf8");
-        await handle.sync();
-        options.onSync?.(tmp);
-      } finally {
-        await handle.close();
-      }
+    const wrote = await writeTemp(tmp, sealed.bytes, options.onSync);
+    if (!wrote) continue;
+    created = true;
 
+    try {
       try {
         // `link`, not `rename`: rename overwrites a held name silently, and a
         // create-or-fail publish needs the EEXIST.
