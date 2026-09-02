@@ -96,6 +96,25 @@ describe("what mint refuses, and where the reason comes from", () => {
     expect(Object.isFrozen(sealed.act.payload)).toBe(true);
   });
 
+  it("freezes its own copy of the payload, never the caller's object", () => {
+    // An earlier version froze the caller's object and called it part of the
+    // contract. That broke a caller who reuses a payload between mints, at a
+    // distance and with the error pointing at their code — and it held the
+    // invariant for a weaker reason, since freezing their object only helps
+    // while it *is* the act's payload.
+    const payload = { text: "draft", tags: ["a"] };
+    const { sealed, ...rest } = mint({ ...input, payload }, mintContext("node-1"), 1000);
+    void rest;
+
+    expect(Object.isFrozen(payload)).toBe(false);
+    payload.text = "edited after minting";
+    payload.tags.push("b");
+
+    expect((sealed.act.payload as { text: string }).text).toBe("draft");
+    expect(sealed.act.payload).not.toBe(payload);
+    expect(canonicalize(sealed.act)).toBe(sealed.bytes);
+  });
+
   it("refuses half a citation, which would be read as an author defect", () => {
     // §7.2's table reads `null` against *set*, and an empty string is set. Half
     // a citation minted this way is not NO_PARENT — it is a pair matching no

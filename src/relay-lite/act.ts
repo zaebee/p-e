@@ -68,6 +68,22 @@ function assertNameable(value: string, what: string): void {
 }
 
 /**
+ * A structural copy of an I-JSON value.
+ *
+ * Runs after `assertIJsonValue`, so the domain is plain objects, arrays,
+ * strings, finite numbers, booleans and null — no prototypes to preserve, no
+ * cycles to detect, and `canonicalize` gives the copy the same bytes as the
+ * original because it reads structure and nothing else.
+ */
+function cloneIJson<T>(value: T): T {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(cloneIJson) as unknown as T;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as object)) out[k] = cloneIJson(v);
+  return out as T;
+}
+
+/**
  * Freeze an act and everything reachable from it.
  *
  * Without this the seal is one assignment from meaningless. `bytes` and
@@ -78,10 +94,13 @@ function assertNameable(value: string, what: string): void {
  * beside it is a lie. `readonly` is a compile-time claim and the object
  * outlives the compiler.
  *
- * This reaches the payload, which is the caller's object. That is deliberate
- * and is part of the contract: what you hand to `mint` becomes part of a sealed
- * record. Copying it instead would make `sealed.act.payload !== input.payload`,
- * which is a stranger thing to explain than the freeze.
+ * The payload is cloned before it gets here, so this freezes our copy and never
+ * the caller's object. An earlier version froze theirs and called it part of the
+ * contract; that was wrong in both directions. It broke a caller who reuses a
+ * payload between mints, at a distance and with the error pointing at their
+ * code — and it protected the seal for a weaker reason, since freezing their
+ * object only helps while it *is* the act's payload. A private copy holds the
+ * invariant no matter what they do with theirs.
  */
 function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== "object") return value;
@@ -167,7 +186,7 @@ export function mint(
     from: input.from,
     to: [...input.to],
     hlc: h.hlc,
-    payload: input.payload,
+    payload: cloneIJson(input.payload),
   };
 
   const bytes = canonicalize(act);
