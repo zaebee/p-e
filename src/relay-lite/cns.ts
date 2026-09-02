@@ -91,11 +91,9 @@ export function parseCns(filename: string): CnsName | null {
   if (parts.length !== FIELDS.length) return null;
 
   const values: string[] = [];
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i] as string;
+  for (const [i, part] of parts.entries()) {
     const at = part.indexOf("=");
-    if (at === -1) return null;
-    if (part.slice(0, at) !== FIELDS[i]) return null;
+    if (at === -1 || part.slice(0, at) !== FIELDS[i]) return null;
     values.push(part.slice(at + 1));
   }
   const [to, from, thread, ttl, id] = values as [string, string, string, string, string];

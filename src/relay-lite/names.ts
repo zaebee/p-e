@@ -13,6 +13,12 @@
  * it reads off a disk nobody in this process wrote. One copy, so the three
  * cannot drift into disagreeing about what a name may contain.
  *
+ * `assertNameable` takes `unknown` rather than `string` because every one of
+ * its callers is guarding a value that came from somewhere else — a caller's
+ * argument, an act off the wire, a filename off a disk. Declaring `string` made
+ * the `typeof` check inside look redundant while the whole reason for the check
+ * is that the type is a claim rather than a fact.
+ *
  * See issue #35. Widening this set is a deliberate act: every character admitted
  * has to be inert in §2.1's grammar and safe in a filename on every platform
  * that will hold the store.
@@ -25,7 +31,7 @@ export function isNameable(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "" && NAMEABLE.test(value);
 }
 
-export function assertNameable(value: string, what: string): void {
+export function assertNameable(value: unknown, what: string): asserts value is string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`${what} must be a non-empty string, got ${JSON.stringify(value)}`);
   }
