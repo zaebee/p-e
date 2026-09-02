@@ -248,3 +248,48 @@ describe("checkDelivery reads an act it did not mint", () => {
     });
   });
 });
+
+// The class every round three and four finding belonged to: a value crossing
+// into this module from outside, with its type taken on trust. Enumerated
+// rather than sampled — every argument and every field these three functions
+// read, checked against what it is later measured by.
+describe("what crosses the boundary, enumerated", () => {
+  it("parseCns answers null for anything that is not a name", () => {
+    // It reads a name off a disk, so its argument is whatever `readdir` gave
+    // the caller, and it already has a way to say "not a delivery name". It was
+    // throwing a TypeError from `.endsWith`, which says the same thing in a
+    // form a directory scan cannot act on.
+    for (const bad of [null, undefined, 7, {}, [], Symbol.iterator, true]) {
+      expect(parseCns(bad as never)).toBeNull();
+    }
+  });
+
+  it("formatCns names an act that is not an act", () => {
+    expect(() => formatCns(null as never, "agent:mimo")).toThrow(/act must be an object/);
+    expect(() => formatCns(undefined as never, "agent:mimo")).toThrow(/act must be an object/);
+  });
+
+  it("checkDelivery returns a verdict rather than throwing one", () => {
+    const good = parsed(formatCns(sealed.act, "agent:mimo"));
+    expect(checkDelivery(null as never, sealed.act).ok).toBe(false);
+    expect(checkDelivery(undefined as never, sealed.act)).toEqual({
+      ok: false,
+      reason: "malformed-name",
+    });
+    expect(checkDelivery(good, null as never)).toEqual({
+      ok: false,
+      reason: "malformed-audience",
+    });
+  });
+
+  it("keeps a wrong element from passing as the right one", () => {
+    // `to: [7]` is not the recipient, and the verdict says so rather than
+    // reporting the array as malformed — the audience is a list, it just does
+    // not contain this name.
+    const good = parsed(formatCns(sealed.act, "agent:mimo"));
+    expect(checkDelivery(good, { ...sealed.act, to: [7] as never })).toEqual({
+      ok: false,
+      reason: "recipient-not-in-audience",
+    });
+  });
+});

@@ -64,6 +64,9 @@ const SECONDS = /^(0|[1-9][0-9]*)$/;
 const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export function formatCns(act: RelayAct, recipient: string, ttlSeconds = DEFAULT_TTL): string {
+  if (act === null || typeof act !== "object") {
+    throw new Error(`act must be an object, got ${String(act)}`);
+  }
   // The recipient is this function's own argument and reaches no other check.
   // The act's fields were validated at minting, and are re-checked because an
   // act can also arrive from the wire, where nothing minted it.
@@ -90,7 +93,12 @@ export function formatCns(act: RelayAct, recipient: string, ttlSeconds = DEFAULT
   return `to=${recipient};from=${act.from};thread=${act.thread_id};ttl=${ttlSeconds};id=${act.id}.json`;
 }
 
-export function parseCns(filename: string): CnsName | null {
+export function parseCns(filename: unknown): CnsName | null {
+  // `null`, not a throw. This reads a name off a disk, so its argument is
+  // whatever `readdir` handed the caller, and the function already has a way to
+  // say "not a delivery name". Throwing a TypeError from `.endsWith` says the
+  // same thing in a form a directory scan cannot act on.
+  if (typeof filename !== "string") return null;
   if (!filename.endsWith(".json")) return null;
 
   const parts = filename.slice(0, -".json".length).split(";");
@@ -132,10 +140,20 @@ export type DeliveryCheck =
   | { readonly ok: true }
   | {
       readonly ok: false;
-      readonly reason: "recipient-not-in-audience" | "id-mismatch" | "malformed-audience";
+      readonly reason:
+        | "recipient-not-in-audience"
+        | "id-mismatch"
+        | "malformed-audience"
+        | "malformed-name";
     };
 
 export function checkDelivery(cns: CnsName, act: RelayAct): DeliveryCheck {
+  // Both checked before their fields are read, for the reason `act.to` is:
+  // this function is handed an act it did not mint and a name it did not
+  // write, and reading a field off `null` reports the failure as a TypeError
+  // from inside rather than as a verdict the caller can act on.
+  if (cns === null || typeof cns !== "object") return { ok: false, reason: "malformed-name" };
+  if (act === null || typeof act !== "object") return { ok: false, reason: "malformed-audience" };
   if (cns.id !== act.id) return { ok: false, reason: "id-mismatch" };
 
   // `to` is checked for being a list before it is read as one. A string has
