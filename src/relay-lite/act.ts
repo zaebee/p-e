@@ -16,6 +16,24 @@ import { UUID_START, type UuidState, uuidV7 } from "./uuid.js";
  * bytes it already has.
  */
 
+/**
+ * §3's five act types, as a value rather than only a type.
+ *
+ * The union was a compile-time claim and `mint` checked nothing at runtime, on
+ * the reasoning that TypeScript covers the producer. It covers the *typed*
+ * producer: `mint({...input, type: "gossip" as never})` sealed and published an
+ * act that this store's own stage 2 refuses as `not-an-act`. A node that can
+ * mint what it will not accept has no use for either answer.
+ *
+ * Exported so `verify.ts` reads the same set instead of restating it — the
+ * fourth rule in this store to have been written down twice.
+ */
+export const ACT_TYPES = new Set(["message", "claim", "challenge", "ruling", "erratum"]);
+
+export function isActType(value: unknown): value is RelayAct["type"] {
+  return typeof value === "string" && ACT_TYPES.has(value);
+}
+
 export interface RelayAct<T = unknown> {
   readonly id: string;
   readonly thread_id: string;
@@ -116,6 +134,9 @@ export function mint<T>(
     // empty audience can have no conforming delivery, so it is refused here
     // rather than at publication, where the reason would be less obvious.
     throw new Error("an act must name at least one recipient");
+  }
+  if (!isActType(input.type)) {
+    throw new TypeError(`type must be one of §3's five, got ${JSON.stringify(input.type)}`);
   }
   assertNameable(input.from, "from");
   assertNameable(input.thread_id, "thread_id");

@@ -1,4 +1,4 @@
-import type { RelayAct } from "./act.js";
+import { type RelayAct, isActType } from "./act.js";
 import { canonicalize, isDigest, parseIJson, sha256Hex } from "./canonical.js";
 import { checkDelivery, parseCns } from "./cns.js";
 import { isClockValue } from "./hlc.js";
@@ -52,8 +52,6 @@ export function stage1(bytes: string): { readonly digest: string } {
   return { digest: sha256Hex(bytes) };
 }
 
-const ACT_TYPES = new Set(["message", "claim", "challenge", "ruling", "erratum"]);
-
 /**
  * The whole shape, because a partial check is a check that admits what it did
  * not look at.
@@ -84,11 +82,14 @@ function isRelayAct(v: unknown): v is RelayAct {
     // one, and charging it to the author is the failure #21 is about, arriving
     // from the receiving side where the author cannot answer.
     (a.parent_digest === null || isDigest(a.parent_digest)) &&
-    str(a.type) &&
-    ACT_TYPES.has(a.type as string) &&
+    isActType(a.type) &&
     isNameable(a.from) &&
     Array.isArray(a.to) &&
     a.to.every(isNameable) &&
+    // Duplicates too, which `mint` refuses: both legs get the identical CNS
+    // name, so `in/` holds one file where the act asked for two and the
+    // publisher's O_EXCL cannot tell a duplicate leg from a foreign one.
+    new Set(a.to).size === a.to.length &&
     // The same rule `hlc.ts` enforces, imported rather than restated. It was
     // `typeof === "number"` here, so stage 2 called an act with `hlc.l = -1`
     // structurally conformant and `ingest` — the function that would then

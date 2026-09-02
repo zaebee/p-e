@@ -329,3 +329,79 @@ describe("the store agreeing with itself", () => {
     }
   });
 });
+
+// The property behind four separate findings: whatever `mint` refuses to
+// create, stage 2 must refuse to admit, and whatever `mint` creates, stage 2
+// must admit. Each disagreement was found singly — the clock, the digest, the
+// alphabet, then the type and the duplicate recipient — so this states the
+// property instead of listing the five.
+//
+// A node that can mint what it will not accept has no use for either answer.
+describe("mint and stage 2 admit the same acts", () => {
+  const bad: [string, unknown][] = [
+    ["thread_id", ""],
+    ["thread_id", "a b"],
+    ["thread_id", "../x"],
+    ["thread_id", "a;b"],
+    ["thread_id", 7],
+    ["from", ""],
+    ["from", "a=b"],
+    ["from", null],
+    ["to", []],
+    ["to", ["", "x"]],
+    ["to", ["agent:mimo", "agent:mimo"]],
+    ["to", "agent:mimo"],
+    ["to", [7]],
+    ["type", "gossip"],
+    ["type", ""],
+    ["type", null],
+    ["parent_digest", "zz"],
+    ["parent_digest", "A".repeat(64)],
+  ];
+
+  it("agrees on every field §3 declares", () => {
+    const cnsName = formatCns(parent.act, "agent:mimo");
+    const disagreements: string[] = [];
+
+    for (const [field, value] of bad) {
+      let mintOk = true;
+      try {
+        const patched: Record<string, unknown> = { ...input };
+        if (field === "parent_digest") patched.parent = { id: parent.act.id, digest: value };
+        else patched[field] = value;
+        mint(patched as unknown as MintInput, mintContext("n"), 1001);
+      } catch {
+        mintOk = false;
+      }
+
+      let stage2Ok: boolean;
+      try {
+        const forged: Record<string, unknown> = { ...parent.act };
+        if (field === "parent_digest") {
+          forged.parent_id = parent.act.id;
+          forged.parent_digest = value;
+        } else {
+          forged[field] = value;
+        }
+        stage2Ok = stage2(canonicalize(forged), cnsName).ok;
+      } catch {
+        // `canonicalize` refused it, so it cannot reach a wire at all.
+        stage2Ok = false;
+      }
+
+      if (mintOk !== stage2Ok) {
+        disagreements.push(`${field}=${JSON.stringify(value)}: mint=${mintOk} stage2=${stage2Ok}`);
+      }
+    }
+
+    expect(disagreements).toEqual([]);
+  });
+
+  it("admits what it mints, for every type in §3's union", () => {
+    for (const type of ["message", "claim", "challenge", "ruling", "erratum"] as const) {
+      const sealed = mint({ ...input, type }, mintContext("n"), 1000).sealed;
+      const r = stage2(sealed.bytes, formatCns(sealed.act, "agent:mimo"));
+      expect(r.ok).toBe(true);
+    }
+  });
+});
