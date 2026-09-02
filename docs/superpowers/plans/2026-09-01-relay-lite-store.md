@@ -1257,7 +1257,7 @@ rather than merely be recorded."
 
 `§4.1`. No RFC-2119 keyword appears in that section and all of it is
 load-bearing: every element closes a failure that sixteen rounds of review on
-issue #5 found. The two checks here are beyond the ten claims.
+issue #5 found. The two checks here are beyond the eleven claims.
 
 **Files:**
 - Create: `src/relay-lite/publish.ts`
@@ -2267,7 +2267,7 @@ bun run conform:relay-lite
 bun run typecheck && bun run lint
 ```
 
-Expected: every test passes, the report lists ten claims in scope and two out of it.
+Expected: every test passes, the report lists eleven claims in scope and one out of it.
 
 - [ ] **Step 7: Commit**
 
@@ -2327,4 +2327,4 @@ interface. Fifth item for #19.
 **The bench run for crash durability.** `dm-log-writes` on a loop device,
 verifying that a directory entry survives a replay to a point after `link` and
 before the process would have continued. Needs root, does not automate, and is
-what check 11 in the design deliberately does not claim to cover.
+what check 12 in the design deliberately does not claim to cover.
