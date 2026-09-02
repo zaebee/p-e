@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 /**
  * Which of relay-lite v0.12's claims this implementation satisfies, by clause.
@@ -21,7 +21,7 @@ const CLAIMS = [
     text: 'CNS.to is an element of the act\'s to[], or to[] == ["all"]',
     test: "relay-lite-cns",
   },
-  { clause: "§2", text: "CNS.id == act.id", test: "relay-lite-cns" },
+  { clause: "§2.1", text: "CNS.id == act.id", test: "relay-lite-cns" },
   {
     clause: "§3.1",
     text: "Producers mint canonical wire bytes per RFC 8785 (JCS) as raw UTF-8",
@@ -90,14 +90,44 @@ console.log("The one left is a consumer's: a store cannot satisfy it on a reader
  * and re-made by whoever reads this. Saying so is the difference between a
  * report and an assertion nobody verified.
  */
+/**
+ * The count, checked against the document rather than remembered from it.
+ *
+ * "11 of 12" was a number in a comment. If the draft gains a thirteenth MUST,
+ * a report that only printed would go on saying twelve — and this report exists
+ * to say which of the specification's claims hold, so a stale denominator is
+ * the one error it cannot afford.
+ *
+ * Counted by scanning for `**[MUST]**` and `**[MUST NOT]**`, which is how the
+ * draft marks them. That is a syntactic count and it agrees with the reading
+ * below at twelve; if the draft ever states one another way, this disagrees
+ * loudly instead of quietly being wrong.
+ */
+const specText = readFileSync(
+  new URL("../docs/specs/relay-lite-v0.12-draft.md", import.meta.url),
+  "utf8",
+);
+const normative = specText.match(/\*\*\[MUST(?: NOT)?\]\*\*/g) ?? [];
+const accounted = CLAIMS.length + OUT_OF_SCOPE.length;
+
 const missing = CLAIMS.filter(
   (c) => !existsSync(new URL(`../tests/${c.test}.test.ts`, import.meta.url)),
 );
 
 console.log("\nwhat this report establishes");
+console.log(
+  `  every claim in the draft is accounted for: ${normative.length === accounted ? "yes" : `NO — draft has ${normative.length}, this lists ${accounted}`}`,
+);
 console.log(`  every named test file exists: ${missing.length === 0 ? "yes" : "NO"}`);
 console.log("  that a named test covers the claim beside it: not checked, and not checkable");
 console.log("  that those tests pass: run `bun run test`");
+
+if (normative.length !== accounted) {
+  console.log(
+    `\nthe draft states ${normative.length} normative claims and this report accounts for ${accounted}.`,
+  );
+  process.exit(1);
+}
 
 if (missing.length > 0) {
   console.log("\nmissing test files, so the coverage above is not true as written:");
