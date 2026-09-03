@@ -80,4 +80,4 @@ of that section. It may be, or it may be an independent numbering slip.
 What is certain is that a visible hole in the table of contents has gone unremarked for five days
 by sixteen rounds of review, a term sweep, a blind reader, `relay-grok` and `relay-mimo`. It is
 not part of this run and is not mentioned to the reader; if the reader notices it unprompted,
-that is worth more than my noticing it did.
+that is worth more than my own noticing was.
