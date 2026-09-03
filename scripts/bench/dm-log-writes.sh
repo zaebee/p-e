@@ -137,9 +137,11 @@ const root = process.argv[2] as string;
 mkdirSync(join(root, "in"), { recursive: true });
 mkdirSync(join(root, "tmp"), { recursive: true });
 
-// A fixed clock, so both variants mint the same id and the same delivery name.
-// The comparison is about durability, and two different names would make it
-// about two different files.
+// A fixed clock so the timestamp half of the id matches between runs. The rest
+// does not: uuidV7 carries a randomly seeded counter and 62 random bits, which
+// `uuid.ts` puts there on purpose, so two mints at one millisecond are two
+// different ids. That is the module working, and an earlier version of this
+// script asserted the opposite and blocked the control run on it.
 const { sealed } = mint(
   { thread_id: "t-1", type: "message", from: "bee.claude", to: ["bee.zae"], payload: { crash: 1 } },
   mintContext("bench"),
@@ -278,7 +280,11 @@ if [[ -z "$INFO2" ]]; then
 fi
 NAME2="$(echo "$INFO2" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p')"
 DIGEST2="$(echo "$INFO2" | sed -n 's/.*"digest":"\([^"]*\)".*/\1/p')"
-[[ "$NAME2" = "$NAME" ]] || fail "the two runs produced different names — the comparison would not be about one file"
+# No requirement that the two names match, and there was one here: it compared
+# NAME2 to NAME and failed every run, because uuidV7 is random by design. The
+# runs do not need one name. Each begins with `mkfs.ext4 -F` on the same device,
+# so they are two filesystems that never coexist, and each survey is run against
+# its own act. What is compared is the two surveys.
 survey "$NAME2" "$DIGEST2" "without the directory fsync"
 
 step "what to read from this"
