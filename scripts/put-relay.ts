@@ -39,8 +39,60 @@
  * record's `from:` matches the depositor — so the consistency check contained
  * the damage without preventing it.
  */
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { depositLocal } from "../src/relay/deposit.js";
+
+/**
+ * The digest a record's `parent-sha256` must carry is over the parent's BODY —
+ * what follows the block the store prepends on deposit (`deposited-by`,
+ * `provenance`, `assigned-id`, then a `---`). Hashing the file as stored
+ * includes three lines of the store's own bookkeeping and produces a value that
+ * matches nothing.
+ *
+ * Six records have made exactly that mistake: relay-0119 and relay-0123
+ * (OBS-048), relay-0138 and relay-0141 (OBS-055), and relay-0800, relay-0802,
+ * relay-0803 and relay-0805 in one session by an author who had read the table
+ * listing the first four (relay-0807).
+ *
+ * Each was caught afterwards by a separate audit and repaired one erratum at a
+ * time, while this tool held both strings at write time and compared neither. A
+ * mistake that recurs across parties after two errata is a missing guard rather
+ * than a lapse, so the guard goes here.
+ */
+function bodyOf(stored: string): string {
+  const end = stored.indexOf("\n---\n");
+  return end === -1 ? stored : stored.slice(end + 5);
+}
+
+async function checkParentDigest(record: string, relayRoot: string): Promise<void> {
+  const parent = /^parent:[ \t]*(\S+)[ \t]*$/m.exec(record)?.[1];
+  const declared = /^parent-sha256:[ \t]*(\S+)[ \t]*$/m.exec(record)?.[1];
+  // No parent, no declaration, or the deliberate `unknown` placeholder: nothing
+  // to compare. Absence is a separate question and not this check's business.
+  if (!parent || !declared || declared === "unknown") return;
+
+  let parentBytes: string;
+  try {
+    parentBytes = await readFile(join(relayRoot, `${parent}.txt`), "utf8");
+  } catch {
+    console.error(`parent ${parent} is not in ${relayRoot} — cannot check parent-sha256`);
+    process.exit(1);
+  }
+
+  const actual = createHash("sha256").update(bodyOf(parentBytes), "utf8").digest("hex");
+  if (actual !== declared) {
+    console.error(
+      `parent-sha256 does not match ${parent}\n` +
+        `  declared ${declared}\n` +
+        `  actual   ${actual}\n` +
+        `Records are immutable, so this cannot be fixed after the deposit — only\n` +
+        `corrected beside it. Fix the header and deposit again.`,
+    );
+    process.exit(1);
+  }
+}
 
 /**
  * Pull one `--name <value>` out and return what is left.
@@ -73,6 +125,7 @@ if (!source) {
 }
 
 const bytes = source === "-" ? await Bun.stdin.text() : await readFile(source, "utf8");
+await checkParentDigest(bytes, root ?? "relay");
 const r = await depositLocal(bytes, depositor, id, root);
 console.log(
   `stored ${r.id}  id chosen by ${r.idSource}  deposited-by ${depositor}  sha256 ${r.sha256}`,

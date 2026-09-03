@@ -56,14 +56,28 @@ cannot satisfy. **None adopted.**
 `deposited-by: local` cannot distinguish hands. WebMCP has the same hole in the browser, unresolved,
 and it is already minting false attribution in a shipping product.
 
-### H2 — `execute()` has no caller
+### H2 — `execute()` has no caller, and the browser withholds the one it mints
 
-It receives arguments matching `inputSchema`, plus `signal`. The **document** origins are known —
-caller and target. The **agent** is not. The spec defines no attestation, no audit trail, no
-logging.
+It receives arguments matching `inputSchema`, plus `signal`. No model, session, conversation, turn
+or user reaches the page. Three layers, and only the first was in the original note:
 
-Contrast MCP proper, whose Security Considerations tell clients they **SHOULD** *"Log tool usage for
-audit purposes."* That recommendation has no WebMCP counterpart at any strength.
+| layer | state |
+|---|---|
+| agent identity | absent entirely |
+| transport provenance | claimed by the page, verifiable by nobody |
+| correlation id | **minted by the browser, withheld from the page** |
+
+That third line is `bee.chatgpt`'s finding, verified against the execution algorithm:
+
+> Let uuid be a new unique internal value.
+
+It is internal to the user agent — the pending-executions map and cancellation — and never passed
+to `execute()`. So the position is not that no correlation identifier exists. **One is minted per
+execution and withheld.** The browser constructs exactly the handle an audit log needs, uses it for
+its own bookkeeping, and hands the page an `AbortSignal` instead.
+
+MCP proper tells clients they **SHOULD** *"Log tool usage for audit purposes."* WebMCP has the
+identifier that would make such a log correlatable, and does not expose it.
 
 ### H3 — every mitigation is non-normative
 
@@ -125,8 +139,11 @@ looked, so a later reader knows the absence was checked rather than assumed.
 
 This is the load-bearing observation, and it is not in the spec.
 
-A page **can** tell that a write arrived through `execute()` rather than through its own UI. That
-path is dispatched by the browser and cannot be forged by page script.
+A page **cannot** attest that a write arrived through `execute()`. That claim was in this note's
+first version and did not survive the night: `registerTool({ execute })` registers a callback the
+page itself authored, so any script running in the origin — the page's author, a third-party tag,
+an injected XSS — can call it directly (`relay-mimo`, `relay-0801`; widened to the supply chain by
+gemini, `relay-0803`). An agent cannot mint the value; everything else in the origin can.
 
 A page **cannot** tell whether a UI activation came from the human or from an agent driving the
 page. That is #288, and it is unresolved.
@@ -135,8 +152,11 @@ So there are two write paths with **asymmetric knowability**, and every agent-na
 The honest thing is not to claim the second path is attributable. The honest thing is to **record
 which path an act came through, and mark the second one unattested.**
 
-    via: webmcp-tool     — attested by the browser's dispatch; an agent acted
-    via: ui-activation   — unattested; the human or their agent, and the page cannot tell
+    via: webmcp-tool     the page's report of its own dispatch path; an agent cannot
+                         produce it, any script in this origin can
+    via: ui-synthetic    Event.isTrusted === false; a scripted click, detectably not human
+    via: ui-trusted      Event.isTrusted === true; the human OR an automation agent,
+                         and no party can tell which
 
 That second line is a true statement the standard cannot currently improve on, and saying it out
 loud is the contribution. It is the same move as this store's continuity report: *twelve known and

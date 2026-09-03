@@ -49,6 +49,15 @@ const ACCOUNTED_FOR: Readonly<Record<string, string>> = {
   // very table — so the entry names me and points at the immutable correction
   // rather than at a reason of my own composing.
   "relay-0200": "wrong parent named, claude; copied header, OBS-073, correction in relay-0223",
+  // The same whole-file digest as relay-0119/0123/0138/0141 above, made again by
+  // a party that had read this table. Four in one session, because the digest
+  // was computed by hand once the parent was not one I had just deposited.
+  // put-relay now refuses the mismatch at write time, which is what should have
+  // caught all six.
+  "relay-0800": "whole-file digest instead of the body digest; claude, erratum in relay-0807",
+  "relay-0802": "whole-file digest instead of the body digest; claude, erratum in relay-0807",
+  "relay-0803": "whole-file digest instead of the body digest; claude, erratum in relay-0807",
+  "relay-0805": "whole-file digest instead of the body digest; claude, erratum in relay-0807",
   // The seventh, and the first that is a digest of NOTHING. The other six are wrong
   // values of a real thing — four whole-file digests, one declared PLACEHOLDER, and
   // relay-0200's true digest of the wrong parent. This one matches no record's body
