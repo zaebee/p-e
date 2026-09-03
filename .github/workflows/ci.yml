@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Actions are pinned to full commit SHAs rather than to `@v4` and `@v2`. A tag
+# is a movable name, and this repository exists to say that a movable name is
+# not a commitment — every record in it cites its parent by digest for exactly
+# that reason. Pinning the thing that verifies those records to something that
+# can be repointed underneath us would be the same mistake one level out.
+#
+# `--ignore-scripts` because a dependency's lifecycle script runs with the
+# workflow's permissions. Checked before adopting: on a scripts-free install,
+# typecheck and lint pass and all 172 relay-lite tests run.
+#
+# A second push to a branch cancels the run for the first: the answer that
+# matters is about the head commit, and a queue of superseded runs makes a red
+# tick ambiguous about which commit it belongs to.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: gates (bun)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile --ignore-scripts
+
+      # The four gates every task in the relay-lite plan was checked against by
+      # hand. Each caught something: typecheck and lint each failed on the
+      # plan's own code in four of the eight tasks, and `conform:relay-lite`
+      # exits non-zero when the report's claim count disagrees with the draft or
+      # when a test file it names has gone.
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run conform:relay-lite
+
+      # The corpus itself. `check-continuity` exits 1 on an unaccounted
+      # divergence and 2 if the store cannot be loaded, so a break in the
+      # `parent-sha256` chain across 642 records is reported by the build rather
+      # than by a verifier weeks later. This is what `.gitattributes` protects
+      # against a checkout rewriting; this is what notices if something else does.
+      #
+      # `check-references` is deliberately absent: it always exits 0 by design,
+      # because an unreferenced record is not a defect. A check that cannot fail
+      # is not a check, and putting one here would make the job look stricter
+      # than it is.
+      - run: bun run check-continuity
+
+  node:
+    name: tests (node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile --ignore-scripts
+
+      # The suite under Node, not bun. Every module here imports `node:fs`,
+      # `node:crypto` and `node:path` — that is a claim of portability, and a
+      # bun-only CI would not notice the day it stops being true. vitest is
+      # invoked directly so the runtime is Node rather than bun.
+      - run: ./node_modules/.bin/vitest run
