@@ -14,3 +14,8 @@ dist/
 *.swp
 *.swo
 *~
+
+# The bench writes a patched copy of the publisher next to the original, because
+# relative imports resolve from there and nowhere else. It is removed on exit,
+# including on failure; this is in case a run is killed between the two.
+src/relay-lite/.publish-nodirsync.ts

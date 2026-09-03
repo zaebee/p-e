@@ -36,9 +36,12 @@ set -euo pipefail
 MAPPER=relay-lite-logwrites
 MNT=""
 WORK=""
+PATCHED_COPY=""   # set below, once REPO is known
 DATA_LOOP=""
 LOG_LOOP=""
 REPLAY_LOOP=""
+COW_LOOP=""
+SNAP=relay-lite-snap
 
 fail() { echo "  ✗ $*" >&2; exit 1; }
 step() { echo; echo "── $*"; }
@@ -46,11 +49,13 @@ step() { echo; echo "── $*"; }
 cleanup() {
   set +e
   if [[ -n "$MNT" ]] && mountpoint -q "$MNT"; then umount "$MNT"; fi
+  dmsetup remove "$SNAP" 2>/dev/null
   dmsetup remove "$MAPPER" 2>/dev/null
-  for l in "$DATA_LOOP" "$LOG_LOOP" "$REPLAY_LOOP"; do
+  for l in "$DATA_LOOP" "$LOG_LOOP" "$REPLAY_LOOP" "$COW_LOOP"; do
     if [[ -n "$l" ]]; then losetup -d "$l" 2>/dev/null; fi
   done
   if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi
+  if [[ -n "$PATCHED_COPY" ]]; then rm -f "$PATCHED_COPY"; fi
 }
 trap cleanup EXIT
 
@@ -64,11 +69,18 @@ REPLAY_LOG="${REPLAY_LOG:-$(command -v replay-log || true)}"
 
 modprobe dm-log-writes 2>/dev/null || true
 [[ -e /sys/module/dm_log_writes ]] || fail "dm-log-writes not loaded and modprobe failed"
-if dmsetup info "$MAPPER" >/dev/null 2>&1; then
-  fail "mapper device $MAPPER already exists — refusing to touch it"
-fi
+modprobe dm-snapshot 2>/dev/null || true
+for m in "$MAPPER" "$SNAP"; do
+  if dmsetup info "$m" >/dev/null 2>&1; then
+    fail "mapper device $m already exists — refusing to touch it"
+  fi
+done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Named here rather than inside `publish_once`, which runs in a command
+# substitution — a subshell — so an assignment there never reaches the trap that
+# has to delete this file.
+PATCHED_COPY="$REPO/src/relay-lite/.publish-nodirsync.ts"
 
 # Finding bun under sudo, which is the whole difficulty. `sudo` replaces PATH
 # from `secure_path` in sudoers and `-E` does not stop it, so a bun installed
@@ -105,19 +117,35 @@ WORK="$(mktemp -d /tmp/relay-lite-crash-XXXXXX)"
 truncate -s 512M "$WORK/data.img"
 truncate -s 512M "$WORK/log.img"
 truncate -s 512M "$WORK/replay.img"
+truncate -s 64M "$WORK/cow.img"
 DATA_LOOP="$(losetup --find --show "$WORK/data.img")"
 LOG_LOOP="$(losetup --find --show "$WORK/log.img")"
 REPLAY_LOOP="$(losetup --find --show "$WORK/replay.img")"
+COW_LOOP="$(losetup --find --show "$WORK/cow.img")"
 SECTORS="$(blockdev --getsz "$DATA_LOOP")"
 echo "  data $DATA_LOOP   log $LOG_LOOP   replay $REPLAY_LOOP   ${SECTORS} sectors"
 
 # log-writes <dev> <logdev>: every write to the mapped device is also recorded
 # in the log, with its flush and FUA flags, so the log can be replayed onto
 # another device up to any point.
-dmsetup create "$MAPPER" --table "0 $SECTORS log-writes $DATA_LOOP $LOG_LOOP"
 MAPPED="/dev/mapper/$MAPPER"
 MNT="$WORK/mnt"
 mkdir -p "$MNT"
+
+# A target and a log per run, not one shared by both.
+#
+# The log device is never truncated by dm-log-writes, so a second run through
+# one target writes its entries after the first run's. The survey would then be
+# walking a log holding both, looking for a name that only appears in the
+# second half. Two runs reported exactly 190 entries each, which is either a
+# reset I cannot account for or a count that does not mean what I read it to
+# mean — and either way the comparison rests on it, so the ambiguity is removed
+# rather than explained.
+fresh_target() {
+  if dmsetup info "$MAPPER" >/dev/null 2>&1; then dmsetup remove "$MAPPER"; fi
+  dd if=/dev/zero of="$LOG_LOOP" bs=1M count=16 status=none
+  dmsetup create "$MAPPER" --table "0 $SECTORS log-writes $DATA_LOOP $LOG_LOOP"
+}
 
 publish_once() {
   # $1 — "kept" or "removed", which directory fsync the publisher uses.
@@ -135,9 +163,15 @@ const root = process.argv[2] as string;
 mkdirSync(join(root, "in"), { recursive: true });
 mkdirSync(join(root, "tmp"), { recursive: true });
 
-// A fixed clock, so both variants mint the same id and the same delivery name.
-// The comparison is about durability, and two different names would make it
-// about two different files.
+// A fixed clock so the timestamp half of the id matches between runs. The rest
+// does not: uuidV7 carries a randomly seeded counter and 62 random bits, put
+// there on purpose, so two mints at one millisecond are two different ids. That
+// is the module working, and an earlier version of this script asserted the
+// opposite and blocked the control run on it.
+//
+// No backticks anywhere in this heredoc: its delimiter is unquoted so that
+// $REPO expands, which also means backticks run as commands. One in a comment
+// produced "uuid.ts: command not found" on two runs.
 const { sealed } = mint(
   { thread_id: "t-1", type: "message", from: "bee.claude", to: ["bee.zae"], payload: { crash: 1 } },
   mintContext("bench"),
@@ -147,6 +181,7 @@ const result = await publish(sealed, "bee.zae", root);
 console.log(JSON.stringify({ name: formatCns(sealed.act, "bee.zae"), digest: sealed.digest, result }));
 TS
 
+  fresh_target
   mkfs.ext4 -q -F "$MAPPED"
   mount "$MAPPED" "$MNT"
   mkdir -p "$MNT/relay"
@@ -157,7 +192,12 @@ TS
     # real module is never edited. This is the control: §4.1 says the step
     # exists because durable bytes are not a durable name, and a control that
     # shares the step cannot show what it buys.
-    local patched="$WORK/publish-nodirsync.ts"
+    # Beside the original, not in $WORK. `publish.ts` imports `./canonical.js`
+    # and four more by relative path, and those resolve from `src/relay-lite/`
+    # and nowhere else — a copy anywhere else fails at the first import. Removed
+    # in cleanup, and named with a dot so a stray one is visible as a leftover
+    # rather than as a module.
+    local patched="$PATCHED_COPY"
     # Both of them: the publish path fsyncs `in/` after `link`, and the
     # already-published path fsyncs it again to complete a guarantee an earlier
     # attempt may have left half-made. A control that removed only one would
@@ -174,61 +214,122 @@ TS
   fi
 
   out="$(cd "$REPO" && "$BUN" run "$driver" "$MNT/relay")"
+
+  # The mark that makes this an experiment about publishing rather than about
+  # unmounting. It goes in the moment `publish` returns and before anything
+  # else touches the filesystem.
+  #
+  # Without it the survey walked the whole log, and the whole log ends with
+  # `umount`, which flushes everything. Both runs then showed the name near the
+  # end — run 1 at entry 176 of 190, run 2 at 172 of 184 — because ext4 journals
+  # the directory entry either way and the unmount committed the journal. The
+  # window a directory fsync closes is between `link` and the next journal
+  # commit, and the old script closed that window itself before looking.
+  dmsetup message "$MAPPER" 0 mark published
   sync
   umount "$MNT"
   echo "$out"
 }
 
-# Replay the log onto the replay device up to each flush point in turn, mount it,
-# and report whether the delivery name is there.
+# Replay the log onto the replay device one entry at a time, and report where
+# the delivery name first appears.
+#
+# One entry per step, not `--next-flush` with the start advancing by one. That
+# combination replays from entry N *to the next flush*, so consecutive calls
+# repeat almost the same span, and the counter it produced counted log entries
+# while the output called them flush points. The number was real and the label
+# was wrong, which is worse than either.
+#
+# `--limit 1` from an advancing `--start-entry` gives what the experiment wants:
+# the replay device accumulates exactly entries 0..N, so the state at step N is
+# the state a crash after entry N would have left.
 survey() {
   local name="$1" digest="$2" label="$3"
-  local entries point=0 seen_name=0 first_name="-" first_data="-"
+  local entries="" first_name="-" first_bytes="-" mounts=0
 
-  # `--num-entries`, taken from replay-log's option table rather than from its
-  # own usage text, which prints `--number-entries` and is wrong. I copied the
-  # name out of the help output I had just printed, and it cost a run that got
-  # as far as publishing before failing.
-  entries="$("$REPLAY_LOG" --log "$LOG_LOOP" --num-entries 2>/dev/null || echo "?")"
-  echo "  log holds $entries entries"
+  if ! entries="$("$REPLAY_LOG" --log "$LOG_LOOP" --num-entries 2>&1)"; then
+    echo "  ! replay-log could not read the log: $entries"
+    return
+  fi
 
-  dd if=/dev/zero of="$REPLAY_LOOP" bs=1M count=8 status=none 2>/dev/null || true
+  # Only as far as the `published` mark. Past it lies the unmount, which makes
+  # the name durable in both runs and answers a question nobody asked.
+  #
+  # Find mode prints `<entry>@<sector>` and nothing else:
+  #
+  #   161@34147
+  #
+  # The `seek entry %d@%llu: ...` format also lives in the binary, which is
+  # where I took it from at first; it belongs to a different, verbose path and
+  # never appears here. Both shapes put the entry number before the `@`, so
+  # this matches on that and accepts either.
+  local limit found=""
+  found="$("$REPLAY_LOG" --log "$LOG_LOOP" --find --end-mark published 2>&1 || true)"
+  limit="$(printf '%s\n' "$found" |
+    sed -n 's/^[^0-9]*\([0-9][0-9]*\)@.*/\1/p' | tail -1)"
 
-  while "$REPLAY_LOG" --log "$LOG_LOOP" --replay "$REPLAY_LOOP" --next-flush >/dev/null 2>&1; do
-    point=$((point + 1))
-    if mount -o ro "$REPLAY_LOOP" "$MNT" 2>/dev/null; then
-      if [[ -f "$MNT/relay/in/$name" ]]; then
-        seen_name=1
-        if [[ "$first_name" = "-" ]]; then first_name="$point"; fi
-        # Guarded, because this filesystem is *expected* to be inconsistent:
-        # it was replayed to an arbitrary flush point, which is the whole
-        # experiment. A read error here under `set -o pipefail` would end the
-        # survey early, and a short survey and a failed one look the same in
-        # the output.
-        local got=""
-        got="$(sha256sum "$MNT/relay/in/$name" 2>/dev/null | cut -d' ' -f1)" || got=""
-        if [[ "$got" = "$digest" ]] && [[ "$first_data" = "-" ]]; then first_data="$point"; fi
-      fi
-      umount "$MNT"
-    fi
-    # A ceiling, because a replay that never stops advancing would otherwise
-    # loop until the mount table filled. 400 flush points is far past what one
-    # publish produces; reaching it means something is wrong with the log.
-    if [[ "$point" -gt 400 ]]; then
-      echo "  ! stopped at 400 flush points — the log is longer than one publish should make"
+  if [[ -z "$limit" ]]; then
+    # Falling back to the whole log would silently restore the flaw this mark
+    # exists to fix, so it stops instead and says what it saw.
+    echo "  ! no \`published\` mark in the log — refusing to survey"
+    echo "    replay-log said: ${found:-nothing}"
+    echo "    Without the mark the survey would run through the unmount, which"
+    echo "    makes the name durable either way and answers a different question."
+    return
+  fi
+
+  echo "  log holds $entries entries, publish returned at entry $limit"
+  echo "  $label"
+
+  dd if=/dev/zero of="$REPLAY_LOOP" bs=1M count=16 status=none 2>/dev/null || true
+
+  local n=0
+  while [[ "$n" -lt "$limit" ]]; do
+    if ! "$REPLAY_LOG" --log "$LOG_LOOP" --replay "$REPLAY_LOOP" \
+           --start-entry "$n" --limit 1 >/dev/null 2>&1; then
+      echo "    replay stopped at entry $n"
       break
     fi
+    n=$((n + 1))
+    # Mounted read-write, through a throwaway snapshot, because `-o ro` skips
+    # ext4's journal recovery — and the journal is the whole mechanism `fsync`
+    # works through. An unrecovered mount can only see what has already been
+    # checkpointed to its final location, so it is blind to precisely the
+    # durability this experiment is about. Recovery has to run and has to be
+    # able to write; the snapshot gives it somewhere to write that is discarded
+    # before the next step, leaving the accumulating replay device untouched.
+    if dmsetup create "$SNAP" \
+         --table "0 $SECTORS snapshot $REPLAY_LOOP $COW_LOOP P 8" 2>/dev/null; then
+      if mount "/dev/mapper/$SNAP" "$MNT" 2>/dev/null; then
+        mounts=$((mounts + 1))
+        if [[ -f "$MNT/relay/in/$name" ]]; then
+          if [[ "$first_name" = "-" ]]; then first_name="$n"; fi
+          local got=""
+          got="$(sha256sum "$MNT/relay/in/$name" 2>/dev/null | cut -d' ' -f1)" || got=""
+          if [[ "$got" = "$digest" ]] && [[ "$first_bytes" = "-" ]]; then first_bytes="$n"; fi
+        fi
+        umount "$MNT"
+      fi
+      dmsetup remove "$SNAP" 2>/dev/null
+    fi
+    # Invalidate the copy-on-write header so the next step starts from a
+    # snapshot of the replay device alone, not one carrying this step's
+    # recovery writes.
+    dd if=/dev/zero of="$COW_LOOP" bs=1M count=1 status=none 2>/dev/null || true
   done
 
-  echo "  $label"
-  echo "    flush points replayed        : $point"
-  echo "    name first visible at point  : $first_name"
-  echo "    bytes correct at point       : $first_data"
-  echo "    name present at the end      : $([[ "$seen_name" = 1 ]] && echo yes || echo NO)"
+  echo "    log entries replayed        : $n of $limit (to the publish mark)"
+  echo "    of those, mountable states  : $mounts"
+  echo "    name first present after    : entry $first_name"
+  echo "    with correct bytes after    : entry $first_bytes"
 }
+
 
 step "run 1 — the publisher as written (directory fsync kept)"
 INFO="$(publish_once kept)"
+if [[ -z "$INFO" ]]; then
+  fail "the first run produced no output — it failed before publishing."
+fi
 # `sed -n …p`, so only the matching line is printed. Without `-n`, every other
 # line bun writes to stdout — an update notice, a warning — comes through
 # unmodified and lands in NAME.
@@ -240,22 +341,41 @@ survey "$NAME" "$DIGEST" "with the directory fsync"
 step "run 2 — control, directory fsync removed"
 dmsetup message "$MAPPER" 0 mark control >/dev/null 2>&1 || true
 INFO2="$(publish_once removed)"
+if [[ -z "$INFO2" ]]; then
+  fail "the control run produced no output — it failed before publishing, and
+    the comparison has nothing to compare. The run's own error is above."
+fi
 NAME2="$(echo "$INFO2" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p')"
 DIGEST2="$(echo "$INFO2" | sed -n 's/.*"digest":"\([^"]*\)".*/\1/p')"
-[[ "$NAME2" = "$NAME" ]] || fail "the two runs produced different names — the comparison would not be about one file"
+# No requirement that the two names match, and there was one here: it compared
+# NAME2 to NAME and failed every run, because uuidV7 is random by design. The
+# runs do not need one name. Each begins with `mkfs.ext4 -F` on the same device,
+# so they are two filesystems that never coexist, and each survey is run against
+# its own act. What is compared is the two surveys.
 survey "$NAME2" "$DIGEST2" "without the directory fsync"
 
 step "what to read from this"
 cat <<'TXT'
-  The claim §4.1 makes is that a directory fsync is what makes the *name*
-  durable, separately from the bytes. The run supports it if the second survey
-  reaches a flush point where the file's bytes are on the device and the name is
-  not — or never shows the name at all — while the first shows the name at some
-  point and keeps it.
+  Both surveys stop at the `published` mark — the moment `publish` returned,
+  before anything unmounted. That is the only place the question can be asked.
+  Walking the whole log instead answers a different one: the log ends with
+  `umount`, which flushes everything, so both runs showed the name near the end
+  and the comparison was between two unmounts.
 
-  If both runs look the same, that is a result too, and the honest reading is
-  that this filesystem and mount option made the difference unobservable rather
-  than that the step is unnecessary. ext4's default `data=ordered` and its
-  journal commit interval both blur it; `-o data=writeback` and a longer
-  interval make the window wider. Say which you ran.
+  §4.1 says the directory fsync is what makes the *name* durable, separately
+  from the bytes. So:
+
+    the run supports it   name present in run 1 and absent in run 2, at the mark
+
+    it refutes it         name present in both — on this filesystem the step
+                          bought nothing that ext4's journal did not already
+                          give, and §4.1's reason for it does not hold here
+
+    it says nothing       name absent in both, or almost nothing mountable.
+                          Then the window is narrower than one log entry, or the
+                          replay never produced a filesystem to look at.
+
+  ext4 journals the directory entry either way, so the window a directory fsync
+  closes is between `link` and the next journal commit. `-o data=writeback` and
+  a longer commit interval widen it. Say which you ran.
 TXT
