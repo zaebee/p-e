@@ -177,7 +177,11 @@ survey() {
   local name="$1" digest="$2" label="$3"
   local entries point=0 seen_name=0 first_name="-" first_data="-"
 
-  entries="$("$REPLAY_LOG" --log "$LOG_LOOP" --number-entries)"
+  # `--num-entries`, taken from replay-log's option table rather than from its
+  # own usage text, which prints `--number-entries` and is wrong. I copied the
+  # name out of the help output I had just printed, and it cost a run that got
+  # as far as publishing before failing.
+  entries="$("$REPLAY_LOG" --log "$LOG_LOOP" --num-entries 2>/dev/null || echo "?")"
   echo "  log holds $entries entries"
 
   dd if=/dev/zero of="$REPLAY_LOOP" bs=1M count=8 status=none 2>/dev/null || true
