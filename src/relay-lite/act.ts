@@ -1,6 +1,6 @@
 import { assertIJsonValue, canonicalize, isDigest, sha256Hex } from "./canonical.js";
 import { HLC_START, type Hlc, type HlcState, emit } from "./hlc.js";
-import { assertNameable } from "./names.js";
+import { assertAgent, assertThread } from "./names.js";
 import { UUID_START, type UuidState, isUuidV7, uuidV7 } from "./uuid.js";
 
 /**
@@ -180,9 +180,9 @@ function checkInput(input: MintInput<unknown>): void {
   if (!isActType(input.type)) {
     throw new TypeError(`type must be one of §3's five, got ${JSON.stringify(input.type)}`);
   }
-  assertNameable(input.from, "from");
-  assertNameable(input.thread_id, "thread_id");
-  for (const recipient of input.to) assertNameable(recipient, "recipient");
+  assertAgent(input.from, "from");
+  assertThread(input.thread_id, "thread_id");
+  for (const recipient of input.to) assertAgent(recipient, "recipient");
   if (new Set(input.to).size !== input.to.length) {
     // §2.1 gives a leg the name `to=<agent>;from=…;thread=…;id=<uuidv7>.json`,
     // and the same recipient twice produces that name twice — one act colliding

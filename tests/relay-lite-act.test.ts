@@ -175,11 +175,93 @@ describe("what mint refuses, and where the reason comes from", () => {
 
   it("admits the identities this corpus actually uses", () => {
     // The whitelist has to be narrow without being useless.
+    //
+    // Split by position, because the alphabets are. The addendum admits `:` and
+    // `@` in an agent — `agent:claude-code` is v0.1's own example — and excludes
+    // them from a thread id, where nothing has ever used them. This test fed one
+    // value into all three positions and so asserted a single alphabet; it
+    // passed only while that was true.
     const ctx = mintContext("node-1");
-    for (const good of ["bee.claude", "relay-mimo", "agent:mimo", "all", "bee.zae", "t-1", "x_1"]) {
-      expect(() =>
-        mint({ ...input, from: good, thread_id: good, to: [good] }, ctx, 1),
-      ).not.toThrow();
+    const agents = ["bee.claude", "relay-mimo", "agent:mimo", "all", "bee.zae", "x_1", "a@b"];
+    const threads = ["t-1", "x_1", "thread.2", "bee-claude", "0"];
+
+    for (const from of agents) {
+      expect(() => mint({ ...input, from, to: [from] }, ctx, 1)).not.toThrow();
+    }
+    for (const thread_id of threads) {
+      expect(() => mint({ ...input, thread_id }, ctx, 1)).not.toThrow();
+    }
+  });
+
+  it("keeps `:` and `@` out of a thread id, and in an agent", () => {
+    const ctx = mintContext("node-1");
+    for (const value of ["agent:mimo", "a@b"]) {
+      expect(() => mint({ ...input, thread_id: value }, ctx, 1)).toThrow(/may only contain/);
+      expect(() => mint({ ...input, from: value }, ctx, 1)).not.toThrow();
+    }
+  });
+
+  it("bounds the lengths, and says which failure it is", () => {
+    // The two rejections differ in what the caller does next: a bad character is
+    // a mistake, an over-long name is a limit. Reported separately for that
+    // reason, and asserted here so they cannot collapse into one message.
+    const ctx = mintContext("node-1");
+    expect(() => mint({ ...input, from: "a".repeat(48) }, ctx, 1)).not.toThrow();
+    expect(() => mint({ ...input, from: "a".repeat(49) }, ctx, 1)).toThrow(/at most 48/);
+    expect(() => mint({ ...input, thread_id: "a".repeat(64) }, ctx, 1)).not.toThrow();
+    expect(() => mint({ ...input, thread_id: "a".repeat(65) }, ctx, 1)).toThrow(/at most 64/);
+  });
+
+  it("refuses uppercase, which two identities and one filename would collide on", () => {
+    // macOS is POSIX and folds case by default, so `agent:Mimo` and `agent:mimo`
+    // are two identities and one name there. Addendum §4.
+    const ctx = mintContext("node-1");
+    expect(() => mint({ ...input, from: "Bee.Claude" }, ctx, 1)).toThrow(/may only contain/);
+    expect(() => mint({ ...input, thread_id: "T-1" }, ctx, 1)).toThrow(/may only contain/);
+  });
+
+  it("names a rejected non-string without becoming a second failure", () => {
+    // The error path took `JSON.stringify(value)`, which throws a TypeError on a
+    // BigInt and returns `undefined` for a Symbol, a function and `undefined`
+    // alike — a validator crashing, or lying, while explaining a rejection. The
+    // fix proposed in review, `String(value)`, still throws on a null-prototype
+    // object, which is an ordinary way to build a dictionary. Every value here
+    // reaches `mint` through its own argument.
+    const ctx = mintContext("node-1");
+    const hostile: [unknown, string][] = [
+      [10n, "bigint"],
+      [Symbol("s"), "symbol"],
+      [() => {}, "function"],
+      [Object.create(null), "object"],
+      [
+        {
+          toString() {
+            throw new Error("no");
+          },
+        },
+        "object",
+      ],
+      [undefined, "undefined"],
+      [null, "object"],
+    ];
+    for (const [value, shown] of hostile) {
+      let message = "";
+      try {
+        mint({ ...input, from: value as string }, ctx, 1);
+      } catch (e) {
+        message = (e as Error).message;
+      }
+      expect(message).toContain("must be a non-empty string");
+      expect(message).toContain(shown);
+    }
+  });
+
+  it("refuses a leading character that is not a letter or digit", () => {
+    // This is what makes `.` and `..` impossible without a rule against them.
+    const ctx = mintContext("node-1");
+    for (const bad of [".", "..", ".hidden", "-lead", "_lead", ":x"]) {
+      expect(() => mint({ ...input, from: bad }, ctx, 1)).toThrow(/must start with/);
+      expect(() => mint({ ...input, thread_id: bad }, ctx, 1)).toThrow(/must start with/);
     }
   });
 

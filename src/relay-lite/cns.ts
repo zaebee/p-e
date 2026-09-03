@@ -1,5 +1,5 @@
 import type { RelayAct } from "./act.js";
-import { assertNameable, isNameable } from "./names.js";
+import { assertAgent, assertThread, isAgent, isThread } from "./names.js";
 import { isUuidV7 } from "./uuid.js";
 
 /**
@@ -78,10 +78,10 @@ export function formatCns(act: RelayAct, recipient: string, ttlSeconds = DEFAULT
   // The recipient is this function's own argument and reaches no other check.
   // The act's fields were validated at minting, and are re-checked because an
   // act can also arrive from the wire, where nothing minted it.
-  assertNameable(recipient, "recipient");
-  assertNameable(act.from, "act.from");
-  assertNameable(act.thread_id, "act.thread_id");
-  // Against the parser's grammar, not merely the alphabet. `assertNameable`
+  assertAgent(recipient, "recipient");
+  assertAgent(act.from, "act.from");
+  assertThread(act.thread_id, "act.thread_id");
+  // Against the parser's grammar, not merely the alphabet. `assertAgent`
   // admits `not-a-uuid` — letters and hyphens — so this function wrote
   // `…;id=not-a-uuid.json` and `parseCns` returned null for it. The invariant
   // above was stated for `ttlSeconds` and enforced for `ttlSeconds` only.
@@ -127,7 +127,7 @@ export function parseCns(filename: unknown): CnsName | null {
 
   // The alphabet, on the way in as well as out: a file in `in/` was put there by
   // something, and this module is not entitled to assume it was us.
-  if (!isNameable(to) || !isNameable(from) || !isNameable(thread)) return null;
+  if (!isAgent(to) || !isAgent(from) || !isThread(thread)) return null;
 
   // `Number` accepted `0x10` as 16, `1e3` as 1000 and `" 5"` as 5, none of which
   // §2.1's `<seconds>` admits, and each of which lets two readers of one name

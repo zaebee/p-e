@@ -97,7 +97,7 @@ describe("the name is also a filename — issue #35", () => {
     expect(() => formatCns({ ...sealed.act, thread_id: "../x" }, "agent:mimo")).toThrow(
       /act\.thread_id/,
     );
-    // `assertNameable` admits `not-a-uuid` — letters and hyphens — so this wrote
+    // `assertAgent` admits `not-a-uuid` — letters and hyphens — so this wrote
     // `…;id=not-a-uuid.json` and `parseCns` returned null for it.
     expect(() => formatCns({ ...sealed.act, id: "not-a-uuid" }, "agent:mimo")).toThrow(/act\.id/);
   });
