@@ -206,6 +206,18 @@ TS
   fi
 
   out="$(cd "$REPO" && "$BUN" run "$driver" "$MNT/relay")"
+
+  # The mark that makes this an experiment about publishing rather than about
+  # unmounting. It goes in the moment `publish` returns and before anything
+  # else touches the filesystem.
+  #
+  # Without it the survey walked the whole log, and the whole log ends with
+  # `umount`, which flushes everything. Both runs then showed the name near the
+  # end — run 1 at entry 176 of 190, run 2 at 172 of 184 — because ext4 journals
+  # the directory entry either way and the unmount committed the journal. The
+  # window a directory fsync closes is between `link` and the next journal
+  # commit, and the old script closed that window itself before looking.
+  dmsetup message "$MAPPER" 0 mark published
   sync
   umount "$MNT"
   echo "$out"
@@ -231,13 +243,23 @@ survey() {
     echo "  ! replay-log could not read the log: $entries"
     return
   fi
-  echo "  log holds $entries entries"
+
+  # Only as far as the `published` mark. Past it lies the unmount, which makes
+  # the name durable in both runs and answers a question nobody asked.
+  local limit="$entries" found=""
+  if found="$("$REPLAY_LOG" --log "$LOG_LOOP" --find --end-mark published 2>&1)"; then
+    local n_found
+    n_found="$(echo "$found" | grep -oE '[0-9]+' | tail -1)"
+    if [[ -n "$n_found" ]]; then limit="$n_found"; fi
+  fi
+
+  echo "  log holds $entries entries, publish returned at entry $limit"
   echo "  $label"
 
   dd if=/dev/zero of="$REPLAY_LOOP" bs=1M count=16 status=none 2>/dev/null || true
 
   local n=0
-  while [[ "$n" -lt "$entries" ]]; do
+  while [[ "$n" -lt "$limit" ]]; do
     if ! "$REPLAY_LOG" --log "$LOG_LOOP" --replay "$REPLAY_LOOP" \
            --start-entry "$n" --limit 1 >/dev/null 2>&1; then
       echo "    replay stopped at entry $n"
@@ -256,7 +278,7 @@ survey() {
     fi
   done
 
-  echo "    log entries replayed        : $n of $entries"
+  echo "    log entries replayed        : $n of $limit (to the publish mark)"
   echo "    of those, mountable states  : $mounts"
   echo "    name first present after    : entry $first_name"
   echo "    with correct bytes after    : entry $first_bytes"
@@ -294,20 +316,26 @@ survey "$NAME2" "$DIGEST2" "without the directory fsync"
 
 step "what to read from this"
 cat <<'TXT'
-  §4.1's claim is that the directory fsync is what makes the *name* durable,
-  separately from the bytes. Compare the two surveys:
+  Both surveys stop at the `published` mark — the moment `publish` returned,
+  before anything unmounted. That is the only place the question can be asked.
+  Walking the whole log instead answers a different one: the log ends with
+  `umount`, which flushes everything, so both runs showed the name near the end
+  and the comparison was between two unmounts.
 
-    the run supports it   if the name appears at some entry in run 1 and never
-                          in run 2, or appears much later there
+  §4.1 says the directory fsync is what makes the *name* durable, separately
+  from the bytes. So:
 
-    it says nothing       if both look the same. That is a result, and the
-                          honest reading is that this filesystem and these mount
-                          options made the difference unobservable — not that the
-                          step is unnecessary. ext4's default data=ordered and
-                          its journal commit interval both blur it; -o
-                          data=writeback and a longer interval widen the window.
+    the run supports it   name present in run 1 and absent in run 2, at the mark
 
-  "mountable states" is worth reading too. Most single-entry replays leave a
-  filesystem that will not mount, and a run where almost none mount has measured
-  the mount command rather than the store.
+    it refutes it         name present in both — on this filesystem the step
+                          bought nothing that ext4's journal did not already
+                          give, and §4.1's reason for it does not hold here
+
+    it says nothing       name absent in both, or almost nothing mountable.
+                          Then the window is narrower than one log entry, or the
+                          replay never produced a filesystem to look at.
+
+  ext4 journals the directory entry either way, so the window a directory fsync
+  closes is between `link` and the next journal commit. `-o data=writeback` and
+  a longer commit interval widen it. Say which you ran.
 TXT
