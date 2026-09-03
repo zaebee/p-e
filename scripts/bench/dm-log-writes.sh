@@ -246,11 +246,27 @@ survey() {
 
   # Only as far as the `published` mark. Past it lies the unmount, which makes
   # the name durable in both runs and answers a question nobody asked.
-  local limit="$entries" found=""
-  if found="$("$REPLAY_LOG" --log "$LOG_LOOP" --find --end-mark published 2>&1)"; then
-    local n_found
-    n_found="$(echo "$found" | grep -oE '[0-9]+' | tail -1)"
-    if [[ -n "$n_found" ]]; then limit="$n_found"; fi
+  #
+  # Find mode reports through one format, taken from the binary rather than
+  # from its help text:
+  #
+  #   seek entry %d@%llu: %llu, size %llu, flags 0x%llx
+  #
+  # The entry number is the FIRST field. A general number scrape picks up the
+  # digits of the flags instead, so this matches the line's shape.
+  local limit found=""
+  found="$("$REPLAY_LOG" --log "$LOG_LOOP" --find --end-mark published 2>&1 || true)"
+  limit="$(printf '%s\n' "$found" |
+    sed -n 's/^seek entry \([0-9][0-9]*\)@.*/\1/p' | tail -1)"
+
+  if [[ -z "$limit" ]]; then
+    # Falling back to the whole log would silently restore the flaw this mark
+    # exists to fix, so it stops instead and says what it saw.
+    echo "  ! no \`published\` mark in the log — refusing to survey"
+    echo "    replay-log said: ${found:-nothing}"
+    echo "    Without the mark the survey would run through the unmount, which"
+    echo "    makes the name durable either way and answers a different question."
+    return
   fi
 
   echo "  log holds $entries entries, publish returned at entry $limit"
