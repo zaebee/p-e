@@ -47,10 +47,20 @@ consistent with the last mention in the thread, *"additive errata in primary his
 
 What v0.12 contains:
 
+Aligned by name, so what survived and what did not is visible at a glance:
+
 ```
-A:  in/   active/   out/   errata/   history/YYYY-MM
-B:  tmp/  in/                errata/
+         tmp/   in/   active/   out/   errata/   history/
+v0.1       ·    in/   active/   out/   errata/   history/YYYY-MM
+v0.12    tmp/   in/      ·       ·     errata/       ·
 ```
+
+The two columns that matter are the last two. `errata/` is the directory the decision eliminates
+and it is still there. `history/` is the directory the decision moves errata *into* and it is
+gone.
+
+Aligning them this way is worth one caution: the shared `errata/` column shows a shared **name**,
+not a shared thing.
 
 `errata/` **survived**, repurposed from *"зафиксированные ошибки, споры и рекламации"* — recorded
 errors, disputes and claims — to `expired records`, a TTL graveyard. And `history/`, the
