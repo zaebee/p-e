@@ -16,7 +16,12 @@
 # and no name pointing at them — "durable bytes are not a durable name", as the
 # thing that happens rather than as the sentence in §4.1.
 #
-#   sudo scripts/bench/dm-log-writes.sh
+#   sudo -E BUN="$(command -v bun)" REPLAY_LOG=/tmp/replay-log \
+#     scripts/bench/dm-log-writes.sh
+#
+# Both variables are named explicitly because sudo replaces PATH from
+# `secure_path` and `-E` does not stop it. The script finds them itself where it
+# can — `SUDO_USER`'s home for bun — and says exactly this line when it cannot.
 #
 # Everything it touches is created by it: two sparse files under a temp
 # directory, two loop devices, one device-mapper target and one mount point. It
@@ -64,7 +69,28 @@ if dmsetup info "$MAPPER" >/dev/null 2>&1; then
 fi
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-command -v bun >/dev/null || fail "bun not on PATH (it is what runs the publisher)"
+
+# Finding bun under sudo, which is the whole difficulty. `sudo` replaces PATH
+# from `secure_path` in sudoers and `-E` does not stop it, so a bun installed
+# where bun installs itself — under the invoking user's home — is invisible to
+# root no matter what the caller exports. The first version of this script
+# checked `command -v bun` and said "bun not on PATH", which was true, useless,
+# and said to someone running exactly the command this file told them to run.
+BUN="${BUN:-}"
+if [[ -z "$BUN" ]]; then
+  BUN="$(command -v bun || true)"
+fi
+if [[ -z "$BUN" ]] && [[ -n "${SUDO_USER:-}" ]]; then
+  # Where `sudo` came from, which is where bun almost certainly is.
+  candidate="$(getent passwd "$SUDO_USER" | cut -d: -f6)/.bun/bin/bun"
+  if [[ -x "$candidate" ]]; then BUN="$candidate"; fi
+fi
+if [[ ! -x "$BUN" ]]; then
+  fail "cannot find bun. It installs into \$HOME/.bun/bin, and sudo replaces PATH
+    from secure_path regardless of -E, so root does not see it. Name it:
+    sudo -E BUN=\"\$(command -v bun)\" REPLAY_LOG=/tmp/replay-log scripts/bench/dm-log-writes.sh"
+fi
+echo "  bun: $BUN"
 
 step "setting up"
 WORK="$(mktemp -d /tmp/relay-lite-crash-XXXXXX)"
@@ -139,7 +165,7 @@ TS
     sed -i "s|$REPO/src/relay-lite/publish.ts|$patched|" "$driver"
   fi
 
-  out="$(cd "$REPO" && bun run "$driver" "$MNT/relay")"
+  out="$(cd "$REPO" && "$BUN" run "$driver" "$MNT/relay")"
   sync
   umount "$MNT"
   echo "$out"
