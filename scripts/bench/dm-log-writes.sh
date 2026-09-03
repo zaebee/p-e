@@ -247,17 +247,18 @@ survey() {
   # Only as far as the `published` mark. Past it lies the unmount, which makes
   # the name durable in both runs and answers a question nobody asked.
   #
-  # Find mode reports through one format, taken from the binary rather than
-  # from its help text:
+  # Find mode prints `<entry>@<sector>` and nothing else:
   #
-  #   seek entry %d@%llu: %llu, size %llu, flags 0x%llx
+  #   161@34147
   #
-  # The entry number is the FIRST field. A general number scrape picks up the
-  # digits of the flags instead, so this matches the line's shape.
+  # The `seek entry %d@%llu: ...` format also lives in the binary, which is
+  # where I took it from at first; it belongs to a different, verbose path and
+  # never appears here. Both shapes put the entry number before the `@`, so
+  # this matches on that and accepts either.
   local limit found=""
   found="$("$REPLAY_LOG" --log "$LOG_LOOP" --find --end-mark published 2>&1 || true)"
   limit="$(printf '%s\n' "$found" |
-    sed -n 's/^seek entry \([0-9][0-9]*\)@.*/\1/p' | tail -1)"
+    sed -n 's/^[^0-9]*\([0-9][0-9]*\)@.*/\1/p' | tail -1)"
 
   if [[ -z "$limit" ]]; then
     # Falling back to the whole log would silently restore the flaw this mark
