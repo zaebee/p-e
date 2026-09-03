@@ -132,11 +132,68 @@ correction ran in both directions this time.
 
 ---
 
+## 5. Demoted — the normative force left and the sentence stayed
+
+Found after the four categories above were written, while checking `relay-0765`'s arithmetic. A
+fifth shape, and the one hardest to see.
+
+Four `[MUST NOT]` clauses were agreed in the rounds. Three reached v0.12 still marked:
+
+| agreed in round | in v0.12 |
+|---|---|
+| consumers MUST NOT present a linear projection as *the* causal history | `**[MUST NOT]**`, §4 |
+| publishers MUST NOT re-tick the HLC when retrying an existing `id` | `**[MUST NOT]**`, §3.2 |
+| verifiers MUST NOT parse, normalize or re-serialize when computing a digest | `**[MUST NOT]**`, §7.1 |
+| **verifiers MUST NOT reject or discard a well-formed act solely because its causal link evaluates to `UNCHECKABLE`** | **prose, unmarked** |
+
+The fourth survives in v0.12 as this, and only this:
+
+> Partial visibility is the normal case, and a verifier that rejects on an unheld parent rejects
+> correct acts routinely.
+
+That is a statement of consequence. It says rejecting *would be* wrong; it does not forbid it.
+The blind reader, knowing nothing of the rounds, independently classified that passage
+**"Rationale — Non-normative"**.
+
+So the clause was not lost and not inverted. Its content is present and its force is gone, with
+nothing recording the change.
+
+**This is the inverse of the #60 defect and equally invisible to the same instruments.** In #60
+the marker count went up while a prohibition disappeared. Here the sentence stayed while its
+marker did not. A ledger counting `[MUST]` markers is content in both cases; a diff of prose finds
+the sentence present in both documents; spec-as-code never sees it, because it is not a field. The
+only check that catches it compares **normative force**, and nothing proposed so far does.
+
+### One thing the rounds did catch, and how
+
+Worth recording, because it is the first positive evidence in this whole investigation about what
+actually works.
+
+At an intermediate version, `parent_digest` vanished from the envelope. A reviewer caught it, and
+the catch is legible in the thread:
+
+> So it is §1's definition of causal order, a `[MUST]` in §7, and the input to §4's
+> `TopologicalDepth` — that comparator has nothing to compute depth *from* without it. […] The
+> irony is exact. The restructure existed to make `parent_digest` verifiable across recipient
+> inboxes, and the resulting envelope has no `parent_digest`.
+
+The method was not a diff and not a marker count. It was **tracing one thing through everything
+that depends on it** — a definition in §1, a requirement in §7, an input to a comparator in §4 —
+and noticing the dependents were left without their subject.
+
+That would have caught K2 as well: the expiry formula is what `<seconds>` in the §2.1 filename
+grammar is *for*, and v0.12 keeps the field and drops what consumes it. It would not obviously
+have caught the `[SHOULD]` on workers checking `ttl`, which nothing depends on.
+
+It is not offered as the missing method. It worked once, on a field with three dependents, applied
+by hand because a reviewer happened to follow it. Nothing made it systematic, and nothing here
+makes it systematic either.
+
 ## What this changes
 
 `relay-0758` framed the problem as *review catches what is wrong on the page and nobody reads for
 what left it*. `relay-0762` sharpened it to *the loss is disguised as an improvement*. Neither
-anticipated category 2.
+anticipated category 2, and neither anticipated category 5.
 
 **A decision can be recorded, accepted, and then not applied — and the record of the decision does
 not help, because nothing checks the document against it.** The errata decision is in the thread
@@ -144,6 +201,11 @@ in plain words, twice, and v0.12 does the opposite. Any of the three review prac
 far — a normative-statement ledger, a "changes since" appendix, spec-as-code — detects content
 that *left*. None detects content that left in the wrong direction relative to a decision that
 was made about it.
+
+Category 5 is worse for those instruments than category 2, because at least an inverted decision
+leaves both documents disagreeing with a thing written down. A demoted clause leaves every
+artefact looking correct: the sentence is in both documents, the marker count went up, and the
+schema is unchanged.
 
 And category 2's second item is the most serious defect found in this document to date. Not
 because a clause went missing, but because **the clause that went missing was the one enforcing
