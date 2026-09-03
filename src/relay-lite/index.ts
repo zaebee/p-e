@@ -42,7 +42,14 @@ export async function readDelivered(root: string): Promise<ReadonlyMap<string, S
     throw error;
   }
 
-  const deliveries = names.map((name) => ({ name, cns: parseCns(name) })).filter((d) => d.cns);
+  // A type predicate rather than a cast further down: `filter` cannot narrow on
+  // its own, so the alternative was `d.cns as NonNullable<...>` at the point of
+  // use — an assertion standing in for the thing the filter had already
+  // established.
+  type Delivery = { name: string; cns: NonNullable<ReturnType<typeof parseCns>> };
+  const deliveries = names
+    .map((name) => ({ name, cns: parseCns(name) }))
+    .filter((d): d is Delivery => d.cns !== null);
 
   // Read in bounded batches. Sequentially this was 84.9ms for 2000 files and
   // 7.4ms in batches of 64 — the parallelism is worth having, and unbounded
@@ -51,7 +58,7 @@ export async function readDelivered(root: string): Promise<ReadonlyMap<string, S
   // default install of 1024. Sixty-four keeps eleven of the nineteen available
   // and never depends on the limit.
   const BATCH = 64;
-  const read: { cns: NonNullable<ReturnType<typeof parseCns>>; bytes: string }[] = [];
+  const read: { cns: Delivery["cns"]; bytes: string }[] = [];
   for (let i = 0; i < deliveries.length; i += BATCH) {
     const batch = await Promise.all(
       deliveries.slice(i, i + BATCH).map(async (d) => {

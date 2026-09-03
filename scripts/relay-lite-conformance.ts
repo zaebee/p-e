@@ -114,10 +114,13 @@ const missing = CLAIMS.filter(
   (c) => !existsSync(new URL(`../tests/${c.test}.test.ts`, import.meta.url)),
 );
 
+const counted =
+  normative.length === accounted
+    ? "yes"
+    : `NO — draft has ${normative.length}, this lists ${accounted}`;
+
 console.log("\nwhat this report establishes");
-console.log(
-  `  every claim in the draft is accounted for: ${normative.length === accounted ? "yes" : `NO — draft has ${normative.length}, this lists ${accounted}`}`,
-);
+console.log(`  every claim in the draft is accounted for: ${counted}`);
 console.log(`  every named test file exists: ${missing.length === 0 ? "yes" : "NO"}`);
 console.log("  that a named test covers the claim beside it: not checked, and not checkable");
 console.log("  that those tests pass: run `bun run test`");
