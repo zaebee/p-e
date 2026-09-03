@@ -41,19 +41,29 @@ export interface CnsName {
 /**
  * The value written when a caller does not choose one.
  *
- * Zero because that is what the plan wrote, and it is not obviously right. §2.1
- * puts `ttl=<seconds>` in the name and §4.1 says a sweeper *"moves `.relay/in/`
- * entries past their TTL to `.relay/errata/`"*. That is the whole of what the
- * spec says about it, and it leaves two things open: what the seconds are
- * counted from, and whether `0` means *never expires* or *already expired*.
- * Under the second reading every delivery is past its TTL the moment it is
- * written and the sweeper takes the lot.
+ * 3600 because that is what the protocol specified before v0.12 lost it. The
+ * proposal v0.12 descends from gives `ttl` as OPTIONAL with a default of 3600
+ * seconds, and gives the sweep an origin — `created_time(uuidv7) + ttl < now()`
+ * — and neither survived into the draft this store implements. Both strings
+ * occur exactly twice in the sixteen-round review thread, both times in the
+ * original body; no round records their removal. Restored beside the draft in
+ * `docs/specs/relay-lite-v0.12-addendum-ttl.md`, and #37 has the evidence.
  *
- * So the value is a parameter now rather than a constant nobody chose. Filed as
- * #37. Until it is settled, a caller passing nothing gets the plan's zero and
- * this comment.
+ * This was 0, taken from the plan and kept because the plan wrote it. Under the
+ * restored formula that is not one of two readings: `created_time + 0 < now()`
+ * holds at any instant after creation — at any scale, so the open unit question
+ * below does not touch it — which makes zero *already expired* and made this
+ * constant the one value that moves every delivery to `errata/` on the first
+ * sweep.
+ *
+ * Zero is still a legal value to pass, and now means what it says. What is still
+ * unsettled is the unit the comparison runs in: RFC 9562 puts milliseconds in a
+ * UUIDv7 and `<seconds>` is seconds, so a literal reading of the restored
+ * formula gives this default a lifetime of 3.6 seconds rather than an hour. That
+ * is a defect in the rule, not in this number, and it stays in #37 rather than
+ * being answered here.
  */
-export const DEFAULT_TTL = 0;
+export const DEFAULT_TTL = 3600;
 
 /** §2.1's field sequence. The grammar is an order, not a set. */
 const FIELDS = ["to", "from", "thread", "ttl", "id"] as const;
