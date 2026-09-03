@@ -76,14 +76,22 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # root no matter what the caller exports. The first version of this script
 # checked `command -v bun` and said "bun not on PATH", which was true, useless,
 # and said to someone running exactly the command this file told them to run.
-BUN="${BUN:-}"
-if [[ -z "$BUN" ]]; then
-  BUN="$(command -v bun || true)"
-fi
+# Through `command -v` even when BUN is set, because it takes both forms: an
+# absolute path comes back if it is executable, a bare name is looked up on
+# PATH. Testing `-x "$BUN"` directly instead meant `BUN=bun` — the obvious thing
+# to pass — was checked against the working directory and reported as missing
+# while bun sat on PATH.
+BUN="$(command -v "${BUN:-bun}" 2>/dev/null || true)"
 if [[ -z "$BUN" ]] && [[ -n "${SUDO_USER:-}" ]]; then
   # Where `sudo` came from, which is where bun almost certainly is.
-  candidate="$(getent passwd "$SUDO_USER" | cut -d: -f6)/.bun/bin/bun"
-  if [[ -x "$candidate" ]]; then BUN="$candidate"; fi
+  #
+  # The whole lookup is guarded. `getent` exits 2 for a user it does not know
+  # and is absent entirely on some minimal images, and under `set -e` with
+  # `pipefail` a failure inside this substitution killed the script — silently,
+  # before reaching the message below that exists to explain exactly this.
+  # Reproduced: `SUDO_USER=nosuchuser` exited 2 with no output at all.
+  home="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6 || true)"
+  if [[ -n "$home" ]] && [[ -x "$home/.bun/bin/bun" ]]; then BUN="$home/.bun/bin/bun"; fi
 fi
 if [[ ! -x "$BUN" ]]; then
   fail "cannot find bun. It installs into \$HOME/.bun/bin, and sudo replaces PATH
