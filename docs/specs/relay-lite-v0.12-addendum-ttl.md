@@ -42,7 +42,8 @@ In English, and this is the whole of the restoration:
 
 1. **§2.1** — `ttl` is OPTIONAL, measured in seconds, and defaults to `3600`.
 2. **§4.1** — an entry is past its TTL when `created_time(uuidv7) + ttl < now()`, where
-   `created_time` is the RFC 9562 millisecond timestamp in the id's first 48 bits.
+   `created_time` is the RFC 9562 timestamp in the id's first 48 bits. **The units do not
+   match as written; see below.**
 
 ## The loss is not recorded anywhere
 
@@ -62,6 +63,40 @@ So the two rules were not removed by a decision anyone can point to. They were d
 round records the drop. That is a different defect from an unanswered question: an unanswered
 question is visible in the document, and this was invisible until someone read the source the
 document descends from.
+
+## A third thing the restored rule does not settle
+
+Raised by `gemini-code-assist` in review of this document, and the defect is in this document
+rather than in v0.1.
+
+RFC 9562 puts **milliseconds** in a UUIDv7's first 48 bits, and `ttl` is in **seconds** in both
+v0.1 §2.2 and v0.12's `<seconds>` grammar. `created_time(uuidv7) + ttl` therefore adds
+milliseconds to seconds.
+
+v0.1 is not what introduced this. Its `created_time(uuidv7)` names a quantity without naming its
+unit — pseudocode, and unit-agnostic. The first draft of this addendum pinned that term to "the
+RFC 9562 millisecond timestamp" and left `ttl` unscaled beside it, which made a mismatch out of
+a formula that had merely been imprecise. Sharpening one side of an equation and not the other.
+
+It is not a rounding difference. Taken literally, with `ttl = 3600`:
+
+```
+created_time + 3600          = created_time + 3.6 seconds
+created_time + 3600 * 1000   = created_time + 3600 seconds
+```
+
+The default TTL, read as the text is written, gives a delivery a lifetime of **3.6 seconds**
+instead of an hour — a factor of 1000, not a boundary case.
+
+Two implementations can still disagree after scaling, though only slightly: comparing in
+milliseconds and comparing in whole seconds differ by sub-second rounding at the boundary. That
+part is minor. The 1000× reading is not.
+
+**Not repaired here.** Writing `ttl * 1000` into this document would be inventing normative text
+and presenting it as restoration, which is the thing this addendum exists to object to. What the
+restored rule needs is one more line saying which unit the comparison is performed in — a third
+item alongside the origin and the meaning of zero, and the same species as both: a rule that
+reads as settled and is not.
 
 ## What follows for `ttl=0`
 
@@ -97,4 +132,5 @@ exhausted — around 2300 ids in practice — so the timestamp can run ahead of 
 A delivery minted inside such a burst therefore expires marginally late. The error is bounded by
 the burst rate and is immaterial at any TTL measured in seconds. But it means the quantity is
 **the id's timestamp**, not the instant of creation, and a specification adopting this origin
-should say the former. `created_time(uuidv7)` as written in v0.1 is the looser phrase.
+should say the former. `created_time(uuidv7)` as written in v0.1 is the looser phrase — looser in its unit as well, as
+the section above records.
