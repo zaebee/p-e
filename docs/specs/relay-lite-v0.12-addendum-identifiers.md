@@ -53,8 +53,13 @@ Forbidden in both, and the reason for each:
 | `/` `\` | path separators; `/` is the only value that turns an identifier into path components |
 | control characters, and every byte above ASCII | a name is compared as bytes, and macOS normalizes to NFD where Linux keeps NFC, so the same identifier would not be the same name across hosts |
 | whitespace | not a hazard, a legibility choice, and cheap to reverse later |
-| `.` and `..` as the **whole** value | defence in depth, per §1 |
 | uppercase `A-Z` | see §4 |
+
+`.` and `..` cannot occur as whole values, and **not because they are excluded** — the first
+character must be `[a-z0-9]`, so neither can match. The defence-in-depth intent from §1 is
+satisfied by the grammar rather than by a rule, which is worth stating precisely: an
+implementation checking this alphabet needs no special case for them, and one that adds a special
+case has misread where the constraint lives.
 
 **`:` is permitted**, and §5 records why.
 
@@ -103,11 +108,27 @@ machine holds it.
 The case for forbidding `:` is portability: it is illegal on NTFS, where it opens an alternate
 data stream, and it was the Finder's path separator on classic Mac OS.
 
-**The motive is void, because v0.12 already excludes Windows.** §4.1 mandates a directory `fsync`
-after `link` — the step whose necessity was measured in `docs/experiments/dirsync-crash/` — and
-Windows offers no way to obtain a directory handle to synchronize. A conforming Windows
-implementation cannot exist, whatever the alphabet says. At the POSIX layer `:` is an ordinary
-byte; only `/` and NUL are excluded from a filename.
+**The motive is weak, and an earlier draft of this section overstated why.** At the POSIX layer
+`:` is an ordinary byte; only `/` and NUL are excluded from a filename. That much is certain.
+
+What that draft claimed — and this corrects it — was that Windows *offers no way* to obtain a
+directory handle and synchronize it, so no conforming Windows implementation could exist. Raised
+in review, and the strong half is false. `CreateFile` with `FILE_FLAG_BACKUP_SEMANTICS` is the
+documented way to open a directory handle on Win32, and `CreateHardLink` and `CREATE_NEW` are
+analogues of the `link` and `O_EXCL` that §4.1 requires.
+
+What survives, stated only as far as it can be checked from here:
+
+- **This implementation cannot run on Windows.** `syncPath` in `src/relay-lite/publish.ts` does
+  `open(dir, "r")` then `handle.sync()`, and Node throws `EISDIR` opening a directory on Windows.
+  That excludes this store and any Node-based one.
+- **Whether `FlushFileBuffers` on a `FILE_FLAG_BACKUP_SEMANTICS` handle delivers the durability
+  §4.1 needs is unresolved.** It is not testable from this machine and no measurement of it is
+  claimed. The directory-`fsync` result in `docs/experiments/dirsync-crash/` was obtained on ext4
+  under `dm-log-writes` and says nothing about NTFS.
+
+So the honest form of the argument is that Windows support is unproven and unbuilt, not
+impossible. **The decision below does not rest on it.** It rests on the cost.
 
 Against that, the ban costs every identifier the protocol has ever had. `agent:claude-code`,
 `agent:chatgpt` and `agent:gemini` are v0.1's own examples, and twelve `agent:*` identities appear
@@ -126,9 +147,15 @@ If identities need namespaces, that is worth proposing on its own, with its own 
 
 ## 6. The platform, stated because it is already true
 
-**relay-lite requires a POSIX filesystem.** This adds no constraint. §4.1 already mandates `link`
-with `EEXIST` semantics, `O_EXCL` for the temporary file, and a directory `fsync`; the first two
-have awkward Windows analogues and the third has none.
+**relay-lite requires a POSIX filesystem.** §4.1 already mandates `link` with `EEXIST` semantics,
+`O_EXCL` for the temporary file, and a directory `fsync`, and every implementation that exists
+runs on POSIX.
+
+Per §5 this is a choice rather than a discovery, and the correction there applies here too: Win32
+has analogues for all three primitives, and what is actually established is that Node cannot reach
+one of them and that nobody has built or measured the alternative. Declaring POSIX makes the
+existing assumption explicit and closes the door on an unbuilt port — it does not report that the
+door was already bricked up.
 
 v0.12 contains **zero** occurrences of `posix`, `windows`, `portable` or `platform`. A requirement
 that binds every implementation and is written nowhere is the same defect this project has spent
