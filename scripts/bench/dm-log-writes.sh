@@ -36,6 +36,7 @@ set -euo pipefail
 MAPPER=relay-lite-logwrites
 MNT=""
 WORK=""
+PATCHED_COPY=""
 DATA_LOOP=""
 LOG_LOOP=""
 REPLAY_LOOP=""
@@ -51,6 +52,7 @@ cleanup() {
     if [[ -n "$l" ]]; then losetup -d "$l" 2>/dev/null; fi
   done
   if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi
+  if [[ -n "$PATCHED_COPY" ]]; then rm -f "$PATCHED_COPY"; fi
 }
 trap cleanup EXIT
 
@@ -157,7 +159,13 @@ TS
     # real module is never edited. This is the control: §4.1 says the step
     # exists because durable bytes are not a durable name, and a control that
     # shares the step cannot show what it buys.
-    local patched="$WORK/publish-nodirsync.ts"
+    # Beside the original, not in $WORK. `publish.ts` imports `./canonical.js`
+    # and four more by relative path, and those resolve from `src/relay-lite/`
+    # and nowhere else — a copy anywhere else fails at the first import. Removed
+    # in cleanup, and named with a dot so a stray one is visible as a leftover
+    # rather than as a module.
+    local patched="$REPO/src/relay-lite/.publish-nodirsync.ts"
+    PATCHED_COPY="$patched"
     # Both of them: the publish path fsyncs `in/` after `link`, and the
     # already-published path fsyncs it again to complete a guarantee an earlier
     # attempt may have left half-made. A control that removed only one would
@@ -189,12 +197,33 @@ survey() {
   # own usage text, which prints `--number-entries` and is wrong. I copied the
   # name out of the help output I had just printed, and it cost a run that got
   # as far as publishing before failing.
-  entries="$("$REPLAY_LOG" --log "$LOG_LOOP" --num-entries 2>/dev/null || echo "?")"
+  # Not silenced. When this failed the first time it printed `?`, and `?` was
+  # the only sign that the log could not be read at all — which is also why the
+  # survey below replayed zero flush points. A muffled first signal cost a whole
+  # run to diagnose.
+  if ! entries="$("$REPLAY_LOG" --log "$LOG_LOOP" --num-entries 2>&1)"; then
+    echo "  ! replay-log could not read the log: $entries"
+    echo "    the survey below will find nothing, and the reason is that line."
+    entries="unreadable"
+  fi
   echo "  log holds $entries entries"
 
   dd if=/dev/zero of="$REPLAY_LOOP" bs=1M count=8 status=none 2>/dev/null || true
 
-  while "$REPLAY_LOG" --log "$LOG_LOOP" --replay "$REPLAY_LOOP" --next-flush >/dev/null 2>&1; do
+  # `--start-entry` advances, because `--next-flush` alone replays from entry 0
+  # every time: the tool is stateless between invocations and my loop assumed it
+  # was not. Without it the same first flush is replayed forever, or the first
+  # call fails and the loop ends having done nothing — which is what happened.
+  local entry=0 out=""
+  while true; do
+    if ! out="$("$REPLAY_LOG" --log "$LOG_LOOP" --replay "$REPLAY_LOOP" \
+                 --start-entry "$entry" --next-flush 2>&1)"; then
+      if [[ "$point" -eq 0 ]]; then
+        echo "  ! replay stopped at once: $out"
+      fi
+      break
+    fi
+    entry=$((entry + 1))
     point=$((point + 1))
     if mount -o ro "$REPLAY_LOOP" "$MNT" 2>/dev/null; then
       if [[ -f "$MNT/relay/in/$name" ]]; then
@@ -229,6 +258,9 @@ survey() {
 
 step "run 1 — the publisher as written (directory fsync kept)"
 INFO="$(publish_once kept)"
+if [[ -z "$INFO" ]]; then
+  fail "the first run produced no output — it failed before publishing."
+fi
 # `sed -n …p`, so only the matching line is printed. Without `-n`, every other
 # line bun writes to stdout — an update notice, a warning — comes through
 # unmodified and lands in NAME.
@@ -240,6 +272,10 @@ survey "$NAME" "$DIGEST" "with the directory fsync"
 step "run 2 — control, directory fsync removed"
 dmsetup message "$MAPPER" 0 mark control >/dev/null 2>&1 || true
 INFO2="$(publish_once removed)"
+if [[ -z "$INFO2" ]]; then
+  fail "the control run produced no output — it failed before publishing, and
+    the comparison has nothing to compare. The run's own error is above."
+fi
 NAME2="$(echo "$INFO2" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p')"
 DIGEST2="$(echo "$INFO2" | sed -n 's/.*"digest":"\([^"]*\)".*/\1/p')"
 [[ "$NAME2" = "$NAME" ]] || fail "the two runs produced different names — the comparison would not be about one file"
