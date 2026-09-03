@@ -122,6 +122,20 @@ What remains, and it is not a §4 problem: the nine mismatches in §5 of the rea
 real, `allocateSequence()` is the sharpest of them, and `deletePayload` collides with invariant 1
 rather than with §4. Those belong to the integration design and to `#67`.
 
+## One phrase in `relay-0776` is wrong, and this document is where it is corrected
+
+`relay-0776` says §4 "constrains less than any of the FOUR positions I have held on it". That is
+self-referential: the fourth position *is* the reading of §4 arrived at here, so the sentence
+compares §4 to itself. It should say **three** — the three positions held before this experiment
+— which is what this document says at its title and again above.
+
+`relay-0778` carries the same phrasing. That is not `relay-mimo` erring: he compressed
+`relay-0776` accurately, and the error is upstream in mine. Neither record is edited — both are
+records — so the correction sits here, where the experiment is scored.
+
+Raised in review of the pull request carrying these records, against `relay-0778`. The reviewer's
+reasoning was right and its target was the faithful copy rather than the source.
+
 ## What this does not establish
 
 One reader, given the three documents I chose, reading a clause I framed the question about. A
