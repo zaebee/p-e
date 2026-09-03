@@ -40,6 +40,8 @@ PATCHED_COPY=""   # set below, once REPO is known
 DATA_LOOP=""
 LOG_LOOP=""
 REPLAY_LOOP=""
+COW_LOOP=""
+SNAP=relay-lite-snap
 
 fail() { echo "  ✗ $*" >&2; exit 1; }
 step() { echo; echo "── $*"; }
@@ -47,8 +49,9 @@ step() { echo; echo "── $*"; }
 cleanup() {
   set +e
   if [[ -n "$MNT" ]] && mountpoint -q "$MNT"; then umount "$MNT"; fi
+  dmsetup remove "$SNAP" 2>/dev/null
   dmsetup remove "$MAPPER" 2>/dev/null
-  for l in "$DATA_LOOP" "$LOG_LOOP" "$REPLAY_LOOP"; do
+  for l in "$DATA_LOOP" "$LOG_LOOP" "$REPLAY_LOOP" "$COW_LOOP"; do
     if [[ -n "$l" ]]; then losetup -d "$l" 2>/dev/null; fi
   done
   if [[ -n "$WORK" ]]; then rm -rf "$WORK"; fi
@@ -66,9 +69,12 @@ REPLAY_LOG="${REPLAY_LOG:-$(command -v replay-log || true)}"
 
 modprobe dm-log-writes 2>/dev/null || true
 [[ -e /sys/module/dm_log_writes ]] || fail "dm-log-writes not loaded and modprobe failed"
-if dmsetup info "$MAPPER" >/dev/null 2>&1; then
-  fail "mapper device $MAPPER already exists — refusing to touch it"
-fi
+modprobe dm-snapshot 2>/dev/null || true
+for m in "$MAPPER" "$SNAP"; do
+  if dmsetup info "$m" >/dev/null 2>&1; then
+    fail "mapper device $m already exists — refusing to touch it"
+  fi
+done
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # Named here rather than inside `publish_once`, which runs in a command
@@ -111,9 +117,11 @@ WORK="$(mktemp -d /tmp/relay-lite-crash-XXXXXX)"
 truncate -s 512M "$WORK/data.img"
 truncate -s 512M "$WORK/log.img"
 truncate -s 512M "$WORK/replay.img"
+truncate -s 64M "$WORK/cow.img"
 DATA_LOOP="$(losetup --find --show "$WORK/data.img")"
 LOG_LOOP="$(losetup --find --show "$WORK/log.img")"
 REPLAY_LOOP="$(losetup --find --show "$WORK/replay.img")"
+COW_LOOP="$(losetup --find --show "$WORK/cow.img")"
 SECTORS="$(blockdev --getsz "$DATA_LOOP")"
 echo "  data $DATA_LOOP   log $LOG_LOOP   replay $REPLAY_LOOP   ${SECTORS} sectors"
 
@@ -283,16 +291,31 @@ survey() {
       break
     fi
     n=$((n + 1))
-    if mount -o ro "$REPLAY_LOOP" "$MNT" 2>/dev/null; then
-      mounts=$((mounts + 1))
-      if [[ -f "$MNT/relay/in/$name" ]]; then
-        if [[ "$first_name" = "-" ]]; then first_name="$n"; fi
-        local got=""
-        got="$(sha256sum "$MNT/relay/in/$name" 2>/dev/null | cut -d' ' -f1)" || got=""
-        if [[ "$got" = "$digest" ]] && [[ "$first_bytes" = "-" ]]; then first_bytes="$n"; fi
+    # Mounted read-write, through a throwaway snapshot, because `-o ro` skips
+    # ext4's journal recovery — and the journal is the whole mechanism `fsync`
+    # works through. An unrecovered mount can only see what has already been
+    # checkpointed to its final location, so it is blind to precisely the
+    # durability this experiment is about. Recovery has to run and has to be
+    # able to write; the snapshot gives it somewhere to write that is discarded
+    # before the next step, leaving the accumulating replay device untouched.
+    if dmsetup create "$SNAP" \
+         --table "0 $SECTORS snapshot $REPLAY_LOOP $COW_LOOP P 8" 2>/dev/null; then
+      if mount "/dev/mapper/$SNAP" "$MNT" 2>/dev/null; then
+        mounts=$((mounts + 1))
+        if [[ -f "$MNT/relay/in/$name" ]]; then
+          if [[ "$first_name" = "-" ]]; then first_name="$n"; fi
+          local got=""
+          got="$(sha256sum "$MNT/relay/in/$name" 2>/dev/null | cut -d' ' -f1)" || got=""
+          if [[ "$got" = "$digest" ]] && [[ "$first_bytes" = "-" ]]; then first_bytes="$n"; fi
+        fi
+        umount "$MNT"
       fi
-      umount "$MNT"
+      dmsetup remove "$SNAP" 2>/dev/null
     fi
+    # Invalidate the copy-on-write header so the next step starts from a
+    # snapshot of the replay device alone, not one carrying this step's
+    # recovery writes.
+    dd if=/dev/zero of="$COW_LOOP" bs=1M count=1 status=none 2>/dev/null || true
   done
 
   echo "    log entries replayed        : $n of $limit (to the publish mark)"
