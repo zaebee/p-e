@@ -89,7 +89,13 @@ So this needs a disclaiming sentence rather than a decision. But that conclusion
 
 ## 4. Does HLC state survive a restart?
 
-The HLC is `{l, c, node_id}`. If a process starts fresh from `{l: 0, c: 0}` and the machine's clock has moved **backwards** across the restart, the node emits an `l` lower than one it has already published, and per-node monotonicity — the single property question 3 says the design claims — fails.
+The HLC is `{l, c, node_id}`. A process that starts fresh from `{l: 0, c: 0}` can emit an `l` lower than one it has already published, and per-node monotonicity — the single property question 3 says the design claims — fails. There are two routes to it, and the second is both more general and more likely.
+
+**Backward physical clock.** If the machine's clock moved backwards across the restart, `emit`'s `max(now, last_l)` starts from a lower `now`.
+
+**Logical time dragged ahead of physical time.** Raised by `gemini-code-assist` in review of this document, and it needs no clock regression at all. The ingest rule takes `l = max(physical, state.l, incoming.l)`, so a peer with a faster clock pulls this node's `l` past its own physical time. If the node restarts while `l` is ahead, it resumes from a `now` that is *behind* what it already published — with its own clock perfectly well-behaved throughout. One fast peer is enough, and no machine on the network need be faulty; ordinary skew suffices.
+
+**This couples question 4 to question 3 and weakens question 3's dissolution.** The paragraph above concluded that the missing synchronization premise is harmless because only monotonicity is claimed. That is too strong. Without a bound on skew, `incoming.l` can drag `l` arbitrarily far ahead of physical time, so the interval during which a restarted node *cannot* emit a monotonic value without persisted state is itself unbounded. Monotonicity across a restart therefore rests on either persistence or a bound on skew — which is exactly the premise question 3 observed to be missing. The two questions are coupled the way questions 1 and 5 are, and this coupling was not visible until the restart case was stated properly.
 
 **Sweep result: not answered, and it looks answered, which is the trap.** The rounds solved an adjacent problem thoroughly: an act must be **sealed at creation**, stamped exactly once per `id`, because rebuilding it after a crash produces different `hlc` and turns the node's own retry into a reported foreign-writer collision. That fix is real and implemented. It is about *re-stamping one act*, and says nothing about *the node's clock state across a restart*. Reading the thread, it is easy to believe the restart case was handled.
 
@@ -135,4 +141,18 @@ Ranked by how much is unblocked:
 4. **Question 4**, because it is a real correctness hole disguised by a nearby solved problem.
 5. **Question 3**, which likely needs one sentence, but the sentence should be the right one.
 
-A general question, worth more than any of the six: **what review practice catches a rule that silently leaves a document across revisions?** Sixteen rounds by two careful parties lost at least three (`3600`, `created_time`, `signature`). Diffing consecutive revisions is the obvious answer and does not work here, because the revisions were prose rewrites rather than patches. Is there a known technique — a normative-claim inventory carried forward, a conformance checklist regenerated per revision, something else — that would have caught it?
+A general question, worth more than any of the six: **what review practice catches a rule that silently leaves a document across revisions?** Sixteen rounds by two careful parties lost at least three (`3600`, `created_time`, `signature`). Diffing consecutive revisions is the obvious answer and does not work here, because the revisions were prose rewrites rather than patches.
+
+Three candidate answers, from `gemini-code-assist` in review of this document, recorded so a researcher knows what has already been proposed rather than arriving at them again:
+
+1. **A normative-statement ledger.** Every requirement gets an immutable id in a machine-readable file; the prose references the ids; CI fails when an active id vanishes from the document without being marked retired.
+2. **An RFC-style "Changes since version X" appendix**, mandatory per revision, enumerating additions, modifications and deletions.
+3. **Spec-as-code.** Define the structural schema formally and generate the prose or the conformance checklist from it, so a field's disappearance shows up in an ordinary diff even when the surrounding prose is rewritten.
+
+What this repository's own experience adds, and it is not encouraging for (1) as stated:
+
+**A partial ledger already exists here and would have caught none of the three losses.** `scripts/relay-lite-conformance.ts` scans the draft for `**[MUST]**` and `**[MUST NOT]**`, counts them, and exits non-zero when the count disagrees with an enumerated list — so a vanishing MUST *is* caught today. But none of the three lost rules was MUST-marked: the `3600` default was a field annotation, `created_time(uuidv7) + ttl < now()` was a bullet under a GC heading, and `signature?: string` was an interface member. **Normative content lived outside the syntax the ledger indexes.** A ledger scoped to prose marked as normative misses exactly the class of loss observed, and the hard part is not maintaining the ledger but deciding what enters it.
+
+That is also the strongest available argument for (3): v0.12's §3 *is* a TypeScript interface, so a diff restricted to that block alone would have surfaced `signature` immediately. It is, in effect, how the loss was eventually found.
+
+An open question remains behind all three: they detect a *deletion*, but the TTL case shows deletions and deliberate scope reductions are indistinguishable without a record of intent. What makes a specification record *why* something left?
