@@ -2,7 +2,7 @@ import { type RelayAct, isActType } from "./act.js";
 import { canonicalize, isDigest, parseIJson, sha256Hex } from "./canonical.js";
 import { checkDelivery, parseCns } from "./cns.js";
 import { isClockValue } from "./hlc.js";
-import { isNameable } from "./names.js";
+import { isAgent, isThread } from "./names.js";
 import { isUuidV7 } from "./uuid.js";
 
 /**
@@ -78,7 +78,7 @@ function isRelayAct(v: unknown): v is RelayAct {
     // matrix missed the field, having enumerated values rather than fields.
     isUuidV7(a.id) &&
     (a.parent_id === null || isUuidV7(a.parent_id)) &&
-    isNameable(a.thread_id) &&
+    isThread(a.thread_id) &&
     // A digest or nothing, not any string. `act.ts` refuses a malformed one at
     // minting; admitting it here let an act nobody could have minted through,
     // and stage 3 then returned DIVERGES — which §7.2 defines as "parent held,
@@ -87,9 +87,9 @@ function isRelayAct(v: unknown): v is RelayAct {
     // from the receiving side where the author cannot answer.
     (a.parent_digest === null || isDigest(a.parent_digest)) &&
     isActType(a.type) &&
-    isNameable(a.from) &&
+    isAgent(a.from) &&
     Array.isArray(a.to) &&
-    a.to.every(isNameable) &&
+    a.to.every(isAgent) &&
     // Duplicates too, which `mint` refuses: both legs get the identical CNS
     // name, so `in/` holds one file where the act asked for two and the
     // publisher's O_EXCL cannot tell a duplicate leg from a foreign one.
