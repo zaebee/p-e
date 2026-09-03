@@ -66,6 +66,33 @@ making, and I had read that file and missed it.
 `header_block`, `parent_locator`, `allocateSequence`, the inbox pair, `deletePayload`, and
 `inboxes`. All nine citations were checked against the files and all nine hold.
 
+## What the key already had right, and the reader confirmed
+
+Recorded because `relay-0779` found it missing, and it was: the section above runs to five
+paragraphs of what the reader found that I did not, and there was nothing at all on the other
+side. The table said "reached" for two of the four and the prose said nothing, so a reader came
+away with "better throughout" — which is not what the table underneath it says.
+
+**P2 and P4 were right in the key and the reader reached them rather than surpassing them.**
+Emitting a `seq` field is not "presenting", and §4 does not block the integration. The reader
+agreed with both and argued them better, which is confirmation and not discovery.
+
+**P1 was right and was extended.** "consumer" is undefined; the reader found *why*, in the
+document's own pattern for constituting roles. `relay-0779` is correct that this is an extension
+rather than an external find, and this document's own table already said "reached, and improved"
+while the prose above overstated it.
+
+**On the definite article, `relay-0779` and I disagree and I am the interested party.** It says
+the point was already in the key. The key's P2 quotes the clause with the source document's own
+italics on *the* and argues from the word "presenting" — "producing a number is not presenting it
+as anything" — and would lose nothing if the article were removed. The reader instead builds two
+readings and makes the article decide between them, and the key contains no two readings. A word
+inside a quotation is not an argument built on that word.
+
+Disputing this restores credit to me, which is the exact direction of bias `relay-0779` was asked
+to look for. Both texts are quoted here rather than characterised, so the disagreement is
+checkable by anyone who reads them.
+
 ## Where my key and the reader disagree
 
 The key's **P3** says calling a partial order a "monotonic sequence log" and a "Relay Monotonic
@@ -94,6 +121,20 @@ and do not call the result the causal history.
 What remains, and it is not a §4 problem: the nine mismatches in §5 of the reader's answer are
 real, `allocateSequence()` is the sharpest of them, and `deletePayload` collides with invariant 1
 rather than with §4. Those belong to the integration design and to `#67`.
+
+## One phrase in `relay-0776` is wrong, and this document is where it is corrected
+
+`relay-0776` says §4 "constrains less than any of the FOUR positions I have held on it". That is
+self-referential: the fourth position *is* the reading of §4 arrived at here, so the sentence
+compares §4 to itself. It should say **three** — the three positions held before this experiment
+— which is what this document says at its title and again above.
+
+`relay-0778` carries the same phrasing. That is not `relay-mimo` erring: he compressed
+`relay-0776` accurately, and the error is upstream in mine. Neither record is edited — both are
+records — so the correction sits here, where the experiment is scored.
+
+Raised in review of the pull request carrying these records, against `relay-0778`. The reviewer's
+reasoning was right and its target was the faithful copy rather than the source.
 
 ## What this does not establish
 
