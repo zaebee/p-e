@@ -122,7 +122,7 @@ Each of these appears in A's body and never again. Every zero re-checked with a 
 | `[SHOULD]` workers check `ttl` before expensive processing | 1 | 0 |
 | `RelayEnvelope` as a name | 1 | 0 |
 | `ttl [OPTIONAL]`, default `3600` — **K1** | 1 | 0 |
-| `created_time(uuidv7) + ttl < now()` — **K2** | 1 | 0 |
+| `created_time(uuidv7) + ttl < now()` — **key K2** | 1 | 0 |
 | `signature?: string` — **K3** | 1 | 0 |
 
 A caution on the `[MAY]` row: a first pass reported **32** mentions of it in the rounds. That was
@@ -132,11 +132,129 @@ correction ran in both directions this time.
 
 ---
 
+## 5. Demoted — the normative force left and the sentence stayed
+
+Found after the four categories above were written, while checking `relay-0765`'s arithmetic. A
+fifth shape, and the one hardest to see.
+
+Four `[MUST NOT]` clauses were agreed in the rounds. Three reached v0.12 still marked:
+
+| agreed in round | in v0.12 |
+|---|---|
+| consumers MUST NOT present a linear projection as *the* causal history | `**[MUST NOT]**`, §4 |
+| publishers MUST NOT re-tick the HLC when retrying an existing `id` | `**[MUST NOT]**`, §3.2 |
+| verifiers MUST NOT parse, normalize or re-serialize when computing a digest | `**[MUST NOT]**`, §7.1 |
+| **verifiers MUST NOT reject or discard a well-formed act solely because its causal link evaluates to `UNCHECKABLE`** | **prose, unmarked** |
+
+The fourth survives in v0.12 as this, and only this:
+
+> Partial visibility is the normal case, and a verifier that rejects on an unheld parent rejects
+> correct acts routinely.
+
+That is a statement of consequence. It says rejecting *would be* wrong; it does not forbid it.
+The blind reader, knowing nothing of the rounds, independently classified that passage
+**"Rationale — Non-normative"**.
+
+So the clause was not lost and not inverted. Its content is present and its force is gone, with
+nothing recording the change.
+
+**This is the inverse of the #60 defect and equally invisible to the same instruments.** In #60
+the marker count went up while a prohibition disappeared. Here the sentence stayed while its
+marker did not. A ledger counting `[MUST]` markers is satisfied in both cases; a diff of prose finds
+the sentence present in both documents; spec-as-code never sees it, because it is not a field. The
+only check that catches it compares **normative force**, and nothing proposed so far does.
+
+### The `[MUST]` set, run the same way
+
+The `[MUST NOT]` pass above left the positive requirements unchecked. Running them finds **two
+more demotions and one milder case**, out of roughly fifteen distinct MUST-level rules agreed
+across the rounds. Eight map cleanly onto v0.12's nine `**[MUST]**` clauses and are fine.
+
+**The cleanest demonstration in this whole document.** One round stated a "Normative Rule" with
+two numbered clauses:
+
+> 1. The underlying protocol and storage model **MUST** be treated as a Directed Acyclic Graph
+>    (Partial Order).
+> 2. Consumers requiring a flat linear presentation (e.g. CLI chat UI, transcript generators)
+>    **MUST** use a deterministic presentation convention
+
+In v0.12:
+
+| clause | where it landed |
+|---|---|
+| 1 | line 124 — `**[MUST]**` The protocol and storage model treat the graph as a DAG — a partial order |
+| 2 | line 129 — *"A consumer needing a flat presentation deduplicates first, then sorts:"* — **unmarked** |
+
+Same rule, same round, same paragraph. One half kept its force and the other half became a
+sentence in the indicative mood. Nothing records the split.
+
+**Second, folded into the same unmarked sentence.** A separate round agreed:
+
+> **Normative Rule:** Consumers **MUST** deduplicate the candidate record set by `id` prior to
+> executing the sorting comparator
+
+v0.12 carries the dedup as part of clause 2's unmarked description, followed by a paragraph
+explaining *why* dedup matters — *"Deduplication is not an optimisation"* — which is rationale
+about a rule that is no longer stated as one.
+
+**Third, and milder, recorded as its own case rather than folded in.** A round required verifiers
+to *"process incoming delivery files in a strict, sequential three-stage"* pipeline. v0.12 §7.1
+opens:
+
+> Three stages, in order. **The ordering is normative:** stage 1 must not parse, and stage 2's
+> conformance checks require parsing.
+
+Here normativity is *asserted in prose* and the document's own marking convention is not applied,
+with a lowercase `must not` inside the sentence. A reader sees the claim; an instrument keyed on
+markers does not. Not a demotion — the force is stated — but it is invisible to the same tooling,
+and it shows the document uses two conventions for normative status without saying so.
+
+**Two candidates checked and cleared**, recorded so the pass is not read as finding more than it
+did. The requirement to compute digests over raw received octets appears unmarked at Stage 1, but
+the `**[MUST NOT]**` beside it forbids the alternative, so the substance is carried. And
+`parent_digest`'s content rule is covered by line 276's `**[MUST]**` that a citation carries both
+handles — and part of its earlier form was *deliberately* downgraded in a round that says so.
+
+So the demotion count is three where it matters and one where it is arguable: **`[MUST NOT]` 1 of
+4, `[MUST]` 2 of ~15 with a third case of unmarked-but-asserted force.**
+
+### One thing the rounds did catch, and how
+
+Worth recording, because it is the first positive evidence in this whole investigation about what
+actually works.
+
+At an intermediate version, `parent_digest` vanished from the envelope. A reviewer caught it, and
+the catch is legible in the thread:
+
+> So it is §1's definition of causal order, a `[MUST]` in §7, and the input to §4's
+> `TopologicalDepth` — that comparator has nothing to compute depth *from* without it. […] The
+> irony is exact. The restructure existed to make `parent_digest` verifiable across recipient
+> inboxes, and the resulting envelope has no `parent_digest`.
+
+The method was not a diff and not a marker count. It was **tracing one thing through everything
+that depends on it** — a definition in §1, a requirement in §7, an input to a comparator in §4 —
+and noticing the dependents were left without their subject.
+
+That would have caught the expiry formula as well — key item K2, which is a different K2 from the
+one in this repository's root `SPEC.md`, where it labels the *byte extraction* layer of the
+trusted kernel. The labels in `lineage-blind-key.md` were assigned without checking whether K1-K3
+were already taken here; they were. The key is pre-registered and is not being edited after the
+run, so the collision is disambiguated where the labels are *used* and left standing where they
+are defined.
+
+The trace would have caught it because the formula is what `<seconds>` in the §2.1 filename
+grammar is *for*, and v0.12 keeps the field and drops what consumes it. It would not obviously
+have caught the `[SHOULD]` on workers checking `ttl`, which nothing depends on.
+
+It is not offered as the missing method. It worked once, on a field with three dependents, applied
+by hand because a reviewer happened to follow it. Nothing made it systematic, and nothing here
+makes it systematic either.
+
 ## What this changes
 
 `relay-0758` framed the problem as *review catches what is wrong on the page and nobody reads for
 what left it*. `relay-0762` sharpened it to *the loss is disguised as an improvement*. Neither
-anticipated category 2.
+anticipated category 2, and neither anticipated category 5.
 
 **A decision can be recorded, accepted, and then not applied — and the record of the decision does
 not help, because nothing checks the document against it.** The errata decision is in the thread
@@ -144,6 +262,11 @@ in plain words, twice, and v0.12 does the opposite. Any of the three review prac
 far — a normative-statement ledger, a "changes since" appendix, spec-as-code — detects content
 that *left*. None detects content that left in the wrong direction relative to a decision that
 was made about it.
+
+Category 5 is worse for those instruments than category 2, because at least an inverted decision
+leaves both documents disagreeing with a thing written down. A demoted clause leaves every
+artefact looking correct: the sentence is in both documents, the marker count went up, and the
+schema is unchanged.
 
 And category 2's second item is the most serious defect found in this document to date. Not
 because a clause went missing, but because **the clause that went missing was the one enforcing
