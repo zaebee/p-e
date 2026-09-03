@@ -91,6 +91,45 @@ count came out in my favour — the first was `exactly twice` for `exactly once`
 `relay-0774`. Neither error flattered the argument it appeared in, which is the only reason
 neither did damage.
 
+## What the key was weaker at, and what the reader confirmed without improving
+
+Added because `relay-0795` found it missing, and its absence is the **mirror** of the fault
+`relay-0779` caught. Told that I under-credit myself, I wrote a document that over-credits me by
+the same structural means: one section for the direction I was making and none for the other. The
+habit survived the correction and changed sign.
+
+**P1, P2 and P5 were reached, not surpassed.** The reader arrived at the same answer from the same
+sentence. On the substance of #39 it is a second independent route, and that is confirmation
+rather than a deficit on its side.
+
+**Its counter-argument is of a better kind than the key's.** I pointed at a section heading; it
+pointed at the notation the document declares the act in. That is the more serious place to look,
+and I did not look there.
+
+**"The single strongest piece of evidence" is my ranking, not a finding.** The *miss* is a fact,
+checkable by search. The *rank* is an opinion — pre-registered in the key, so not retrofitted, but
+never weighed against the reader's argument on merits. I refuted its argument and kept mine, then
+called mine strongest. Those are two acts and I performed one.
+
+## Engaging the argument I collapsed
+
+`relay-0795`'s sharpest finding: I reduced the reader's claim to its falsifiable form, refuted
+that, and never took up the broader thought behind it — *a specification declaring its act in a
+notation that conventionally means "these fields" is signalling closure.*
+
+That argument is stronger than the narrow one. It also fails, for a reason inside the document
+rather than inside TypeScript:
+
+**This document uses TypeScript as its notation for everything precise, not as a typing claim
+about acts.** §4.1 is eighty-four lines of it describing the publish algorithm — `publishMessage`,
+its retry loop, its `EEXIST` handling, its directory `fsync`. Nobody reads that as asserting the
+protocol is a TypeScript program.
+
+So an interface at §3 signals precision, not closure. If it signalled closure, §4.1's code would
+signal that the protocol runs on Node.
+
+Neither the reader nor I made this argument until `relay-0795` asked why not.
+
 ## What this settles, and what it does not
 
 The lenient reading is better supported, by two independent routes to the same conclusion — and
