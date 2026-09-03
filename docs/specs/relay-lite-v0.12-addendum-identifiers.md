@@ -35,8 +35,9 @@ identifier is embedded *between* `to=` and `;`, never used as a path component, 
 single filename. The implementation already refuses `/`. A bare `..` passes the current predicate
 and cannot escape anything, because there is no position in which it is a path segment.
 
-So `..` is forbidden below as defence in depth against a future use, not as a fix for a live
-hole. Saying otherwise would overstate what was found.
+So the alphabet in §2 excludes `..` as a by-product of requiring an alphanumeric first character,
+which is defence in depth against a future use rather than a fix for a live hole. Saying otherwise
+would overstate what was found.
 
 ## 2. The alphabet
 
@@ -139,11 +140,11 @@ colon carries meaning rather than being tolerated. It is the better design and i
 here, for two reasons. It breaks `bee.claude` and `bee.zae`, which are relay-lite identities in the
 durability bench and carry no namespace — so the tidier options each break a different half of
 what exists, while permitting `:` breaks nothing. And it is *design*: it adds structure the
-protocol never had, in the same act as the first editorial decision taken under #53, three days
+protocol never had, in the same act as the first editorial decision taken under [#53](https://github.com/zaebee/p-e/issues/53), three days
 after documenting what happens when requirements enter a specification without a record.
 
 If identities need namespaces, that is worth proposing on its own, with its own reviewer under
-#53's split. It is not worth bundling into a fix for #35.
+[#53](https://github.com/zaebee/p-e/issues/53)'s split. It is not worth bundling into a fix for [#35](https://github.com/zaebee/p-e/issues/35).
 
 ## 6. The platform, stated because it is already true
 
@@ -159,7 +160,7 @@ door was already bricked up.
 
 v0.12 contains **zero** occurrences of `posix`, `windows`, `portable` or `platform`. A requirement
 that binds every implementation and is written nowhere is the same defect this project has spent
-three days cataloguing — see #60 and #63 — and this clause exists so that one instance of it is
+three days cataloguing — see [#60](https://github.com/zaebee/p-e/issues/60) and [#63](https://github.com/zaebee/p-e/issues/63) — and this clause exists so that one instance of it is
 no longer true.
 
 Case-insensitivity in §4 is the reminder that "POSIX" does not mean "one behaviour": macOS is
@@ -167,7 +168,7 @@ POSIX and folds case by default.
 
 ## 7. What this does not do
 
-It does not amend v0.12, it does not close #35 — that is bee.zae's call — and it does not touch
+It does not amend v0.12, it does not close [#35](https://github.com/zaebee/p-e/issues/35) — that is bee.zae's call — and it does not touch
 `src/relay-lite/names.ts`, whose `NAMEABLE` currently admits uppercase, admits `.` and `..`, and
 bounds no length. The gap between this document and that predicate is stated here rather than
 quietly closed, so that the decision and its implementation can be reviewed separately.
