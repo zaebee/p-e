@@ -76,7 +76,20 @@ Not mentioned to the reader, and not noticed by it. The specification's sections
 5, 7, and a reader given the whole document to answer a question about §3 and §7 did not remark on
 the hole between them.
 
-That is now five parties and sixteen review rounds that have read this document without saying so.
+That is now five parties and sixteen review rounds that have read this document without remarking
+on the gap.
+
+**Narrowed after checking, which should have happened before writing it.** `§6` is mentioned five
+times in the corpus and once in the review thread — `relay-0192`, `relay-0758`, `relay-0764`,
+`relay-0772`, `relay-0794`, and round one's *"§6 forbids delete/update only in `history/`"*. Every
+one of those is about **v0.1's §6 and its content**, which is the subject of #67. None is about
+v0.12 skipping the number.
+
+So the claim holds, narrowly, and it holds by luck rather than by care: I asserted it from the
+section list and my own memory and checked afterwards. That is the second time today an unverified
+count came out in my favour — the first was `exactly twice` for `exactly once`, corrected in
+`relay-0774`. Neither error flattered the argument it appeared in, which is the only reason
+neither did damage.
 
 ## What this settles, and what it does not
 
