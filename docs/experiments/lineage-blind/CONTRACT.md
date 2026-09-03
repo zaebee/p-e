@@ -44,9 +44,11 @@ thing that left, and conflating the two is the most likely way to get this wrong
 ## §5 Borderline cases — report all of them
 
 The two documents are not written in the same language, are not the same length, and do not use
-the same structure. A does not mark its requirements; B marks some with `**[MUST]**` and
-`**[MUST NOT]**`. Report **every** case where your rule did not decide cleanly, and say which way
-you called it and why.
+the same structure. Both mark requirements, and they do not mark them the same way: A uses
+`[MUST]`, `[MUST NOT]`, `[SHOULD]` and `[MAY]` in a conformance checklist, and `[REQUIRED]` and
+`[OPTIONAL]` against individual fields; B uses `**[MUST]**` and `**[MUST NOT]**` inline in its
+prose. Neither marks everything it requires. Report **every** case where your rule did not decide
+cleanly, and say which way you called it and why.
 
 Do not resolve a borderline case by picking the reading that produces a tidier list.
 

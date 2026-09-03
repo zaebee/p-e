@@ -42,6 +42,22 @@ rounds and changed deliberately:
 §4 of the contract asks for these separately. A reader reporting them as removals has applied a
 rule that does not distinguish moving from leaving, which is itself worth recording.
 
+## One amendment to the contract, before any run
+
+`CONTRACT.md` §5 originally said *"A does not mark its requirements"*. That is false, found by
+`gemini-code-assist` in review of the sealed input. A carries a conformance checklist in its §7
+with three `[MUST]`, one `[MUST NOT]`, one `[SHOULD]` and one `[MAY]`, plus four `[REQUIRED]` and
+one `[OPTIONAL]` against individual fields.
+
+It matters beyond accuracy. A reader told that A is unmarked would look for requirements in A's
+prose and could discount the explicit checklist, which is where its normative content is densest.
+And the `[OPTIONAL]` marker is the one on `ttl` — **key item K1** — so the contract denied the
+existence of the marker carried by one of the three answers it is scored against.
+
+§5 now states the marking in both documents symmetrically. Recorded here rather than fixed
+silently, because a pre-registered instrument amended without a record is not pre-registered.
+No run had taken place.
+
 ## How the outcomes read
 
 - **Items outside the key** — the sweep was not exhaustive. The outcome this run exists to make
