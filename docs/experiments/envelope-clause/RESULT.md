@@ -95,7 +95,7 @@ neither did damage.
 
 Added because `relay-0795` found it missing, and its absence is the **mirror** of the fault
 `relay-0779` caught. Told that I under-credit myself, I wrote a document that over-credits me by
-the same structural means: one section for the direction I was making and none for the other. The
+the same structural means: one section for the case I was making and none for the other. The
 habit survived the correction and changed sign.
 
 **P1, P2 and P5 were reached, not surpassed.** The reader arrived at the same answer from the same
