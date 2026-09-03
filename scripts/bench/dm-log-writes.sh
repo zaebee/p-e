@@ -16,7 +16,12 @@
 # and no name pointing at them — "durable bytes are not a durable name", as the
 # thing that happens rather than as the sentence in §4.1.
 #
-#   sudo scripts/bench/dm-log-writes.sh
+#   sudo -E BUN="$(command -v bun)" REPLAY_LOG=/tmp/replay-log \
+#     scripts/bench/dm-log-writes.sh
+#
+# Both variables are named explicitly because sudo replaces PATH from
+# `secure_path` and `-E` does not stop it. The script finds them itself where it
+# can — `SUDO_USER`'s home for bun — and says exactly this line when it cannot.
 #
 # Everything it touches is created by it: two sparse files under a temp
 # directory, two loop devices, one device-mapper target and one mount point. It
@@ -64,7 +69,36 @@ if dmsetup info "$MAPPER" >/dev/null 2>&1; then
 fi
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-command -v bun >/dev/null || fail "bun not on PATH (it is what runs the publisher)"
+
+# Finding bun under sudo, which is the whole difficulty. `sudo` replaces PATH
+# from `secure_path` in sudoers and `-E` does not stop it, so a bun installed
+# where bun installs itself — under the invoking user's home — is invisible to
+# root no matter what the caller exports. The first version of this script
+# checked `command -v bun` and said "bun not on PATH", which was true, useless,
+# and said to someone running exactly the command this file told them to run.
+# Through `command -v` even when BUN is set, because it takes both forms: an
+# absolute path comes back if it is executable, a bare name is looked up on
+# PATH. Testing `-x "$BUN"` directly instead meant `BUN=bun` — the obvious thing
+# to pass — was checked against the working directory and reported as missing
+# while bun sat on PATH.
+BUN="$(command -v "${BUN:-bun}" 2>/dev/null || true)"
+if [[ -z "$BUN" ]] && [[ -n "${SUDO_USER:-}" ]]; then
+  # Where `sudo` came from, which is where bun almost certainly is.
+  #
+  # The whole lookup is guarded. `getent` exits 2 for a user it does not know
+  # and is absent entirely on some minimal images, and under `set -e` with
+  # `pipefail` a failure inside this substitution killed the script — silently,
+  # before reaching the message below that exists to explain exactly this.
+  # Reproduced: `SUDO_USER=nosuchuser` exited 2 with no output at all.
+  home="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6 || true)"
+  if [[ -n "$home" ]] && [[ -x "$home/.bun/bin/bun" ]]; then BUN="$home/.bun/bin/bun"; fi
+fi
+if [[ ! -x "$BUN" ]]; then
+  fail "cannot find bun. It installs into \$HOME/.bun/bin, and sudo replaces PATH
+    from secure_path regardless of -E, so root does not see it. Name it:
+    sudo -E BUN=\"\$(command -v bun)\" REPLAY_LOG=/tmp/replay-log scripts/bench/dm-log-writes.sh"
+fi
+echo "  bun: $BUN"
 
 step "setting up"
 WORK="$(mktemp -d /tmp/relay-lite-crash-XXXXXX)"
@@ -139,7 +173,7 @@ TS
     sed -i "s|$REPO/src/relay-lite/publish.ts|$patched|" "$driver"
   fi
 
-  out="$(cd "$REPO" && bun run "$driver" "$MNT/relay")"
+  out="$(cd "$REPO" && "$BUN" run "$driver" "$MNT/relay")"
   sync
   umount "$MNT"
   echo "$out"
@@ -151,7 +185,11 @@ survey() {
   local name="$1" digest="$2" label="$3"
   local entries point=0 seen_name=0 first_name="-" first_data="-"
 
-  entries="$("$REPLAY_LOG" --log "$LOG_LOOP" --number-entries)"
+  # `--num-entries`, taken from replay-log's option table rather than from its
+  # own usage text, which prints `--number-entries` and is wrong. I copied the
+  # name out of the help output I had just printed, and it cost a run that got
+  # as far as publishing before failing.
+  entries="$("$REPLAY_LOG" --log "$LOG_LOOP" --num-entries 2>/dev/null || echo "?")"
   echo "  log holds $entries entries"
 
   dd if=/dev/zero of="$REPLAY_LOOP" bs=1M count=8 status=none 2>/dev/null || true
