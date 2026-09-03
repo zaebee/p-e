@@ -66,6 +66,36 @@ export function isThread(value: unknown): value is string {
  * reading `may only contain a-z, 0-9 and ._:@-` can act on it and a caller
  * reading a regexp source has to parse one first.
  */
+/**
+ * Render a rejected value for its error message without becoming a second
+ * failure. Everything here is reachable: `mint` takes a caller's object, and a
+ * validator that throws the wrong error while explaining a rejection tells the
+ * caller nothing about what it actually refused.
+ *
+ *   JSON.stringify(10n)                     throws TypeError
+ *   JSON.stringify(Symbol())                undefined
+ *   JSON.stringify(() => {})                undefined
+ *   String(Object.create(null))             throws TypeError
+ *   String({ toString() { throw … } })      throws
+ *
+ * So `JSON.stringify` alone crashes on a BigInt and flattens a Symbol, a
+ * function and `undefined` into one indistinguishable "undefined"; `String`
+ * alone — the fix first proposed in review — handles those and still throws on
+ * a null-prototype object, which is an ordinary way to build a dictionary.
+ *
+ * A string is shown with `JSON.stringify`, which is where it is informative:
+ * `""` is legible and `"  "` shows its spaces. Anything else is named by type
+ * first, so the three values that stringify to nothing stay distinguishable.
+ */
+function describe(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value);
+  try {
+    return `${typeof value} ${String(value)}`;
+  } catch {
+    return typeof value;
+  }
+}
+
 function assertAgainst(
   value: unknown,
   what: string,
@@ -74,7 +104,7 @@ function assertAgainst(
   max: number,
 ): asserts value is string {
   if (typeof value !== "string" || value === "") {
-    throw new Error(`${what} must be a non-empty string, got ${JSON.stringify(value)}`);
+    throw new Error(`${what} must be a non-empty string, got ${describe(value)}`);
   }
   if (!re.test(value)) {
     // Length is reported separately because it is the one failure whose cause

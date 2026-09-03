@@ -220,6 +220,42 @@ describe("what mint refuses, and where the reason comes from", () => {
     expect(() => mint({ ...input, thread_id: "T-1" }, ctx, 1)).toThrow(/may only contain/);
   });
 
+  it("names a rejected non-string without becoming a second failure", () => {
+    // The error path took `JSON.stringify(value)`, which throws a TypeError on a
+    // BigInt and returns `undefined` for a Symbol, a function and `undefined`
+    // alike — a validator crashing, or lying, while explaining a rejection. The
+    // fix proposed in review, `String(value)`, still throws on a null-prototype
+    // object, which is an ordinary way to build a dictionary. Every value here
+    // reaches `mint` through its own argument.
+    const ctx = mintContext("node-1");
+    const hostile: [unknown, string][] = [
+      [10n, "bigint"],
+      [Symbol("s"), "symbol"],
+      [() => {}, "function"],
+      [Object.create(null), "object"],
+      [
+        {
+          toString() {
+            throw new Error("no");
+          },
+        },
+        "object",
+      ],
+      [undefined, "undefined"],
+      [null, "object"],
+    ];
+    for (const [value, shown] of hostile) {
+      let message = "";
+      try {
+        mint({ ...input, from: value as string }, ctx, 1);
+      } catch (e) {
+        message = (e as Error).message;
+      }
+      expect(message).toContain("must be a non-empty string");
+      expect(message).toContain(shown);
+    }
+  });
+
   it("refuses a leading character that is not a letter or digit", () => {
     // This is what makes `.` and `..` impossible without a rule against them.
     const ctx = mintContext("node-1");
