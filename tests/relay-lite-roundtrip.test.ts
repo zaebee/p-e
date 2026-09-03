@@ -147,7 +147,19 @@ describe("readDelivered, at the boundary and at scale", () => {
     const held = await readDelivered(root);
     expect(held.size).toBe(150);
     expect(new Set(held.keys())).toEqual(new Set(ids));
-  });
+    // Explicit budget, because vitest's 5s default is a general-purpose one and
+    // this test is not general-purpose: the 150 publishes in its setup each
+    // fsync the temp file and the directory, so it spends 300-odd synchronous
+    // flushes before the assertion it exists for. That is ~1s on this machine
+    // and it exceeded 5s on a CI runner, where the node 22 job on the same
+    // commit passed — an I/O budget, not a defect.
+    //
+    // The setup is not cheapened instead. Building 150 delivery files by hand
+    // would be faster and would test `readDelivered` against a store this
+    // repository's own publisher never wrote.
+    //
+    // 30s still catches a hang, which is what a timeout is for.
+  }, 30_000);
 
   it("returns an empty map for a root with no in/", async () => {
     const root = relayRoot("relay-lite-empty-");
