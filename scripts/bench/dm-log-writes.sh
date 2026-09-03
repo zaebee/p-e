@@ -167,10 +167,9 @@ survey() {
         # experiment. A read error here under `set -o pipefail` would end the
         # survey early, and a short survey and a failed one look the same in
         # the output.
-        local got
-        if got="$(sha256sum "$MNT/relay/in/$name" 2>/dev/null | cut -d' ' -f1)"; then
-          if [[ "$got" = "$digest" ]] && [[ "$first_data" = "-" ]]; then first_data="$point"; fi
-        fi
+        local got=""
+        got="$(sha256sum "$MNT/relay/in/$name" 2>/dev/null | cut -d' ' -f1)" || got=""
+        if [[ "$got" = "$digest" ]] && [[ "$first_data" = "-" ]]; then first_data="$point"; fi
       fi
       umount "$MNT"
     fi
