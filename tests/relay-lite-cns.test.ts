@@ -158,12 +158,15 @@ describe("ttl, which the spec leaves open — issue #37", () => {
     );
   });
 
-  it("still defaults to the plan's zero", () => {
-    // Kept, not endorsed. §4.1 says a sweeper moves entries "past their TTL" to
-    // errata/ and never says what zero means; under one reading every delivery
-    // is expired the moment it is written. See #37.
-    expect(formatCns(sealed.act, "agent:mimo")).toContain(";ttl=0;");
-    expect(DEFAULT_TTL).toBe(0);
+  it("defaults to the 3600 the protocol specified before v0.12 lost it", () => {
+    // Was the plan's zero, kept while #37 was open on the grounds that §4.1
+    // never says what zero means. It does not, but the proposal v0.12 descends
+    // from does: `created_time(uuidv7) + ttl < now()`, with ttl OPTIONAL and
+    // defaulting to 3600. Under that formula zero is already expired at any
+    // scale, so the old default moved every delivery to errata/ on the first
+    // sweep. Restored in docs/specs/relay-lite-v0.12-addendum-ttl.md.
+    expect(formatCns(sealed.act, "agent:mimo")).toContain(";ttl=3600;");
+    expect(DEFAULT_TTL).toBe(3600);
   });
 });
 
