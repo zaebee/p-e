@@ -30,8 +30,9 @@ expired files from `.relay/in/` to `.relay/errata/` with `EXPIRED` marker"* — 
 of those lines that **is** in B. It then listed B:245 on the other side, quoting B's own GC
 sentence. Having both in view, §4 of its report classified the pair as:
 
-> GC timing | Move expired from `in/` to `errata/` with `EXPIRED` | Sweeper reaps `.relay/tmp/`
-> >10min; moves `.relay/in/` past TTL to `.relay/errata/` | **Precise timing added**
+> GC timing | Move expired from `in/` to `errata/` with `EXPIRED` |
+> Sweeper reaps `.relay/tmp/` >10min; moves `.relay/in/` past TTL to `.relay/errata/` |
+> **Precise timing added**
 
 It compared the two sentences directly and concluded B was the more precise of them.
 
