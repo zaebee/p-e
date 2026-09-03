@@ -30,7 +30,9 @@ ttl [OPTIONAL]: seconds, default 3600
 created_time(uuidv7) + ttl < now()   ->  moved to errata/, marked EXPIRED
 ```
 
-Both were **dropped between v0.1 and v0.12, and no review round records the removal.** The strings `created_time` and `3600` occur exactly twice in the 2262-line review thread, both times in the original body; across sixteen rounds neither appears again.
+Both were **dropped between v0.1 and v0.12, and no review round records the removal.** The strings `created_time` and `3600` occur exactly once each in the 2262-line review thread, in the original body; across sixteen rounds neither appears again. The thread is frozen at `docs/sources/issue-5-thread.txt` so this is checkable.
+
+*(This said "exactly twice" until the thread was frozen and the counts re-run. One combined grep returned two lines, one carrying each string, read as each string twice. Once is the sharper version of the same argument; `relay-0774` records it.)*
 
 That produced a general observation worth stating, because it shapes what help is useful here:
 

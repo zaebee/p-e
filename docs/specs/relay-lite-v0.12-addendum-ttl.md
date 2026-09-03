@@ -47,8 +47,13 @@ In English, and this is the whole of the restoration:
 
 ## The loss is not recorded anywhere
 
-The strings `created_time` and `3600` each occur **exactly twice** in the 2262-line #5 thread,
-both times in the original body. Across sixteen review rounds neither appears again.
+The strings `created_time` and `3600` each occur **exactly once** in the 2262-line #5 thread,
+in the original body. Across sixteen review rounds neither appears again.
+
+*(Corrected. This said "exactly twice" until the thread was frozen at
+`docs/sources/issue-5-thread.txt` and the counts re-run against it. One combined grep returned
+two lines, one carrying each string, and I read that as each string twice. Once is the sharper
+version of the same argument. `relay-0774`.)*
 
 Every other mention of TTL in that thread is about something else:
 

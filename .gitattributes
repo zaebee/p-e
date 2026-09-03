@@ -37,3 +37,7 @@ docs/experiments/suite-audit/suite/** -text
 # byte-for-byte — so a rewrite would not fail the test, it would rewrite the
 # question and the answer together.
 tests/fixtures/rfc8785/** -text
+
+# Frozen source: the issue #5 thread the lineage work greps against. Byte-exact,
+# so counts in relay-0758 and after are reproducible.
+docs/sources/** -text
