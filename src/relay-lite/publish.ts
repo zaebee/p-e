@@ -4,6 +4,7 @@ import { basename, join } from "node:path";
 import type { SealedAct } from "./act.js";
 import { sha256Hex } from "./canonical.js";
 import { formatCns } from "./cns.js";
+import { errnoOf } from "./errno.js";
 
 /**
  * The publish sequence from §4.1.
@@ -60,18 +61,6 @@ async function syncPath(path: string, flags: string, onSync?: (p: string) => voi
   } finally {
     await handle.close();
   }
-}
-
-/**
- * The errno of a thrown value, when it has one.
- *
- * `readTarget` is a caller-supplied seam, so what it throws is not necessarily
- * an `Error` — reading `.code` off `null` throws from inside the catch and
- * loses the original. Node's own `link` always throws a SystemError, so this
- * costs nothing there and is the only honest reader for the other.
- */
-function errnoOf(value: unknown): string | undefined {
-  return value instanceof Error ? (value as NodeJS.ErrnoException).code : undefined;
 }
 
 /**
