@@ -7,7 +7,7 @@ pinned by `tests/reports-immutable.test.ts`, changes no catalogue.
 Research brief, written to be handed to a model with no access to this repository. Self-contained
 by design, which means it restates things the repository already knows.
 
-Issues: #32, #35, #39, #50, #51, and items 4-5 of #19. Method and general finding: `relay-0758`.
+Open issues: #32, #35, #39, #50, #51, and items 4-5 of #19. Resolved, and the origin of the method used here: #37. General finding: `relay-0758`.
 
 ## The system, in one paragraph
 
@@ -23,7 +23,7 @@ The specification is **working draft v0.12**, which descends from a v0.1 proposa
 
 ## Why the questions below are shaped the way they are
 
-A sixth question — what TTL's seconds are counted from, and what `ttl=0` means — was recently investigated. It turned out **not** to be an open protocol question. Both answers were in the v0.1 proposal:
+A separate question — what TTL's seconds are counted from, and what `ttl=0` means — was investigated first, as **issue #37**. It turned out **not** to be an open protocol question, and #37 is closed. Both answers were in the v0.1 proposal:
 
 ```
 ttl [OPTIONAL]: seconds, default 3600
