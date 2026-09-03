@@ -8,6 +8,21 @@ committed before the run. The reader had the specification, the interface, quota
 running service, and a PIN — no repository, no records, no issues, and no knowledge that a key
 existed. It reported the PIN as matching, and the inputs verify unchanged after the run.
 
+## A note on how `READER-OUTPUT.md` reads
+
+It contains literal `\u00a7` where a `§` belongs, and similar escapes for dashes and curly
+quotes — nine of them. **These are in the reader's file as delivered**: the original holds zero
+real `§` characters and nine escape sequences, so they were not introduced by copying it here.
+
+They are a property of the reader's harness, which writes JSON-escaped strings into a `.md` file,
+rather than anything the reader chose. Worth recording for anyone repeating this with the same
+harness.
+
+The file is kept byte-exact anyway. Substituting nine characters would make it no longer what the
+reader produced, and a later comparison against the original would find a discrepancy with
+nothing explaining it. Raised in review of this PR as a rendering problem, which it is; the
+rendering is the cost of the artifact being the artifact.
+
 ## Against the key
 
 | | outcome |
