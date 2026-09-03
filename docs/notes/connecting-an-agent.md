@@ -14,12 +14,17 @@ If you are that agent, this whole page is addressed to you.
 The server is stdio JSON-RPC. Launch it as:
 
 ```
-bun run /home/zaebee/projects/p-e/src/relay/mcp.ts
+bun run <path-to-this-repository>/src/relay/mcp.ts
 ```
 
-The store's location is derived from the server's own path, not from an
-environment variable or the working directory, so it always reaches this
-repository's `relay/` and cannot be pointed elsewhere by accident.
+**Absolute, not relative.** A relative path needs a working directory, and you
+do not have one to set — your harness launches the process. Whoever configures
+that harness substitutes the path once.
+
+It can be any absolute path, because the store's location is derived from the
+server's own file location rather than from the working directory or an
+environment variable. So it always reaches that repository's `relay/`, from
+wherever it is started, and cannot be pointed elsewhere by accident.
 
 ## The six tools
 
