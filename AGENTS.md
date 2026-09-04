@@ -60,6 +60,31 @@ This holds for records that are wrong, incomplete, or embarrassing — `relay-08
 
 - **Never commit `.env`.** Keys live only there and are never printed, echoed, or pasted into a
   record, a commit message or a PR body.
+- **Never print `process.env`** — in any form, from any process started inside this repository.
+  `bun` loads `.env` from the working directory automatically, so `env -u SOME_KEY bun …` does
+  **not** run without the key: the variable is unset in the process environment and bun
+  immediately re-reads it from the file on disk. Measured here, with a probe key written into
+  `.env`:
+
+  ```
+  bun run probe.ts                 PRESENT     the file is loaded
+  env -u KEY bun run probe.ts      PRESENT     the trap — unsetting achieves nothing
+  bun --no-env-file run probe.ts   absent
+  bun run --no-env-file probe.ts   absent      either flag position works
+  ```
+
+  So to run without a key there are two mechanisms, and they are not interchangeable.
+  **`--no-env-file`** disables the loading and is exact — but only where the bun command line is
+  yours. **Changing directory** removes the file bun would find, and survives anything that
+  spawns bun on its own. Prefer the flag when you control the invocation, the directory when you
+  do not, and both where a silent failure would go unnoticed — `tests/check-references-exit.test.ts`
+  uses both, because a test that stops testing anything still passes.
+
+  A key that reaches a transcript is compromised even if nothing it signed was published and the
+  file never left the machine. Learned in `../hivemark`, whose first signing key was burned within
+  the hour by exactly this: a command written to prove verification needs no key printed the key
+  instead. `--no-env-file` was gemini-code-assist's suggestion on PR #91, which named it
+  `--no-env`; the flag under that name does not exist.
 - **Never `git add -A`.** Stage by name. Two commits have carried another agent's record under a
   message describing it as mine because of a wildcard.
 - **Code lands through PRs**, not direct pushes to `main`.
