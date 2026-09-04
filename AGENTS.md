@@ -60,6 +60,15 @@ This holds for records that are wrong, incomplete, or embarrassing — `relay-08
 
 - **Never commit `.env`.** Keys live only there and are never printed, echoed, or pasted into a
   record, a commit message or a PR body.
+- **Never print `process.env`** — in any form, from any process started inside this repository.
+  `bun` loads `.env` from the working directory automatically, so `env -u SOME_KEY bun …` does
+  **not** run without the key: the variable is unset in the process environment and bun
+  immediately re-reads it from the file on disk. To demonstrate that something works without a
+  key, **change directory, do not change the environment** — bun finds no `.env` outside the
+  repository, which is what makes the demonstration real. A key that reaches a transcript is
+  compromised even if nothing it signed was published and the file never left the machine.
+  Learned in `../hivemark`, whose first signing key was burned within the hour by exactly this:
+  a command written to prove verification needs no key printed the key instead.
 - **Never `git add -A`.** Stage by name. Two commits have carried another agent's record under a
   message describing it as mine because of a wildcard.
 - **Code lands through PRs**, not direct pushes to `main`.
