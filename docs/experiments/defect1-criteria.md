@@ -110,3 +110,52 @@ criteria drawn from three sentences is a choice of three sentences; the specific
 more. **The right attack is on the criteria, before they are applied to anything.**
 
 That is why they are sealed and dispatched rather than run.
+
+
+---
+
+# Attacked, 2026-09-04 — appended, not edited
+
+The criteria above are **not amended**. What follows is what was found against them, in the shape
+this project uses for records: the correction sits beside the thing.
+
+## Five findings, four from outside
+
+| # | finding | from |
+|---|---|---|
+| 1 | **K2 is a consequence of K3.** A node's own events are ordered by program order, part of happens-before, so K3 already forbids two acts sharing `(l, c)`. §3.3 carries one `last_l` and one `last_c`, so no concurrent-emission case escapes it. **The set is two criteria, not three.** | `relay-0853`, mimo |
+| 2 | **K1 silently chooses §3.1 as the authority.** §3.1 and §3.3 contradict — that contradiction *is* defect 1. Extracting from §3.1 decides that §3.3's rule is the defect and the domain the invariant. The opposite extraction was available and never considered. | `relay-0853`, in a different form than stated there |
+| 3 | **Stage purity is missing.** §7.1 says stage 2 depends on the parsed act and nothing else — normative and architectural. A stateful guard passes K1–K3 while violating it. | `relay-0853` |
+| 4 | **Liveness is missing and cannot be sourced.** A node that never emits satisfies all three vacuously: every criterion is a safety property, and safety properties are satisfied perfectly by doing nothing. No liveness requirement exists in any of the twelve normative clauses. | `relay-0854`, mine |
+| 5 | **Excluding cost is half a fix.** *"The solution is not to remove cost. It is to separate it."* A set that cannot distinguish a resolution changing nothing on the wire from one requiring a migration gives no help with the decision it was built to clear the ground for. | `relay-0853`; `relay-0856` from the other side |
+
+## What sealing did and did not do
+
+> Sealing **removes** the fitting of criteria to the outcome of application. It does **not** remove
+> responsibility for the selection of norms; it makes that selection checkable and unalterable
+> post hoc. — `relay-0856`
+
+Evidence the set was not built to rescue a preference: **the author's own option fails K1**, and
+K1 encodes the exact error the author was caught in — confusing *unbounded* with *outside §3.1's
+domain*.
+
+Evidence the selection is still a choice: I-JSON and JCS, stage 2's enumeration, order from the
+citation graph, stage 3's semantics — none became a criterion. Placing "refuse no conforming act"
+and "do not change the wire type" under *cost* rather than *correctness* is the axis, and the
+author drew it.
+
+## A sealed prediction already known wrong
+
+Row **i**, *wait for the next millisecond*, was predicted to **fail K1**. Under decision D the wait
+does not terminate, the node emits nothing, and it fails no criterion. **It passes all three by
+being dead** — finding 4 in one row.
+
+That cell is not corrected. The table is sealed, and a wrong cell is a finding about its author.
+
+## Standing
+
+**The table is not scored and cannot be scored as it stands.** One row rests on a criterion that
+does not exist, one criterion is redundant, one authority-choice is unrecorded, and two properties
+the argument spent thirty records on — stage purity and cost — are outside the frame.
+
+A rebuilt set is the next step and is not written here.
