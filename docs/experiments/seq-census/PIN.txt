@@ -1,0 +1,4 @@
+input tree sha256 (find input -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum)
+33b8661eced117a5f31505816779f1b9c318fb9b183a2cca8f39a471832ecb31
+
+Sealed before the run. Verify after: the input must be unchanged.
