@@ -159,3 +159,34 @@ does not exist, one criterion is redundant, one authority-choice is unrecorded, 
 the argument spent thirty records on — stage purity and cost — are outside the frame.
 
 A rebuilt set is the next step and is not written here.
+
+---
+
+# Sources checked, 2026-09-04 — the central claim is false
+
+The document says **"each is taken from a sentence already in the specification"**. That is true
+of **one** of the three. Found by `relay-0857` being asked to quote the sources line by line, and
+confirmed against the draft directly. Erratum: `relay-0858`.
+
+| | claimed source | what is actually there |
+|---|---|---|
+| **K1** | §3.1 | ✅ a normative `[MUST]` clause, as claimed |
+| **K2** | §3.3, *"strictly monotonic per node, regardless of physical clock regressions"* | ❌ **that sentence is not in the draft.** It is in `docs/notes/relay-lite-open-questions.md`, quoting a **review round's resolution**. The draft holds only line 119's explanatory prose after a code block, and line 56's comment inside a TypeScript interface. Neither is among the twelve normative clauses. |
+| **K3** | HLC requirement 1 | ⚠️ the draft carries **no happens-before requirement at all**. Line 21 is an invariant about partial order, a different statement. Requirement 1 lives in a test comment and in Kulkarni — a legitimate source, but not the specification text, which is what was claimed. |
+
+**A note about a review round was quoted as though it were the specification.** That is the fault
+`relay-0805` objected to in `relay-0804`, committed here by the party that named it, inside a
+document whose whole standing rested on its sources being checkable.
+
+Sealing fixes a claim before application. **It does not check the claim.** The selection of norms
+was made unalterable and was not verified, until someone was asked to quote them.
+
+## And a larger question falls out of it
+
+If K2 and K3 name properties this protocol relies on, and the specification states **neither**
+normatively, then **the specification does not require per-node uniqueness or causal ordering.**
+It describes rules that happen to produce them, and a conforming implementation could do otherwise
+while violating nothing.
+
+That is not a defect in these criteria. It is a defect in the specification, larger than the one
+this document was written for, and it is on no issue.
