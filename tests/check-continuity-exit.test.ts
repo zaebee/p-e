@@ -36,7 +36,20 @@ const script = join(import.meta.dirname, "..", "scripts", "check-continuity.ts")
  */
 const TEST_AUTHORITY = "p-e/relay-under-test";
 
-/** A directory with no `.env` in it, and none above it that bun will find. */
+/**
+ * Two independent guards against the child seeing a `.env`, and both are here
+ * because this test's failure mode is silent — it would pass while testing
+ * nothing.
+ *
+ * `--no-env-file` turns off bun's automatic loading; `cwd` outside the
+ * repository removes the file it would load. Measured in this repo with a probe
+ * key written into `.env`: plain `bun run` saw it, `env -u KEY bun run` STILL
+ * saw it — the trap, reproduced here rather than cited — and `--no-env-file` did
+ * not, in either flag position. `--no-env-file` is the precise mechanism and
+ * only works where the bun command line is ours; the directory is what survives
+ * anything spawning bun on its own. gemini-code-assist on PR #91 asked for the
+ * flag (naming it `--no-env`, which does not exist).
+ */
 const OUTSIDE = mkdtempSync(join(tmpdir(), "cc-cwd-"));
 
 /**
@@ -47,7 +60,7 @@ const OUTSIDE = mkdtempSync(join(tmpdir(), "cc-cwd-"));
  * returned 0. The distinction this whole file is about, in its own harness.
  */
 function run(root?: string, identity: string | null = TEST_AUTHORITY) {
-  const args = ["run", script, ...(root === undefined ? [] : ["--root", root])];
+  const args = ["--no-env-file", "run", script, ...(root === undefined ? [] : ["--root", root])];
   // Built by filtering rather than by deleting or by assigning `undefined`:
   // `delete` is refused by lint, and an explicit `undefined` value reaches
   // `spawnSync` as a property that is present, which is the opposite of absent.

@@ -11,9 +11,18 @@
  * has pointed at — so that such a class, if there is one, is discovered rather
  * than declared at emission.
  *
- * Always exits 0. There is no failure here to report: an unreferenced record is
- * not a defect, and a script that treated it as one would be asserting the very
- * classification the report exists to avoid making.
+ * Exits 0 whatever it finds. There is no failure here to report: an unreferenced
+ * record is not a defect, and a script that treated it as one would be asserting
+ * the very classification the report exists to avoid making.
+ *
+ * The one non-zero is 3, and it is not a finding either: this store's identity is
+ * not configured, so no report can be scoped to an authority and none is
+ * produced. It shares the code with `check-continuity` because it is the same
+ * event — "the records read fine and we cannot say whose they are" — and it must
+ * not be 1, which in the sibling script means a divergence in somebody's record.
+ * gemini-code-assist on PR #93 caught that this call was uncaught; reproduced
+ * before fixing, and it exited 1 with a raw stack trace while the line above
+ * promised 0.
  */
 import { storeIdentity } from "../src/relay/authority.js";
 import { checkReferences, tallyReferences } from "../src/relay/reference.js";
@@ -35,7 +44,16 @@ const everBound = new Set([...store.keys(), ...lost, ...deleted].filter((id) => 
 // The set is paired with whose ids it holds. Unioning it with another store's
 // markers now requires saying which authority the result is for, which is the
 // merge issue-1's Migration section names and nothing could previously refuse.
-const findings = checkReferences(store, { authority: storeIdentity(), ids: everBound });
+let authority: string;
+try {
+  authority = storeIdentity();
+} catch (error) {
+  console.error("REFUSED: this store's identity is not configured.");
+  console.error(`  ${error instanceof Error ? error.message : String(error)}`);
+  console.error("No report is produced. This is not a finding about any record.");
+  process.exit(3);
+}
+const findings = checkReferences(store, { authority, ids: everBound });
 const counts = tallyReferences(findings);
 
 for (const [state, n] of Object.entries(counts)) {
