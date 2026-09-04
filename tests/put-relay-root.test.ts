@@ -56,6 +56,24 @@ describe("relay-put --root", () => {
     }
   });
 
+  it("refuses a record with an invalid parent ID or path traversal in parent header", () => {
+    const root = mkdtempSync(join(tmpdir(), "pr-root-"));
+    const src = mkdtempSync(join(tmpdir(), "pr-src-"));
+    try {
+      const invalidRecord =
+        "@p-e/x0\nparent: ../package\nparent-sha256: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef\n\ntest\n";
+      const input = join(src, "in.txt");
+      writeFileSync(input, invalidRecord);
+
+      const out = put([input, "--root", root]);
+      expect(out.status).toBe(1);
+      expect(out.stderr).toContain("is not a valid relay ID");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a flag with no value rather than taking the next argument", () => {
     const out = put(["--root"]);
     expect(out.status).toBe(1);
