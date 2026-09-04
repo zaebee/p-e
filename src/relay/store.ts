@@ -340,16 +340,22 @@ export function getRelay(store: Map<string, RelayRecord>, id: string): RelayReco
 /** Every id this store's records name but does not hold. */
 export function knownMissing(store: Map<string, RelayRecord>): string[] {
   const named = new Set<string>();
+  // Filter out held IDs early to avoid allocating and sorting them
   for (const r of store.values()) {
-    if (r.parent) named.add(r.parent);
-    if (r.ref) named.add(r.ref);
+    if (r.parent && !store.has(r.parent)) named.add(r.parent);
+    if (r.ref && !store.has(r.ref)) named.add(r.ref);
   }
-  return [...named].filter((id) => !store.has(id)).sort();
+  return [...named].sort(bySeq);
 }
 
 export function exists(store: Map<string, RelayRecord>, id: string): Presence {
   if (store.has(id)) return "PRESENT";
-  return knownMissing(store).includes(id) ? "KNOWN_MISSING" : "UNKNOWN";
+  // Correct only below the early return: `knownMissing` filters out held ids and
+  // this does not, so the two agree exactly when `id` is already known absent.
+  for (const r of store.values()) {
+    if (r.parent === id || r.ref === id) return "KNOWN_MISSING";
+  }
+  return "UNKNOWN";
 }
 
 /** Records whose parent or ref is `id`. The reply graph is not a line. */
