@@ -350,7 +350,8 @@ export function knownMissing(store: Map<string, RelayRecord>): string[] {
 
 export function exists(store: Map<string, RelayRecord>, id: string): Presence {
   if (store.has(id)) return "PRESENT";
-  // Direct scan with early exit to avoid computing full missing list and array searching
+  // Correct only below the early return: `knownMissing` filters out held ids and
+  // this does not, so the two agree exactly when `id` is already known absent.
   for (const r of store.values()) {
     if (r.parent === id || r.ref === id) return "KNOWN_MISSING";
   }
