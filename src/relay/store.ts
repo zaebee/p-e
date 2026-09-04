@@ -345,7 +345,7 @@ export function knownMissing(store: Map<string, RelayRecord>): string[] {
     if (r.parent && !store.has(r.parent)) named.add(r.parent);
     if (r.ref && !store.has(r.ref)) named.add(r.ref);
   }
-  return [...named].sort();
+  return [...named].sort(bySeq);
 }
 
 export function exists(store: Map<string, RelayRecord>, id: string): Presence {
