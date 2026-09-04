@@ -50,6 +50,21 @@ divergence has to be acknowledged deliberately, in two places.
 collisions happened in a single evening, and the one that passed silently was the one where the
 number came from the store (`relay-0784`).
 
+### `P_E_STORE_IDENTITY` is required by the checkers
+
+`check-continuity` and `check-references` report verdicts scoped to an authority, so they need
+this store's configured identity. Unset, `check-continuity` **exits 3** — a code of its own,
+because "nobody said whose records these are" must never arrive as `1`, which means a divergence
+in somebody's record.
+
+```
+export P_E_STORE_IDENTITY=p-e/relay
+```
+
+`authority.ts` refuses to invent a name and refuses a filesystem path: a copy of this store under
+another path is the same authority. The value is a configured identifier, and the citation
+contract in `issue-1` requires one for any citation crossing a store boundary.
+
 ### Records are immutable
 
 A correction is a **new record** of `kind: erratum`, never an edit and never an amended commit.

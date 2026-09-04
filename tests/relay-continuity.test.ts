@@ -5,6 +5,16 @@ import { describe, expect, it } from "vitest";
 import { type Continuity, checkContinuity, tally } from "../src/relay/continuity.js";
 import { loadStore } from "../src/relay/store.js";
 
+/**
+ * The authority these findings are scoped to.
+ *
+ * A literal, not `storeIdentity()`: reading the environment would make these
+ * cases pass or fail on how the machine running them is configured, and every
+ * case here is about a digest agreeing with its parent's bytes. One authority
+ * throughout, which is what the store under test has.
+ */
+const TEST_AUTHORITY = "test-authority";
+
 /** A store built one record at a time, so each case states its own bytes. */
 function store(records: Record<string, string>): string {
   const root = join(mkdtempSync(join(tmpdir(), "p-e-cont-")), "relay");
@@ -23,7 +33,7 @@ const parent = "@p-e/x0\nid: relay-0001\nfrom: alice\n\nthe parent body\n";
 const parentDigest = "a2d0ae4bd45d4c2b2cb1ff9d16ac0dc4b1f4e1cf1e1cbdb9c1b2a2b0b1a83e11";
 
 async function stateOf(root: string, id: string): Promise<Continuity> {
-  const found = checkContinuity(await loadStore(root)).find((f) => f.id === id);
+  const found = checkContinuity(await loadStore(root), TEST_AUTHORITY).find((f) => f.id === id);
   if (!found) throw new Error(`no finding for ${id}`);
   return found.state;
 }
@@ -83,7 +93,7 @@ describe("checkContinuity", () => {
       "relay-0001": parent,
       "relay-0002": "@p-e/x0\nid: relay-0002\nparent: relay-0001\nfrom: bob\n\nb\n",
     });
-    const findings = checkContinuity(await loadStore(root));
+    const findings = checkContinuity(await loadStore(root), TEST_AUTHORITY);
     expect(findings.map((f) => f.id)).toEqual(["relay-0001", "relay-0002"]);
   });
 
@@ -92,7 +102,9 @@ describe("checkContinuity", () => {
       "relay-0001": parent,
       "relay-0002": `@p-e/x0\nid: relay-0002\nparent: relay-0001\nparent-sha256: ${parentDigest}\nfrom: bob\n\nb\n`,
     });
-    const f = checkContinuity(await loadStore(root)).find((x) => x.id === "relay-0002");
+    const f = checkContinuity(await loadStore(root), TEST_AUTHORITY).find(
+      (x) => x.id === "relay-0002",
+    );
     expect(f?.declared).toBe(parentDigest);
     expect(f?.actual).toBe((await loadStore(root)).get("relay-0001")?.sha256);
   });
@@ -101,7 +113,9 @@ describe("checkContinuity", () => {
     const root = store({
       "relay-0002": `@p-e/x0\nid: relay-0002\nparent: relay-0001\nparent-sha256: ${parentDigest}\nfrom: bob\n\nb\n`,
     });
-    const f = checkContinuity(await loadStore(root)).find((x) => x.id === "relay-0002");
+    const f = checkContinuity(await loadStore(root), TEST_AUTHORITY).find(
+      (x) => x.id === "relay-0002",
+    );
     expect(f?.actual).toBeNull();
   });
 });
@@ -109,7 +123,7 @@ describe("checkContinuity", () => {
 describe("tally", () => {
   it("counts every state, including the ones no record exercises", async () => {
     const root = store({ "relay-0001": parent });
-    const counts = tally(checkContinuity(await loadStore(root)));
+    const counts = tally(checkContinuity(await loadStore(root), TEST_AUTHORITY));
     expect(counts.NO_CLAIM).toBe(1);
     // A state that does not occur must read as zero rather than be absent: an
     // unexercised state and an unrepresented one are different facts, which is
@@ -139,7 +153,7 @@ describe("the live store", () => {
     // is bytes, neither derives from the other, so nothing objected when I
     // moved one and not the other — and `deposit.ts` contains zero occurrences
     // of `parent`, so only this check was ever going to catch it.
-    const findings = checkContinuity(await loadStore());
+    const findings = checkContinuity(await loadStore(), TEST_AUTHORITY);
     const diverging = findings.filter((f) => f.state === "DIVERGES").map((f) => f.id);
     expect(diverging).toEqual([
       "relay-0113",

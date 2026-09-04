@@ -10,11 +10,21 @@ import { loadStore, markerAgreement } from "../src/relay/store.js";
  * Findings with the marker set supplied, which `checkReferences` now requires.
  * Every store built here is written through the deposit path, so its markers are
  * the ids it bound.
+ *
+ * The authority is a literal rather than `storeIdentity()`: a test that read the
+ * environment would pass or fail on how the machine running it is configured,
+ * and these cases are about the graph, not about configuration. The name is
+ * arbitrary and only has to be stable within a call.
  */
+const TEST_AUTHORITY = "test-authority";
+
 async function refs(root?: string) {
   const store = await loadStore(root);
   const { lost, deleted } = await markerAgreement(store, root ?? "relay");
-  return checkReferences(store, new Set([...store.keys(), ...lost, ...deleted]));
+  return checkReferences(store, {
+    authority: TEST_AUTHORITY,
+    ids: new Set([...store.keys(), ...lost, ...deleted]),
+  });
 }
 
 function store(records: Record<string, string>): string {
@@ -181,7 +191,9 @@ describe("successors and the marker set", () => {
       const { lost, deleted } = await markerAgreement(store, root);
       for (const id of [...lost, ...deleted]) bound.add(id);
     }
-    return checkReferences(store, bound).map((f) => `${f.id}:${f.state}`);
+    return checkReferences(store, { authority: TEST_AUTHORITY, ids: bound }).map(
+      (f) => `${f.id}:${f.state}`,
+    );
   }
 
   it("a deletion no longer excuses the record below it", async () => {

@@ -15,6 +15,7 @@
  * not a defect, and a script that treated it as one would be asserting the very
  * classification the report exists to avoid making.
  */
+import { storeIdentity } from "../src/relay/authority.js";
 import { checkReferences, tallyReferences } from "../src/relay/reference.js";
 import { ID, STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
 
@@ -31,7 +32,10 @@ const { lost, deleted } = await markerAgreement(store, root ?? STORE_ROOT);
 // version of this change passed the place where it could be closed without
 // closing it — gemini-code-assist and the fable review both walked past it too.
 const everBound = new Set([...store.keys(), ...lost, ...deleted].filter((id) => ID.test(id)));
-const findings = checkReferences(store, everBound);
+// The set is paired with whose ids it holds. Unioning it with another store's
+// markers now requires saying which authority the result is for, which is the
+// merge issue-1's Migration section names and nothing could previously refuse.
+const findings = checkReferences(store, { authority: storeIdentity(), ids: everBound });
 const counts = tallyReferences(findings);
 
 for (const [state, n] of Object.entries(counts)) {

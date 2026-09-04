@@ -4,12 +4,14 @@
  *   bun run check-continuity          summary, plus every finding worth naming
  *   bun run check-continuity --all    one line per record
  *
- * Exits 0 clean, 1 on a divergence that is not already known, and 2 when the
- * store cannot be read at all. UNCHECKABLE is never a failure: it says this
- * store lacks the parent's bytes, which is a fact about our access. Treating it
- * as an error would be the exact substitution the check was written to catch —
- * and so would answering 1 for a store nobody could open.
+ * Exits 0 clean, 1 on a divergence that is not already known, 2 when the store
+ * cannot be read at all, and 3 when this store's identity is not configured.
+ * UNCHECKABLE is never a failure: it says this store lacks the parent's bytes,
+ * which is a fact about our access. Treating it as an error would be the exact
+ * substitution the check was written to catch — and so would answering 1 for a
+ * store nobody could open, or for a store whose identity nobody has supplied.
  */
+import { storeIdentity } from "../src/relay/authority.js";
 import { checkContinuity, tally } from "../src/relay/continuity.js";
 import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
 
@@ -122,7 +124,35 @@ try {
   console.error("Nothing is claimed about the records. This is not a finding.");
   process.exit(2);
 }
-const findings = checkContinuity(store);
+/**
+ * The configured identity, refused rather than invented — and caught, because an
+ * uncaught throw exits 1.
+ *
+ * 1 means "a divergence nobody has accounted for", which is a finding about
+ * somebody's record. A missing environment variable is a fact about how this
+ * process was started, and letting it leave through the same door would report
+ * our own configuration as a defect in the corpus. That is the substitution this
+ * script's exit codes exist to refuse, arriving through the one path that did
+ * not go through them.
+ *
+ * 3 rather than 2. Both mean nothing is claimed, and they are not the same
+ * event: 2 is "these records could not be read", 3 is "the records read fine and
+ * we cannot say whose they are". Collapsing them would be the same substitution
+ * one level out.
+ *
+ * After the load, so a store nobody can open still answers 2 — the more specific
+ * failure, and the one about the world rather than about us.
+ */
+let authority: string;
+try {
+  authority = storeIdentity();
+} catch (error) {
+  console.error("REFUSED: this store's identity is not configured.");
+  console.error(`  ${error instanceof Error ? error.message : String(error)}`);
+  console.error("Nothing is claimed about the records. This is not a finding.");
+  process.exit(3);
+}
+const findings = checkContinuity(store, authority);
 const counts = tally(findings);
 
 for (const [state, n] of Object.entries(counts)) {
