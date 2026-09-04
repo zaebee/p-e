@@ -170,6 +170,20 @@ describe("the live store", () => {
       "relay-0430",
       "relay-0689",
       "relay-0693",
+      // Eleventh through fourteenth, all mine, all in one session, and all the
+      // whole-file digest the four at the top of this list already are. The
+      // comment above says `bun run relay-digest` exists BECAUSE the obvious
+      // command gives the wrong value — and I reached for `sha256sum` anyway,
+      // having read that comment and this list. Erratum relay-0807; relay-0809
+      // corrects that erratum's account of the cause, which blamed a missing
+      // check without mentioning the tool that was already there.
+      //
+      // So a tool you must remember does not close this. `put-relay` now refuses
+      // a mismatch at deposit, which is the difference between an aid and a gate.
+      "relay-0800",
+      "relay-0802",
+      "relay-0803",
+      "relay-0805",
     ]);
   });
 });

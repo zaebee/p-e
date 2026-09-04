@@ -84,11 +84,12 @@ async function checkParentDigest(record: string, relayRoot: string): Promise<voi
   const actual = createHash("sha256").update(bodyOf(parentBytes), "utf8").digest("hex");
   if (actual !== declared) {
     console.error(
-      `parent-sha256 does not match ${parent}\n` +
-        `  declared ${declared}\n` +
-        `  actual   ${actual}\n` +
-        `Records are immutable, so this cannot be fixed after the deposit — only\n` +
-        `corrected beside it. Fix the header and deposit again.`,
+      `parent-sha256 does not match ${parent}
+  declared ${declared}
+  actual   ${actual}
+Records are immutable, so this cannot be fixed after the deposit — only corrected
+beside it. Fix the header and deposit again; \`bun run relay-digest ${parent}\`
+prints the value this field wants.`,
     );
     process.exit(1);
   }
