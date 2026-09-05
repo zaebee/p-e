@@ -5,10 +5,19 @@ import { isUuidV7 } from "./uuid.js";
 /**
  * The delivery filename, and the two things it must agree with.
  *
- * §2.1: `to=<agent>;from=<agent>;thread=<thread_id>;ttl=<seconds>;id=<uuidv7>.json`
+ * §2.1 carries the grammar and both constraints — draft lines 35, 42 and 46, all
+ * of them between `### 2.1` at line 33 and `## 3.` at line 48:
  *
- * §2: *"`CNS.to` is an element of the act's `to[]`, or `to[] == ["all"]`"*, and
+ * `to=<agent>;from=<agent>;thread=<thread_id>;ttl=<seconds>;id=<uuidv7>.json`
+ *
+ * *"`CNS.to` is an element of the act's `to[]`, or `to[] == ["all"]`"*, and
  * *"`CNS.id == act.id`."*
+ *
+ * This block used to cite the two constraints as §2, and that was wrong. It cost
+ * something: gemini-code-assist on PR #102 read this comment, found it disagreed
+ * with a census document that had the section right, and proposed correcting the
+ * document to match the comment. A derived artifact contradicting its source, and
+ * the derived one believed.
  *
  * The name carries delivery and the sealed body carries the act, so the two can
  * disagree — a validly sealed act can be linked under a name naming someone the
