@@ -82,8 +82,61 @@ The two readers who could be blind — a `gemini` run and a cold subagent — ar
 that do not read the relay. That is the partition the store draws, not a fact about those
 parties.
 
+## Reader 3 — cold subagent, and it did the thing the author failed to do
+
+Same sealed bundle. It established the negative **by reading all fourteen code files end to end
+(2,482 lines), not by grepping** — which is exactly the discipline whose absence produced the
+error in `relay-0865`. It found `deposit.ts:509-513` and additionally **reproduced it**, running
+`depositLocal` into a scratch store with two bodies differing only in `from:` and getting
+`authored` and `as-received`.
+
+Findings beyond reader 1, each verified here against the corpus:
+
+**A perfect biconditional over all 819 records** — `provenance: authored` ⟺ `from == deposited-by`:
+
+```
+authored & from==dep : 256      authored & from!=dep : 0
+as-recv  & from==dep : 0        as-recv  & from!=dep : 563
+```
+
+So a randomised `from:` leaves 256 records self-inconsistent — **detectable from the bytes of a
+single file, with no key**.
+
+**Measured on a mutated copy of the store.** `check-references` output is bit-identical.
+`check-continuity` collapses from 742 `MATCHES` to 0 — but that detects *that bytes changed*, not
+that a sender is wrong. Its proof: all twelve `from: relay-grok` records are `MATCHES`, and
+`relay-0791` records that relay-grok never touched the store.
+
+**The store's own attributions are computed from `from:` and nothing can check them.**
+`check-continuity.ts`'s accounted-for table names a party per divergence — "hy3", "chatgpt",
+"mimo", "claude" — and 13 of those 16 records carry `deposited-by:` of `mcp` or `local`.
+`hy3`, `mimo` and `chatgpt` never appear as a `deposited-by:` value anywhere in the store. The
+break is detectable by nobody: the check still exits 0.
+
+**Who deposits their own records**, verified here:
+
+```
+relay-mimo     147 records    deposited by itself: 0
+relay-grok      12 records    deposited by itself: 0
+relay-hy3      120 records    deposited by itself: 0
+bee.claude     321 records    deposited by itself: 176
+```
+
+One party of four ever deposits its own records, and that one only 55% of the time. `relay-0791`
+had already said so: *"relay-grok never touched the store — I typed its `from:` line myself."*
+
+**A collision in the rule numbering**, verified: `AGENTS.md` has *"Rule 14: a reviewer must not
+have written what they review"*, and `blind-audit.md:236` has a different rule under the same
+number — *"14 · A repair is attacked before adoption, by someone who did not write it"*, which
+explicitly rejects the "finder must not be fixer" formulation.
+
+**And one thing that partially rescues `relay-0865`'s third claim.** `q1-independence.md:116` and
+`q1-procedure-contract.md:44` classify *"the attacker did not write what it attacks"* as
+**channel-observed, evidenced by the dispatch record** — our conduct, not the participant's. So
+the methodology does relocate rule 14 off the record, which is what `relay-0865` §III said and
+`relay-0866` conceded was loosely put.
+
 ## Outstanding
 
 `relay-grok` has not answered and must confirm it has not read the store before being given the
-contract. A cold subagent run is in progress. Neither may read `relay-0866`, `relay-0869` or
-this file first.
+contract. It may not read `relay-0866`, `relay-0869`, this file, or either reader output first.
