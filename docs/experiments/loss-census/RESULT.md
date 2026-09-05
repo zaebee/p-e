@@ -53,6 +53,7 @@ v0.1's conformance checklist carries three marked `[MUST]` (thread lines 144-146
 ### 1 · Atomic publication — `DEMOTED`
 
 > thread line 145: `* [MUST] Запись сообщений обязана быть атомарной (через tmp/ + rename).`
+> ("Writing messages MUST be atomic (via `tmp/` + `rename`).")
 
 The **mechanism** was discussed at length and improved: lines 156, 164, 166 and 228 record
 `rename` being rejected for `link`, because *"`rename` is atomic and replaces silently, while
