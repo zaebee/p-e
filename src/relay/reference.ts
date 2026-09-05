@@ -45,7 +45,40 @@ import { ID_DIGITS, ID_PREFIX, type RelayRecord } from "./store.js";
  */
 export type Reference = "REFERENCED" | "PROSE_ONLY" | "UNREFERENCED" | "NO_SUCCESSORS";
 
+/**
+ * The ids one authority has ever bound, carrying whose they are.
+ *
+ * A bare `ReadonlySet<string>` was the defect issue-1's Migration section names.
+ * `checkReferences(store, new Set([...a, ...b]))` type-checks, and merging two
+ * authorities' marker sets that way silently inflates `successors` for every
+ * record in both — flipping records out of `NO_SUCCESSORS` "with the subject
+ * unchanged". Nothing could have caught it: two sets of `relay-NNNN` are
+ * indistinguishable once unioned, because a bare locator is only unique within
+ * one store.
+ *
+ * Pairing the ids with their authority does not detect a merge — nothing can,
+ * from locators alone, which is ADR-2's finding — it makes one *inexpressible*
+ * without saying which authority the result belongs to. That is the whole of
+ * what this change buys, and it is bought while exactly one authority exists so
+ * that every verdict on the current corpus is unchanged by it.
+ */
+export interface BoundIds {
+  /** The configured store identity, per issue-1's citation contract. */
+  readonly authority: string;
+  /** Every id this authority has bound — the marker set, which survives deletion. */
+  readonly ids: ReadonlySet<string>;
+}
+
 export interface ReferenceFinding {
+  /**
+   * Which authority this verdict belongs to.
+   *
+   * A finding is about `(authority, id)`, never an id alone: `relay-0500` names
+   * a different record in a different store, so a verdict carrying only the
+   * locator cannot be merged with another store's without inventing an identity
+   * for both.
+   */
+  readonly authority: string;
   readonly id: string;
   /** Records naming it in `parent:` or `ref:`. */
   readonly referencedBy: readonly string[];
@@ -118,7 +151,7 @@ function bySeq(a: string, b: string): number {
  */
 export function checkReferences(
   store: ReadonlyMap<string, RelayRecord>,
-  bound: ReadonlySet<string>,
+  bound: BoundIds,
 ): ReferenceFinding[] {
   const ids = [...store.keys()].sort();
   const referencedBy = new Map<string, string[]>();
@@ -155,7 +188,7 @@ export function checkReferences(
   //
   // The store is 664 today, where both are free. The difference is what happens
   // to a check that is meant to keep running.
-  const boundSorted = [...bound].sort(bySeq);
+  const boundSorted = [...bound.ids].sort(bySeq);
 
   return ids.map((id, i) => {
     const refs = referencedBy.get(id) ?? [];
@@ -181,8 +214,12 @@ export function checkReferences(
     // them would restore the defect above, since a deleted record nobody named
     // lands in exactly the same bucket. The error that reports too much is the
     // one this store already prefers: absence must not read as a claim.
+    // Scoped to `bound.authority` by construction: the set carries whose ids it
+    // holds, so this counts one authority's successors and cannot be handed a
+    // union of two without the caller naming which authority the answer is for.
     const successors = boundSorted.length - firstAbove(boundSorted, id);
     return {
+      authority: bound.authority,
       id,
       referencedBy: refs,
       mentionedBy: mentions,

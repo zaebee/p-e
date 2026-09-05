@@ -55,6 +55,21 @@ export type Continuity =
   | "UNANCHORED";
 
 export interface ContinuityFinding {
+  /**
+   * The authority this record and its parent were both resolved within.
+   *
+   * `parent:` is a bare locator, and issue-1 makes a within-store citation the
+   * pair `(locator, digest)` — sufficient only "within one identified store".
+   * Resolution below is a lookup in one map, so it is already scoped to one
+   * authority; carrying the name says which, so a finding cannot be read as a
+   * verdict about `relay-NNNN` anywhere.
+   *
+   * This does NOT detect a foreign parent. ADR-2 settles that: a bare locator
+   * carries no authority, so `is_parent_foreign` is not computable before
+   * reading the parent, and a store that guessed would refuse legitimate
+   * references. The name is recorded, never inferred.
+   */
+  readonly authority: string;
   readonly id: string;
   readonly parent: string | null;
   /** What the record says its parent's bytes digest to. */
@@ -84,13 +99,30 @@ export function stateOf(
   return declared === actual ? "MATCHES" : "DIVERGES";
 }
 
-/** One finding per record held, in id order. Never omits a record. */
-export function checkContinuity(store: ReadonlyMap<string, RelayRecord>): ContinuityFinding[] {
+/**
+ * One finding per record held, in id order. Never omits a record.
+ *
+ * `authority` is the store identity these records belong to — supplied, never
+ * derived from the path, because "a copy of this store under another path is the
+ * same authority" (issue-1, via `authority.ts`). Every record in one store has
+ * one authority today, so naming it changes no verdict; what it changes is that
+ * a caller merging two stores' findings has to say which authority the merged
+ * list is about, instead of producing a list of bare ids that reads as global.
+ */
+export function checkContinuity(
+  store: ReadonlyMap<string, RelayRecord>,
+  authority: string,
+): ContinuityFinding[] {
   return [...store.values()]
     .sort((a, b) => (a.id < b.id ? -1 : 1))
     .map((r) => {
+      // Resolved within this authority alone. The map holds one store, so a
+      // locator that names another authority's record does not resolve here and
+      // reports UNCHECKABLE — "a fact about this store's access" — which is the
+      // honest answer and the one ADR-2 leaves available.
       const actual = r.parent === null ? null : (store.get(r.parent)?.sha256 ?? null);
       return {
+        authority,
         id: r.id,
         parent: r.parent,
         declared: r.parentSha256,
