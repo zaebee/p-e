@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 /**
  * The check computes MATCHES / DIVERGES / UNCHECKABLE and then has to hand one
@@ -73,6 +73,11 @@ function run(root?: string, identity: string | null = TEST_AUTHORITY) {
 
 const header = (id: string) =>
   `deposited-by: local\nprovenance: as-received\nassigned-id: ${id}\n---\n`;
+
+// The per-test stores below clean up in their own `finally`; this one is
+// module-scoped and was not cleaned at all, so every suite run left an empty
+// `cc-cwd-` behind. gemini-code-assist on PR #93.
+afterAll(() => rmSync(OUTSIDE, { recursive: true, force: true }));
 
 describe("check-continuity exit codes", () => {
   it("exits 0 on the live store, which carries only accounted divergences", () => {

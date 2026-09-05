@@ -15,9 +15,10 @@
  * record is not a defect, and a script that treated it as one would be asserting
  * the very classification the report exists to avoid making.
  *
- * The one non-zero is 3, and it is not a finding either: this store's identity is
+ * Two non-zero codes, and neither is a finding: 2 when the store cannot be read
+ * at all, and 3 when this store's identity is
  * not configured, so no report can be scoped to an authority and none is
- * produced. It shares the code with `check-continuity` because it is the same
+ * produced. Both share their codes with `check-continuity` because they are the same
  * event — "the records read fine and we cannot say whose they are" — and it must
  * not be 1, which in the sibling script means a divergence in somebody's record.
  * gemini-code-assist on PR #93 caught that this call was uncaught; reproduced
@@ -32,7 +33,33 @@ const all = process.argv.includes("--all");
 const at = process.argv.indexOf("--root");
 const root = at === -1 ? undefined : process.argv[at + 1];
 
-const store = await loadStore(root);
+/**
+ * Exit 2, and it is the sibling's reasoning, not a new one.
+ *
+ * A store this script cannot read and a store it read fine are different
+ * answers, and an uncaught throw gives 1 with a stack trace — reproduced before
+ * fixing. That is worse here than in `check-continuity`, because this script
+ * documents 0 as its answer whatever it finds, so 1 contradicts the line above
+ * rather than merely overloading it.
+ *
+ * gemini-code-assist on PR #93, second round. The first round caught the same
+ * omission around `storeIdentity()` one line below this one, and fixing that
+ * walked straight past this — the neighbouring call, the same shape, in the
+ * same edit.
+ */
+let store: Awaited<ReturnType<typeof loadStore>>;
+try {
+  store = await loadStore(root);
+} catch (error) {
+  console.error(`REFUSED: cannot read the store at ${root ?? STORE_ROOT}`);
+  // Not `(error as Error).message`: a non-Error reaching this cast would throw
+  // inside the handler and die unhandled with exit 1, which is the outcome this
+  // block exists to prevent. Copied deliberately from check-continuity.ts, where
+  // the reasoning is written out at length.
+  console.error(`  ${error instanceof Error ? error.message : String(error)}`);
+  console.error("No report is produced. This is not a finding about any record.");
+  process.exit(2);
+}
 // The marker set, so a deleted record still counts as a possible referrer.
 const { lost, deleted } = await markerAgreement(store, root ?? STORE_ROOT);
 // Filtered by id shape, as `markerAgreement` filters both its sides. Without it

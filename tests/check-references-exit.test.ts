@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 
 /**
  * `check-references` says it exits 0 whatever it finds, because an unreferenced
@@ -33,17 +33,18 @@ const script = join(import.meta.dirname, "..", "scripts", "check-references.ts")
 const OUTSIDE = mkdtempSync(join(tmpdir(), "cr-cwd-"));
 
 /** `null` withholds the identity; an explicit `undefined` would select the default. */
-function run(identity: string | null = "p-e/relay-under-test") {
+function run(identity: string | null = "p-e/relay-under-test", root?: string) {
   const env: NodeJS.ProcessEnv = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => key !== "P_E_STORE_IDENTITY"),
   );
   if (identity !== null) env.P_E_STORE_IDENTITY = identity;
-  return spawnSync("bun", ["--no-env-file", "run", script], {
-    encoding: "utf8",
-    env,
-    cwd: OUTSIDE,
-  });
+  const args = ["--no-env-file", "run", script, ...(root === undefined ? [] : ["--root", root])];
+  return spawnSync("bun", args, { encoding: "utf8", env, cwd: OUTSIDE });
 }
+
+// The directory is this file's, so this file removes it. Left behind, every run
+// of the suite deposits another empty `cr-cwd-` in the system temp directory.
+afterAll(() => rmSync(OUTSIDE, { recursive: true, force: true }));
 
 describe("check-references exit codes", () => {
   it("exits 0 on the live store, whatever it finds", () => {
@@ -63,12 +64,34 @@ describe("check-references exit codes", () => {
     expect(out.stdout).toBe("");
   });
 
+  it("exits 2, not 1, when the store cannot be read at all", () => {
+    // Same distinction the sibling script draws, and it matters more here: this
+    // script documents 0 as its answer whatever it finds, so 1 would contradict
+    // its own docstring rather than merely overloading a code.
+    const out = run(undefined, join(tmpdir(), "cr-no-such-store-7b2e4d"));
+    expect(out.status).toBe(2);
+    expect(out.stderr).toContain("REFUSED");
+    expect(out.stderr).toContain("not a finding");
+    expect(out.stdout).toBe("");
+  });
+
   it("refuses without a stack trace, which is what it did before", () => {
     // The uncaught version printed source lines from authority.ts. A refusal
     // reads as a decision; a stack trace reads as a crash, and this script's
     // whole subject is the difference between the two.
-    const out = run(null);
-    expect(out.stderr).not.toContain("storeIdentity(env");
-    expect(out.stderr).not.toContain("at ");
+    // Matched by SHAPE, not by substring. A first version asserted the absence
+    // of "at " and failed on the refusal's own prose — "cannot read the store at
+    // /tmp/…" — which would equally have passed the identity case for no reason.
+    // A bun stack trace is numbered source lines and indented `at` frames; both
+    // are line shapes, so that is what this looks for.
+    const SOURCE_LINE = /^\s*\d+\s*\|/;
+    const STACK_FRAME = /^\s+at\s/;
+    for (const out of [run(null), run(undefined, join(tmpdir(), "cr-no-such-store-7b2e4d"))]) {
+      const lines = out.stderr.split("\n");
+      expect(lines.filter((l) => SOURCE_LINE.test(l))).toEqual([]);
+      expect(lines.filter((l) => STACK_FRAME.test(l))).toEqual([]);
+      // And the refusal did say something, so an empty stderr cannot pass this.
+      expect(out.stderr).toContain("REFUSED");
+    }
   });
 });
