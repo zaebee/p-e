@@ -1,7 +1,7 @@
 # Result — loss census, stratum 3: structural units
 
 Same predicate, sealed 09:18:12 UTC in `PREDICATE.md` before any comparison, which already
-names this stratum. Strata 1 and 2 are in `RESULT.md`.
+names this stratum. Strata 1 and 2 are in [`RESULT.md`](RESULT.md).
 
 **The largest losses are here, and the largest of them is an invariant no round ever mentioned.**
 
@@ -32,7 +32,7 @@ of sixteen review rounds mentions it.
 **This project practises that invariant daily and did not know it was specified.** Witnessing is
 the record; Examination is the blind read; Criterion is the sealed criteria set — this very
 census sealed one at 09:18:12 before looking; Verdict is the ruling. The discipline was
-rediscovered by failing without it (`relay-0799`, `defect1-criteria.md`, and today's four errata)
+rediscovered by failing without it (`relay-0799`, [`defect1-criteria.md`](../defect1-criteria.md), and today's four errata)
 while its statement sat in the source document, dropped.
 
 ## §2 · Layout — five directories became three
