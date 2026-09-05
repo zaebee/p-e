@@ -63,21 +63,65 @@ This is the `DEMOTED` shape of `#103` and `#104`, arriving through the other ins
 |---|---|
 | 234 · separation of aggregated finding from sovereign ruling | **`SUPERSEDED`** — item 343 reverses the direction in writing, and v0.12 §5 follows 343 |
 | 1795 · complete causal-link 2×2 truth table | **`LANDED`** — the table is at line 281, all four states, and *"Stage 2 rejects `UNANCHORED`"* at line 321 |
-| 2242 · archival summary of the review record | **out of scope** — a retrospective, not an undertaking to change the draft. Counted as neither |
+| 2242 · archival summary of the review record | **`EXCLUDED`** — a retrospective, not an undertaking to change the draft. Counted as neither |
 
 `2242` is worth naming: it would have inflated the count, and the predicate excludes it because it
 promises nothing about the draft.
 
 ## Standing count
 
+**The count below was wrong and is corrected in the section after it. It is left as written
+because the correction is the more useful record.**
+
 | | |
 |---|---|
-| undertakings in the population | 48 |
+| undertakings in the population | ~~48~~ |
 | audited by `#67` | 3 (of which 1 landed) |
 | read in full here | 5 |
-| **screened by term presence** | **48** |
+| screened by term presence | 48 |
 | new `PARTIAL` found | **2** |
-| still owed a full read | **43** |
+| still owed a full read | ~~43~~ |
+
+## Correction · the denominator was wrong, and is still not known
+
+gemini-code-assist on PR #108 found the standing count inconsistent: item `2242` was both counted
+in the population and excluded as not an undertaking. Checking that led further than the
+arithmetic.
+
+**The population pattern under-counted.** It matched `### N. <title>` headings inside response
+sections. `#67`'s three items sit under `### Structural Cleanups:` as plain `1.` `2.` `3.` list
+entries and match nothing. They *are* undertakings by this predicate's own definition — numbered
+items in a response section stating what will change, closed by *"Draft v0.2 will be updated with
+these exact primitives."*
+
+So the sealed predicate's *"#67 audited the three… 45 have never been checked"* is false: those
+three were never in the 48, and **all 48 were unchecked** before this pass.
+
+**And it over-counted.** Item `2242` is a `### N.` heading and promises nothing about the draft.
+At least three more read like retrospectives rather than undertakings — `1. Retraction of
+Premature "Logical Completeness"`, `3. Re-affirmation of Status: Working Draft`, `3. Transition to
+Implementation` — and they have not been checked.
+
+**Corrected standing:**
+
+| | |
+|---|---|
+| `### N.` headings in response sections | 48 |
+| plus undertakings the pattern missed (`Structural Cleanups`) | **+3** |
+| minus `### N.` headings that promise nothing | **at least −1** (`2242`), count unknown |
+| **true population** | **not yet known** |
+| audited by `#67` | 3 |
+| read in full here | 5 |
+
+**Every other numbered group in the thread was checked and is a recap, not an undertaking** — 29
+items under `Conformance Summary`, `Specification Status v0.4`–`v0.11`, `Summary of v0.7` and the
+archival summary, each restating a `### N.` item already counted. Two more are v0.1's own body,
+outside response sections entirely.
+
+**`PREDICATE-rounds.md` is not edited.** It was sealed before classification and its error belongs
+to the record; a predicate corrected after the fact is not a predicate. What the seal bought is
+visible here: the miscount surfaced because the sealed text stated a number that could be checked
+against the thread.
 
 ## The blind spot, which is this pass's real finding
 

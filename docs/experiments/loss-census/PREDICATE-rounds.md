@@ -45,7 +45,7 @@ different question and not this one.
 | `LANDED` | v0.12 carries what the item undertook, recognisably |
 | `LANDED-ALTERED` | v0.12 carries something different, and a later round records the alteration |
 | `SUPERSEDED` | a later response withdraws or replaces it, in writing |
-| `PARTIAL` | part of the undertaking is in v0.12 and part is not |
+| **`PARTIAL`** | **part of the undertaking is in v0.12 and part is not** |
 | **`NOT-LANDED`** | **v0.12 carries none of it, and no later round withdraws it** |
 
 `NOT-LANDED` and `PARTIAL` are the class under census. The others are counted so the denominator
