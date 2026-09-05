@@ -246,6 +246,14 @@ async function deposit(
   proposedId: string | undefined,
   root: string,
 ): Promise<DepositResult> {
+  // Refuse depositedBy containing whitespace or newlines to prevent header
+  // injection into the store's deposit metadata block above ---.
+  if (typeof depositedBy !== "string" || depositedBy === "" || /\s/.test(depositedBy)) {
+    throw new Error(
+      `depositedBy must be a single non-empty token without whitespace or newlines, got ${JSON.stringify(depositedBy)}`,
+    );
+  }
+
   const held = await loadStore(root);
 
   // The store holds relay records. Bytes that merely happen to parse - the
