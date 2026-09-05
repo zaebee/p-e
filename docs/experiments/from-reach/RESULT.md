@@ -82,11 +82,26 @@ The two readers who could be blind — a `gemini` run and a cold subagent — ar
 that do not read the relay. That is the partition the store draws, not a fact about those
 parties.
 
-## Reader 3 — cold subagent, and it did the thing the author failed to do
+## Reader 3 — cold subagent, STEERED BY THE OPERATOR ON ITS HEADLINE AXIS
 
-Same sealed bundle. It established the negative **by reading all fourteen code files end to end
-(2,482 lines), not by grepping** — which is exactly the discipline whose absence produced the
-error in `relay-0865`. It found `deposit.ts:509-513` and additionally **reproduced it**, running
+**Disclosed rather than discovered later.** The sealed `CONTRACT.md` carries no such
+instruction, and reader 1 never saw one — but the subagent's dispatch prompt did:
+
+> *"the question is about what READS and DECIDES ON a field, so grepping for one spelling of a
+> name is not sufficient to establish a negative. A claim that nothing does X must be checked in
+> a way that could actually have found an X."*
+
+Its reported headline is that it *"established that negative by reading all fourteen code files
+end to end (2,482 lines), not by grepping"*. **That is compliance with an instruction, not an
+independent demonstration of method**, and an earlier version of this section presented it as the
+latter. The operator wrote both the error and the warning against it, then read the warning being
+followed as confirmation.
+
+What this does **not** touch: the findings themselves, each verified against the corpus below by
+recomputation rather than taken from the report. What it does touch: reader 3 is not independent
+evidence that the method was findable, and only **reader 1 is clean on that axis**.
+
+Same sealed bundle otherwise. It found `deposit.ts:509-513` and additionally **reproduced it**, running
 `depositLocal` into a scratch store with two bodies differing only in `from:` and getting
 `authored` and `as-received`.
 
