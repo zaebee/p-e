@@ -13,6 +13,7 @@
  */
 import { storeIdentity } from "../src/relay/authority.js";
 import { checkContinuity, tally } from "../src/relay/continuity.js";
+import { REFUSED_UNIDENTIFIED, REFUSED_UNREADABLE, refuse } from "../src/relay/refusal.js";
 import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
 
 /**
@@ -115,14 +116,12 @@ let store: Awaited<ReturnType<typeof loadStore>>;
 try {
   store = await loadStore(root);
 } catch (error) {
-  console.error(`REFUSED: cannot read the store at ${root ?? STORE_ROOT}`);
-  // Not `(error as Error).message`. If a non-Error ever reached this catch, the
-  // cast would throw inside the handler and the process would die unhandled —
-  // with exit 1, which is the collapse three lines of this block exist to
-  // prevent. The guarantee has to survive its own error path.
-  console.error(`  ${error instanceof Error ? error.message : String(error)}`);
-  console.error("Nothing is claimed about the records. This is not a finding.");
-  process.exit(2);
+  refuse(
+    REFUSED_UNREADABLE,
+    `cannot read the store at ${root ?? STORE_ROOT}`,
+    error,
+    "Nothing is claimed about the records. This is not a finding.",
+  );
 }
 /**
  * The configured identity, refused rather than invented — and caught, because an
@@ -147,10 +146,12 @@ let authority: string;
 try {
   authority = storeIdentity();
 } catch (error) {
-  console.error("REFUSED: this store's identity is not configured.");
-  console.error(`  ${error instanceof Error ? error.message : String(error)}`);
-  console.error("Nothing is claimed about the records. This is not a finding.");
-  process.exit(3);
+  refuse(
+    REFUSED_UNIDENTIFIED,
+    "this store's identity is not configured.",
+    error,
+    "Nothing is claimed about the records. This is not a finding.",
+  );
 }
 const findings = checkContinuity(store, authority);
 const counts = tally(findings);

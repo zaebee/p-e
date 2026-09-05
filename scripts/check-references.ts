@@ -27,6 +27,7 @@
  */
 import { storeIdentity } from "../src/relay/authority.js";
 import { checkReferences, tallyReferences } from "../src/relay/reference.js";
+import { REFUSED_UNIDENTIFIED, REFUSED_UNREADABLE, refuse } from "../src/relay/refusal.js";
 import { ID, STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
 
 const all = process.argv.includes("--all");
@@ -51,14 +52,12 @@ let store: Awaited<ReturnType<typeof loadStore>>;
 try {
   store = await loadStore(root);
 } catch (error) {
-  console.error(`REFUSED: cannot read the store at ${root ?? STORE_ROOT}`);
-  // Not `(error as Error).message`: a non-Error reaching this cast would throw
-  // inside the handler and die unhandled with exit 1, which is the outcome this
-  // block exists to prevent. Copied deliberately from check-continuity.ts, where
-  // the reasoning is written out at length.
-  console.error(`  ${error instanceof Error ? error.message : String(error)}`);
-  console.error("No report is produced. This is not a finding about any record.");
-  process.exit(2);
+  refuse(
+    REFUSED_UNREADABLE,
+    `cannot read the store at ${root ?? STORE_ROOT}`,
+    error,
+    "No report is produced. This is not a finding about any record.",
+  );
 }
 // The marker set, so a deleted record still counts as a possible referrer.
 const { lost, deleted } = await markerAgreement(store, root ?? STORE_ROOT);
@@ -75,10 +74,12 @@ let authority: string;
 try {
   authority = storeIdentity();
 } catch (error) {
-  console.error("REFUSED: this store's identity is not configured.");
-  console.error(`  ${error instanceof Error ? error.message : String(error)}`);
-  console.error("No report is produced. This is not a finding about any record.");
-  process.exit(3);
+  refuse(
+    REFUSED_UNIDENTIFIED,
+    "this store's identity is not configured.",
+    error,
+    "No report is produced. This is not a finding about any record.",
+  );
 }
 const findings = checkReferences(store, { authority, ids: everBound });
 const counts = tallyReferences(findings);

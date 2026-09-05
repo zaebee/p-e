@@ -1,8 +1,8 @@
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { runScript, stackTraceLines } from "./spawn-script.js";
 
 /**
  * The check computes MATCHES / DIVERGES / UNCHECKABLE and then has to hand one
@@ -17,67 +17,11 @@ import { afterAll, describe, expect, it } from "vitest";
  * missing environment variable would have been reported as a divergence in
  * somebody's record.
  */
-const script = join(import.meta.dirname, "..", "scripts", "check-continuity.ts");
-
-/**
- * The identity is supplied here because the script now requires one.
- *
- * RUN FROM OUTSIDE THE REPOSITORY, and that is not tidiness. `bun` loads `.env`
- * from the working directory automatically, so deleting a variable from the
- * spawned environment does not run the script without it — bun re-reads the file
- * from disk. The exit-3 case below would then pass or fail on what happens to be
- * in `.env`, and would stop testing anything the day somebody adds the key
- * there. Changing directory is what makes the absence real; changing the
- * environment is what looks like it does. AGENTS.md carries the rule, learned in
- * ../hivemark from a key that reached a transcript exactly this way.
- *
- * `STORE_ROOT` is resolved against its own module rather than the working
- * directory, so the live-store case still finds the corpus from anywhere.
- */
-const TEST_AUTHORITY = "p-e/relay-under-test";
-
-/**
- * Two independent guards against the child seeing a `.env`, and both are here
- * because this test's failure mode is silent — it would pass while testing
- * nothing.
- *
- * `--no-env-file` turns off bun's automatic loading; `cwd` outside the
- * repository removes the file it would load. Measured in this repo with a probe
- * key written into `.env`: plain `bun run` saw it, `env -u KEY bun run` STILL
- * saw it — the trap, reproduced here rather than cited — and `--no-env-file` did
- * not, in either flag position. `--no-env-file` is the precise mechanism and
- * only works where the bun command line is ours; the directory is what survives
- * anything spawning bun on its own. gemini-code-assist on PR #91 asked for the
- * flag (naming it `--no-env`, which does not exist).
- */
-const OUTSIDE = mkdtempSync(join(tmpdir(), "cc-cwd-"));
-
-/**
- * `null` means "configure nothing", and it is `null` rather than `undefined`
- * because an explicitly passed `undefined` selects the default parameter — so
- * `run(undefined, undefined)` supplied an identity while reading as though it
- * withheld one, and the exit-3 case passed through the configured path and
- * returned 0. The distinction this whole file is about, in its own harness.
- */
-function run(root?: string, identity: string | null = TEST_AUTHORITY) {
-  const args = ["--no-env-file", "run", script, ...(root === undefined ? [] : ["--root", root])];
-  // Built by filtering rather than by deleting or by assigning `undefined`:
-  // `delete` is refused by lint, and an explicit `undefined` value reaches
-  // `spawnSync` as a property that is present, which is the opposite of absent.
-  const env: NodeJS.ProcessEnv = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => key !== "P_E_STORE_IDENTITY"),
-  );
-  if (identity !== null) env.P_E_STORE_IDENTITY = identity;
-  return spawnSync("bun", args, { encoding: "utf8", env, cwd: OUTSIDE });
-}
-
 const header = (id: string) =>
   `deposited-by: local\nprovenance: as-received\nassigned-id: ${id}\n---\n`;
 
-// The per-test stores below clean up in their own `finally`; this one is
-// module-scoped and was not cleaned at all, so every suite run left an empty
-// `cc-cwd-` behind. gemini-code-assist on PR #93.
-afterAll(() => rmSync(OUTSIDE, { recursive: true, force: true }));
+const run = (options?: Parameters<typeof runScript>[1]) =>
+  runScript("check-continuity.ts", options);
 
 describe("check-continuity exit codes", () => {
   it("exits 0 on the live store, which carries only accounted divergences", () => {
@@ -95,7 +39,7 @@ describe("check-continuity exit codes", () => {
         join(dir, "relay-0002.txt"),
         `${header("relay-0002")}@p-e/x0\nfrom: probe\nparent: relay-0001\nparent-sha256: ${"0".repeat(64)}\nkind: probe\n\nchild\n`,
       );
-      const out = run(dir);
+      const out = run({ root: dir });
       expect(out.status).toBe(1);
       expect(out.stdout).toContain("unaccounted divergence");
     } finally {
@@ -108,21 +52,24 @@ describe("check-continuity exit codes", () => {
     // a fact about how this process was started, and the two must not share a
     // door. 3 rather than 2 because the records here read perfectly well — what
     // is missing is whose they are.
-    const out = run(undefined, null);
+    const out = run({ identity: null });
     expect(out.status).toBe(3);
     expect(out.stderr).toContain("identity is not configured");
     expect(out.stderr).toContain("P_E_STORE_IDENTITY");
     expect(out.stderr).toContain("This is not a finding");
     // And it must not be mistaken for a verdict on the corpus.
     expect(out.stdout).not.toContain("divergence");
+    // A refusal reads as a decision; a stack trace reads as a crash.
+    expect(stackTraceLines(out.stderr)).toEqual([]);
   });
 
   it("exits 2, not 1, when the store cannot be read at all", () => {
     const gone = join(tmpdir(), "cc-no-such-store-3f8a1c");
-    const out = run(gone);
+    const out = run({ root: gone });
     expect(out.status).toBe(2);
     expect(out.stderr).toContain("REFUSED");
     // The refusal must not read as a finding about anybody's record.
     expect(out.stdout).not.toContain("divergence");
+    expect(stackTraceLines(out.stderr)).toEqual([]);
   });
 });
