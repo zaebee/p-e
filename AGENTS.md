@@ -103,9 +103,21 @@ This holds for records that are wrong, incomplete, or embarrassing — `relay-08
 - **Never `git add -A`.** Stage by name. Two commits have carried another agent's record under a
   message describing it as mine because of a wildcard.
 - **Code lands through PRs**, not direct pushes to `main`.
-- **Rule 14: a reviewer must not have written what they review.** This applies to blind reads,
-  conformance runs and dispute scoring alike. Designing a checker's stopping conditions is
-  authorship of its result (`relay-0799`).
+- **Rule 14 — no repair or proposal is adopted until a party that did not write it has attacked
+  it.** Quoted from `docs/methodology/blind-audit.md` §14, which measured it: four of five
+  artifacts died or changed under that treatment, and the survivor came back rewritten by its
+  attacker. §14 says in its own words that this is **a rule about repairs and not about people**,
+  and rejects "the finder must not be the fixer" as not fitting the evidence.
+  `q1-independence.md` §7 uses it in that sense and places itself under it.
+
+  **This file previously stated rule 14 as "a reviewer must not have written what they review"** —
+  the people-shaped version §14 exists to reject. The paraphrase was mine, it was wrong, and it
+  reached five blind-reader briefs before anyone checked it against the source.
+
+  The practice it garbled is still ours and stands without a number: a blind read, a conformance
+  run or a dispute score is worth less when its own author designed it, and designing a checker's
+  stopping conditions is authorship of its result (`relay-0799`). That is a reason to dispatch
+  outward. It is not rule 14.
 
 ## Verifying
 

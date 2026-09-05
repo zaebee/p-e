@@ -35,6 +35,19 @@ import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
  * is to say what happened, which is the same shape as `ACCOUNTED_FOR` below.
  */
 const ORPHANED_MARKERS: Readonly<Record<string, string>> = {
+  // Burned by my own tooling, not by a crash. A scratch file left over from an
+  // earlier session was deposited when the script that should have rewritten it
+  // failed silently: python raised before the write, the shell carried on, and
+  // `relay-put` deposited whatever was on disk — a byte-identical copy of
+  // relay-0727. Caught immediately, never committed, never published, so no
+  // record was harmed and nothing can cite this id.
+  //
+  // The file is removed and THE MARKER STAYS. Freeing the id would be the tidier
+  // outcome and the wrong one: relay-0183's class is opened by exactly that
+  // reasoning, and an id that was bound should stay spent whatever the cause.
+  // Recorded here rather than swept, per relay-0877.
+  "relay-0876":
+    "a stale scratch file deposited when its writer failed silently; a duplicate of relay-0727, withdrawn before publication and the id spent — claude, relay-0877",
   "relay-0683":
     "mimo's observation, deposited and read on 2026-08-31 and never committed; the record is gone and the cause is unestablished — relay-0703. relay-0684 beside it lost record and marker both, which relay-0685 shows as UNCHECKABLE",
 };
