@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { constants, accessSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, isAbsolute, join } from "node:path";
 import { afterAll } from "vitest";
 
 /**
@@ -29,6 +29,52 @@ import { afterAll } from "vitest";
  * AGENTS.md carries the rule. gemini-code-assist asked for the flag on PR #91,
  * naming it `--no-env`, which does not exist.
  */
+
+/**
+ * The bun binary as an absolute path, resolved once and never searched for at
+ * spawn time.
+ *
+ * `spawnSync("bun", …)` makes the OS walk `PATH` at every call, so whichever
+ * directory comes first decides which binary runs — SonarCloud's S4036 on
+ * PR #93, and it blocks the merge on the security rating. The rule is worth
+ * more than the gate here for two reasons that are not about attackers.
+ *
+ * Under bun, `process.execPath` is the very binary running this suite, so
+ * pinning it removes a real inconsistency: the child could otherwise be a
+ * DIFFERENT bun than the parent, and these tests assert exit codes produced by
+ * bun's own module loading and `.env` handling.
+ *
+ * Under Node — the `tests (node 22)` job — there is no such binary to inherit,
+ * so `PATH` is walked HERE, once, in code that says it is doing so. That does
+ * not make `PATH` trustworthy; it makes the assumption auditable and the
+ * failure legible. `spawnSync` with a missing command returns
+ * `{ error: ENOENT, status: null }`, and every assertion below then fails with
+ * "expected null to be 3", which says nothing about bun being absent.
+ *
+ * An empty `PATH` entry means the current directory. Skipped rather than
+ * resolved: a cwd-relative interpreter is precisely what the rule is about, and
+ * this harness deliberately runs from a scratch directory.
+ */
+function resolveBun(): string {
+  if (process.versions.bun !== undefined) return process.execPath;
+  for (const dir of (process.env.PATH ?? "").split(delimiter)) {
+    if (dir === "" || !isAbsolute(dir)) continue;
+    const candidate = join(dir, "bun");
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Not here, or not executable by us. Keep looking; the throw below is the
+      // only outcome that stops the suite, and it names the cause.
+    }
+  }
+  throw new Error(
+    "bun was not found on PATH. These tests spawn the corpus scripts under bun, " +
+      "which is how they run in CI and in the commands AGENTS.md documents.",
+  );
+}
+
+const BUN = resolveBun();
 
 /** A directory with no `.env` in it, and none above it that bun will find. */
 const OUTSIDE = mkdtempSync(join(tmpdir(), "p-e-outside-"));
@@ -70,7 +116,7 @@ export function runScript(name: string, options: RunOptions = {}) {
     Object.entries(process.env).filter(([key]) => key !== "P_E_STORE_IDENTITY"),
   );
   if (identity !== null) env.P_E_STORE_IDENTITY = identity;
-  return spawnSync("bun", args, { encoding: "utf8", env, cwd: OUTSIDE });
+  return spawnSync(BUN, args, { encoding: "utf8", env, cwd: OUTSIDE });
 }
 
 /**
