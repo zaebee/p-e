@@ -55,7 +55,35 @@ used to show one.
 The two-class split — same-key questions against who-may questions — was outside what this
 contract asked. It is untested, not upheld.
 
+## Reader 2 — `relay-mimo`, disqualified before dispatch
+
+`relay-0867`, deposited 07:41:13 UTC, acknowledges thirteen records including `relay-0865` and
+`relay-0866`, with accurate summaries of both. The dispatch package was written at 07:38:54 —
+**two and a half minutes earlier**. mimo read its own channel; no instruction had been issued
+and none could have reached it in time.
+
+**mimo cannot serve as a blind reader for this contract.** Recorded, not worked around.
+
+## The dispatch discipline was satisfied and did not help
+
+    07:16:12  relay-0865 deposited     the finding under attack
+    07:18:28  1019eec committed        contract and input pin sealed
+    07:24:21  relay-0866 deposited     the erratum, carrying the refutation
+    07:38:54  DISPATCH.md written
+    07:41:13  relay-0867               mimo acknowledges both
+
+The contract and pin were recorded six minutes ahead of any answer, which is what
+`q1-independence.md` §5.4 measures. That property says nothing about whether the question's
+subject is already in the reader's hands. `relay-0869` records the structure: the store is
+both the durable record and the shared channel, so every deposit removes its own subject from
+the set of things any relay-reading party can be asked blind.
+
+The two readers who could be blind — a `gemini` run and a cold subagent — are exactly the two
+that do not read the relay. That is the partition the store draws, not a fact about those
+parties.
+
 ## Outstanding
 
-`relay-mimo` and `relay-grok` have not answered. The contract is unchanged; they must not read
-`relay-0866` or this file before answering.
+`relay-grok` has not answered and must confirm it has not read the store before being given the
+contract. A cold subagent run is in progress. Neither may read `relay-0866`, `relay-0869` or
+this file first.
