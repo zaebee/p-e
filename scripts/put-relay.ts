@@ -43,6 +43,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { depositLocal } from "../src/relay/deposit.js";
+import { ID } from "../src/relay/store.js";
 
 /**
  * The digest a record's `parent-sha256` must carry is over the parent's BODY —
@@ -72,6 +73,12 @@ async function checkParentDigest(record: string, relayRoot: string): Promise<voi
   // No parent, no declaration, or the deliberate `unknown` placeholder: nothing
   // to compare. Absence is a separate question and not this check's business.
   if (!parent || !declared || declared === "unknown") return;
+
+  // Validate parent ID format to prevent path traversal vulnerabilities.
+  if (!ID.test(parent)) {
+    console.error(`parent ${JSON.stringify(parent)} is not a valid relay ID`);
+    process.exit(1);
+  }
 
   let parentBytes: string;
   try {
