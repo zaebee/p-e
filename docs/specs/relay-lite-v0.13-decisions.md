@@ -82,6 +82,10 @@ the prohibition that makes that directory append-only.
 
 **Agreed in one round, three cleanups, one landed:**
 
+The numbers are the round's own, and the rows are ordered by **outcome** rather than by number —
+the one that landed first, then the two that did not. That is `#67`'s ordering and the shape of
+its finding; sorting them 1, 2, 3 would file the answer under the question's numbering and lose it.
+
 | | promised | in v0.12 |
 |---|---|---|
 | 2 | `MUST`: filename `id` equals envelope `id` | **landed**, line 46 |
