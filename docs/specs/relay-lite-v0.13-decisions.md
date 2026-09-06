@@ -154,7 +154,8 @@ requires the name to parse at all.**
 
 `src/relay-lite/names.ts` and `cns.ts` met this gap from the other side and read it as
 never-specified: *"§2.1 gives the name a grammar … and never an alphabet, which leaves the two
-things that string has to be unguarded."* `#65`'s addendum settled the **alphabet**; it did not
+things that string has to be unguarded."* The addendum merged in **`#65`**, answering issue
+**`#35`** — *"CNS names are interpolated unescaped"* — settled the **alphabet**. It did not
 restore an obligation to conform.
 
 **Closures I can name:**
