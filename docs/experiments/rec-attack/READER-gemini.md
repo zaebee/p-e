@@ -1,3 +1,17 @@
+<!--
+Verbatim output of one reader, preserved as evidence. Not edited.
+
+Renamed on copy: the reader was told to write `answer-*.md` in its own working
+directory, so self-references and absolute paths inside are the reader's own and
+are correct in its frame. Rewriting them — to a placeholder, a relative path, or
+this file's name — would change the record of what a reader said in order to tidy
+a repository it never saw.
+
+The stand it ran in was ~/projects/rec-attack, sealed at 11:43:34 UTC with input
+pin a998df279c10ac82dac8dc2bbc6867d4ba310a718b6528e140edda7bc36b2d1a. The pin is
+what makes the run reproducible; the path is not.
+-->
+
 # PIN Verification Report
 
 The expected input tree SHA256 checksum in `PIN.txt` is:
