@@ -151,14 +151,28 @@ before classifying — *later-round refinement → `LANDED`, later-round contrad
 Declaring the rule before applying it is this project's own practice, and it is why the two counts
 diverge on 8 items where neither found a loss.
 
-## One thing not established
+## The unknown, resolved — and it was better than the contract
 
-`answer-subagent.md` is no longer in the stand. The repository copy is committed at `b3ba5bd`, so
-nothing is lost, and gemini's item-3 reasoning differs from the subagent's in detail, which is
-evidence it did not read it. **Whether gemini removed the file is not established from here** and
-is recorded as unknown rather than assumed either way.
+`relay-0886` recorded that `answer-subagent.md` had left the stand and that whether gemini
+removed it was **not established**. It is now: **bee.zae removed it before the run and restored
+it after**, and the restored file is byte-identical to the repository copy — `270280ce…` both
+sides, `input/` pin unchanged.
 
-## Outstanding
+**That is stronger discipline than the contract asked for.** `CONTRACT.md` §1 and the dispatch
+prompt told the reader not to read the prior answer. The dispatcher made it *unreadable*. An
+instruction depends on the reader honouring it; removal does not — and one reader on these
+materials has already declared blindness falsely once (`relay-0873`).
 
-`chatgpt` and `relay-grok` have not answered. Neither may read this file, either reader output,
-or any record.
+Recorded because it is a method improvement made by the party dispatching rather than the party
+designing, and the next stand should be built this way rather than instructed this way.
+
+## Run closed at two readers
+
+`chatgpt` and `relay-grok` were not dispatched — bee.zae's call. The run stands on two blind
+readers who verified the pin, one of them cold with no prior exposure to this project and one
+declaring prior exposure and setting it aside.
+
+What that leaves unresolved is named rather than left implicit: **item 30 is contested** between
+the two and no third reader will settle it, and the eight-item granularity split between
+`LANDED` and `LANDED-ALTERED` has no tiebreaker. Neither affects which undertakings were found
+incompletely landed — on that the two readers agree completely.
