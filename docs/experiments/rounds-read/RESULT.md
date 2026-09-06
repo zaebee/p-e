@@ -82,7 +82,83 @@ Predicate, population, item list and contract are all mine; `OPERATOR.md` states
 declared it recognises the project — the draft names the repository, which is a sibling of its
 working directory — and said no verdict rests on that.
 
+# Reader 2 — gemini, blind, pin verified
+
+Declared recognition of the project — *"we have analyzed and worked on it in previous runs"* — and
+said no verdict rests on it. Pin `be77df58…` verified by the reader and re-verified here after the
+run: `input/` untouched.
+
+| verdict | subagent | gemini |
+|---|---:|---:|
+| `LANDED` | 36 | 29 |
+| `LANDED-ALTERED` | 4 | 12 |
+| `PARTIAL` | 6 | 4 |
+| `NOT-LANDED` | 0 | 1 |
+
+**They agree on which undertakings did not fully arrive and disagree on how to grade them.**
+
+## Where both readers agree, including against the operator
+
+| item | subagent | gemini |
+|---|---|---|
+| 3 · §5 finding vs ruling | `PARTIAL` | `PARTIAL` |
+| 5 · dual-order | `PARTIAL` | `PARTIAL` |
+| 11 · dedup `MUST` | `PARTIAL` | `PARTIAL` |
+| 46 · archival summary | `PARTIAL` | `NOT-LANDED` |
+| 19, 22, 37 | `LANDED-ALTERED` | `LANDED-ALTERED` |
+
+**Item 3 is the operator's control and both readers overturn it independently**, with different
+reasoning — gemini adds that `ruled_by` is absent from the schema entirely. `relay-0885` had
+already conceded it to the first reader; a second reader reaching it unaided settles it.
+
+## Where they differ, adjudicated against the draft
+
+Three are decidable by pointing at lines. **The operator is the interested party here and one
+ruling favours a verdict he also gave, so each is grounded in text anyone can check.**
+
+**Item 6 · tie-break — the subagent's `PARTIAL` stands.** gemini gave `LANDED-ALTERED`, saying
+*"the rules are implemented with explicit `[MUST]` and `[MUST NOT]` tags."* True of rules 1 and 3
+— draft lines 124 and 126. Rule 2's convention sits at lines 129-134 **unmarked**. The alteration
+gemini cites, the terminal key moving from `lexicographical(digest)` to `id`, is real and
+recorded; it does not restore the missing mark.
+
+**Item 28 · `UNCHECKABLE` — the subagent's `PARTIAL` stands.** gemini gave `LANDED-ALTERED`,
+reasoning that tri-state evolved into the 6-state partition. That explains the *states*. The
+undertaking's second half was *"Verifiers MUST NOT reject or discard a well-formed act solely
+because its causal link evaluates to `UNCHECKABLE`"*. Every occurrence of "reject" in the draft:
+line 43 (CNS recipient), 268 (Stage 2 duplicate keys), 294, 321-322 (Stage 2 rejects
+`UNANCHORED`). **No prohibition on rejecting `UNCHECKABLE` exists.** Line 294 gives a
+consequence — *"rejects correct acts routinely"* — not a rule. This is `#63`, reached
+independently for the second time.
+
+**Item 46 · archival summary — the subagent is more accurate.** gemini answered *"nothing answers
+this"*. `Provenance and standing` occurs **twice** in the draft, and the provenance paragraph at
+lines 4-8 names the review's shape. Something answers it; whether it is the same undertaking is
+the ambiguity both `relay-0883` and the subagent named.
+
+**Item 30 · three-stage pipeline — contested, and left contested.** gemini gave `PARTIAL` because
+the pipeline rule arrived unmarked; the subagent gave `LANDED`. The draft says *"The ordering is
+normative"* in prose rather than with the bracket convention. Both readings are defensible and
+**the operator is not the party to settle it.**
+
+## The granularity split, which is a method difference
+
+gemini returned 12 `LANDED-ALTERED` to the subagent's 4. The subagent declared a tie-break rule
+before classifying — *later-round refinement → `LANDED`, later-round contradiction →
+`LANDED-ALTERED`* — so sixteen rounds of evolution would not sweep every early item into
+`ALTERED`. gemini declared none and swept.
+
+Declaring the rule before applying it is this project's own practice, and it is why the two counts
+diverge on 8 items where neither found a loss.
+
+## One thing not established
+
+`answer-subagent.md` is no longer in the stand. The repository copy is committed at `b3ba5bd`, so
+nothing is lost, and gemini's item-3 reasoning differs from the subagent's in detail, which is
+evidence it did not read it. **Whether gemini removed the file is not established from here** and
+is recorded as unknown rather than assumed either way.
+
 ## Outstanding
 
-`gemini`, `chatgpt` and `relay-grok` have not answered. None may read this file, `READER-subagent.md`,
+`chatgpt` and `relay-grok` have not answered. Neither may read this file, either reader output,
 or any record.
