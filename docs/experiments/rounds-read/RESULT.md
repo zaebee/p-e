@@ -166,6 +166,26 @@ materials has already declared blindness falsely once (`relay-0873`).
 Recorded because it is a method improvement made by the party dispatching rather than the party
 designing, and the next stand should be built this way rather than instructed this way.
 
+## A contradiction in the contract, found after both runs
+
+gemini-code-assist on PR #111: `CONTRACT.md` §3 says *"Use these five and no others … rather than
+inventing a sixth"*, while §8 says *"If you cannot reach a verdict on an item, say `UNDECIDABLE`"*.
+**They contradict.** §3 forbids a sixth verdict and §8 supplies one.
+
+**The contract is not edited.** Both readers ran against it as written; editing a sealed artifact
+after the runs is what sealing exists to prevent. The defect belongs to the record.
+
+**What it may have cost, measured rather than assumed.** Both runs returned `UNDECIDABLE` 0, and
+that was reported as a clean result. The two readers reached it differently:
+
+- The **subagent** listed `UNDECIDABLE` in its own verdict tally — it treated the option as
+  available and returned zero of it.
+- **gemini's answer does not contain the word at all**, not once in 37 KB. That is consistent
+  with never needing it, and equally consistent with §3 having removed it from consideration.
+
+**Which of those it was cannot be established now.** So `UNDECIDABLE 0` stands for the subagent
+and is weaker than it looks for gemini, and any future stand should state its verdict set once.
+
 ## Run closed at two readers
 
 `chatgpt` and `relay-grok` were not dispatched — bee.zae's call. The run stands on two blind

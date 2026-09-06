@@ -12,7 +12,7 @@ three. This dispatches the remaining 46.
 
 ## Five of the 46 are controls, and the readers are not told which
 
-Items at thread lines **242, 315, 234, 1795, 2242** have already been classified — in
+Items at thread lines **234, 242, 315, 1795, 2242** have already been classified — in
 `RESULT-rounds.md` and `DENOMINATOR.md`, both of which are withheld.
 
 They are in the list, unmarked. If a reader's verdicts on them agree with mine, the method is
