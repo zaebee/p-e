@@ -163,7 +163,7 @@ conformance rule.
 Per §5 this is a choice rather than a discovery, and the correction there applies here too: Win32
 has analogues for all three primitives, and what is actually established is that Node cannot reach
 one of them and that nobody has built or measured the alternative. Declaring POSIX would make the
-existing assumption explicit and close the door on an unbuilt port — it does not report that the
+existing assumption explicit and close the door on an unbuilt port — it would not report that the
 door was already bricked up.
 
 v0.12 contains **zero** occurrences of `posix`, `windows`, `portable` or `platform`. A requirement
