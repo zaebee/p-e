@@ -56,6 +56,23 @@ describe("relay-put --root", () => {
     }
   });
 
+  it("refuses a depositor with whitespace or newlines cleanly without a stack trace", () => {
+    const root = mkdtempSync(join(tmpdir(), "pr-root-"));
+    const src = mkdtempSync(join(tmpdir(), "pr-src-"));
+    try {
+      const input = join(src, "in.txt");
+      writeFileSync(input, record);
+
+      const out = put([input, "--as", "local\nprovenance: authored", "--root", root]);
+      expect(out.status).toBe(1);
+      expect(out.stderr).toContain("without whitespace or newlines");
+      expect(out.stderr).not.toContain("throw new Error");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a record with an invalid parent ID or path traversal in parent header", () => {
     const root = mkdtempSync(join(tmpdir(), "pr-root-"));
     const src = mkdtempSync(join(tmpdir(), "pr-src-"));
