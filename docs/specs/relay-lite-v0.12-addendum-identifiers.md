@@ -148,20 +148,35 @@ If identities need namespaces, that is worth proposing on its own, with its own 
 
 ## 6. The platform, stated because it is already true
 
-**relay-lite requires a POSIX filesystem.** §4.1 already mandates `link` with `EEXIST` semantics,
-`O_EXCL` for the temporary file, and a directory `fsync`, and every implementation that exists
-runs on POSIX.
+**This section proposes that relay-lite require a POSIX filesystem.** It does not report a
+requirement that already exists.
+
+§4.1 *exhibits* `link` with `EEXIST` semantics, `O_EXCL` for the temporary file, and a directory
+`fsync` — in a TypeScript listing and its rationale. It carries **zero** `[MUST]`. A code listing
+shows how; it does not oblige. So no clause of v0.12 requires any of the three, and an
+implementation that writes straight into `.relay/in/` violates no marked clause — which is what
+[#103](https://github.com/zaebee/p-e/issues/103) is about.
+
+Every implementation that exists runs on POSIX. That is a fact about the population, not a
+conformance rule.
 
 Per §5 this is a choice rather than a discovery, and the correction there applies here too: Win32
 has analogues for all three primitives, and what is actually established is that Node cannot reach
-one of them and that nobody has built or measured the alternative. Declaring POSIX makes the
-existing assumption explicit and closes the door on an unbuilt port — it does not report that the
+one of them and that nobody has built or measured the alternative. Declaring POSIX would make the
+existing assumption explicit and close the door on an unbuilt port — it would not report that the
 door was already bricked up.
 
 v0.12 contains **zero** occurrences of `posix`, `windows`, `portable` or `platform`. A requirement
 that binds every implementation and is written nowhere is the same defect this project has spent
 three days cataloguing — see [#60](https://github.com/zaebee/p-e/issues/60) and [#63](https://github.com/zaebee/p-e/issues/63) — and this clause exists so that one instance of it is
 no longer true.
+
+**And this document commits it on its own page.** The addendum carries zero `[MUST]` of any kind,
+so the sentence above declares a platform requirement in exactly the unmarked prose it was written
+to catalogue. Naming that here does not repair it: whether the obligation is marked, and whether
+it lands on the property (crash-atomic, create-or-fail) or on the POSIX mechanism, is
+[#103](https://github.com/zaebee/p-e/issues/103), and that is bee.zae's decision, not this
+document's.
 
 Case-insensitivity in §4 is the reminder that "POSIX" does not mean "one behaviour": macOS is
 POSIX and folds case by default.
