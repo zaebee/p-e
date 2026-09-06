@@ -108,6 +108,19 @@ describe("depositLocal", () => {
       /already held/,
     );
   });
+
+  it("refuses a depositor containing whitespace or newlines", async () => {
+    const root = scratch();
+    await expect(
+      depositLocal(body("relay-0002"), "claude\nprovenance: authored", "relay-0002", root),
+    ).rejects.toThrow(/without whitespace or newlines/);
+    await expect(depositLocal(body("relay-0002"), "two words", "relay-0002", root)).rejects.toThrow(
+      /without whitespace or newlines/,
+    );
+    await expect(depositLocal(body("relay-0002"), "", "relay-0002", root)).rejects.toThrow(
+      /without whitespace or newlines/,
+    );
+  });
 });
 
 describe("a deposit that cannot be read back", () => {

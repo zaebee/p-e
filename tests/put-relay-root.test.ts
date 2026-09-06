@@ -56,6 +56,32 @@ describe("relay-put --root", () => {
     }
   });
 
+  it("refuses a depositor with whitespace or newlines cleanly without a stack trace", () => {
+    const root = mkdtempSync(join(tmpdir(), "pr-root-"));
+    const src = mkdtempSync(join(tmpdir(), "pr-src-"));
+    try {
+      const input = join(src, "in.txt");
+      writeFileSync(input, record);
+
+      const out = put([input, "--as", "local\nprovenance: authored", "--root", root]);
+      expect(out.status).toBe(1);
+      expect(out.stderr).toContain("without whitespace or newlines");
+      // Matched by SHAPE, not by substring. `not.toContain("throw new Error")`
+      // passes if bun prints any other frame, or changes its format; and a bare
+      // `not.toContain("at ")` fails on a refusal's own prose — "cannot read the
+      // store at /tmp/…" — which is how this check was got wrong once already.
+      // A bun trace is numbered source lines and indented `at` frames.
+      const lines = out.stderr.split("\n");
+      expect(lines.filter((l) => /^\s*\d+\s*\|/.test(l))).toEqual([]);
+      expect(lines.filter((l) => /^\s+at\s/.test(l))).toEqual([]);
+      // And the refusal did say something, so an empty stderr cannot pass.
+      expect(out.stderr).toContain("depositedBy");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a record with an invalid parent ID or path traversal in parent header", () => {
     const root = mkdtempSync(join(tmpdir(), "pr-root-"));
     const src = mkdtempSync(join(tmpdir(), "pr-src-"));

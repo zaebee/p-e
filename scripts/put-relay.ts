@@ -134,7 +134,13 @@ if (!source) {
 
 const bytes = source === "-" ? await Bun.stdin.text() : await readFile(source, "utf8");
 await checkParentDigest(bytes, root ?? "relay");
-const r = await depositLocal(bytes, depositor, id, root);
-console.log(
-  `stored ${r.id}  id chosen by ${r.idSource}  deposited-by ${depositor}  sha256 ${r.sha256}`,
-);
+
+try {
+  const r = await depositLocal(bytes, depositor, id, root);
+  console.log(
+    `stored ${r.id}  id chosen by ${r.idSource}  deposited-by ${depositor}  sha256 ${r.sha256}`,
+  );
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
