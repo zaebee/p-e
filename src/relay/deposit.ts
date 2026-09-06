@@ -57,6 +57,12 @@ const seqOf = (id: string) => Number(id.slice(ID_PREFIX.length));
 const idOf = (seq: number) => `${ID_PREFIX}${String(seq).padStart(ID_DIGITS, "0")}`;
 
 /**
+ * Maximum allowed size for a single relay record (1 MB).
+ * Protects against Denial of Service (DoS) and disk/memory exhaustion.
+ */
+export const MAX_RECORD_BYTES = 1_000_000;
+
+/**
  * Claim `id` by creating its marker. `false` means the id was already taken —
  * by a record still held, by one since deleted, or by an allocator that got
  * there first.
@@ -251,6 +257,14 @@ async function deposit(
   if (typeof depositedBy !== "string" || depositedBy === "" || /\s/.test(depositedBy)) {
     throw new Error(
       `depositedBy must be a single non-empty token without whitespace or newlines, got ${JSON.stringify(depositedBy)}`,
+    );
+  }
+
+  // Refuse oversized records to prevent DoS via excessive memory or disk usage.
+  const recordBytes = Buffer.byteLength(bytes, "utf8");
+  if (recordBytes > MAX_RECORD_BYTES) {
+    throw new Error(
+      `record size exceeds maximum limit of ${MAX_RECORD_BYTES} bytes (got ${recordBytes} bytes)`,
     );
   }
 
