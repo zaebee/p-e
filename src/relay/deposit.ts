@@ -260,15 +260,16 @@ async function deposit(
     );
   }
 
-  // Refuse oversized records to prevent DoS via excessive memory or disk usage.
+  // A bound on one record, not on resource consumption: the caller has already
+  // materialised `bytes` — put-relay reads the whole file, mcp takes it from a
+  // parsed request — so this cannot protect memory. It bounds what reaches disk.
+  // The corpus's largest record is 11,027 bytes, so the limit is ~90x headroom.
   const recordBytes = Buffer.byteLength(bytes, "utf8");
   if (recordBytes > MAX_RECORD_BYTES) {
     throw new Error(
       `record size exceeds maximum limit of ${MAX_RECORD_BYTES} bytes (got ${recordBytes} bytes)`,
     );
   }
-
-  const held = await loadStore(root);
 
   // The store holds relay records. Bytes that merely happen to parse - the
   // parser tolerates a record with no headers at all - are not one, and finding
@@ -278,6 +279,11 @@ async function deposit(
   }
 
   refuseNonDigest(bytes);
+
+  // Read after the cheap refusals, not before: `held` is first used by settleId
+  // below, and loadStore parses every record on disk. Ordering reported by
+  // gemini-code-assist on PR #122.
+  const held = await loadStore(root);
 
   const id = await settleId(root, held, proposedId);
 
