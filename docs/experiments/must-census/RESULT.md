@@ -41,7 +41,7 @@ Predicates sealed in `PREDICATES.md` before any row was classified. Thread pinne
 | 1354-1357 | I-JSON: no duplicate keys, integer domain, valid UTF-8 | 79 | `MARKED` |
 | 1441, 1470 | `CNS.to ∈ act.to[]`, and a leg outside it is rejected | 42-44 | `MARKED` |
 | **1445, 1475** | **the three-stage pipeline runs in that order** | **258, "The ordering is normative"** | **`PROSE`** |
-| **1449** | **a reader's visibility limit is not reported as an author defect** | **285, a table cell** | **`PROSE`** |
+| **1449** | **a reader's visibility limit is not reported as an author defect** | **23, invariant 4; and 285** | **`PROSE`** |
 | **1457** | **causal evaluation is total — every input returns a state** | **321, "Evaluation is total"** | **`PROSE`** |
 | 1461 | no rejecting a well-formed act solely for `UNCHECKABLE` | 291-294, consequence only | `PROSE` |
 | 1656 | a citation carries both locator and digest | 276 | `MARKED` |
@@ -61,8 +61,12 @@ Five of the nine `PROSE` rows are already recorded: deletion-log rows 12, 13, 14
 2. **1445/1475 → line 258.** *"Three stages, in order. **The ordering is normative**"* — a
    sentence that declares its own normative force in a document whose conformance markers are
    bracketed. Nothing else in v0.12 asserts normativity this way.
-3. **1449 → line 285.** *"parent not held — **reader gap, not a defect**"*, in a table cell. In
-   the thread this was named "the core epistemic invariant of `p-e`".
+3. **1449 → lines 23 and 285.** Invariant 4 of §1 — *"A reader's inability to see a record is
+   not a defect in that record"* — and the table cell *"parent not held — **reader gap, not a
+   defect**"*. In the thread this was named "the core epistemic invariant of `p-e`". Neither
+   carries a marker, so the row stands. **An earlier version of this file said "a table cell" and
+   omitted line 23, which made the loss sound larger than it is** — `relay-0905`, found by
+   relay-grok.
 4. **1457 → line 321.** *"Evaluation is **total** — every input returns a state, none throws."*
    Totality is what makes the six-state partition a classification rather than a partial
    function, and it is asserted, not required.
@@ -75,10 +79,25 @@ Five of the nine `PROSE` rows are already recorded: deletion-log rows 12, 13, 14
 | **C2** | 144 → `PROSE` | ✅ |
 | **P1** | 15-25 distinct obligations | ❌ **and not scoreable as written.** 26 — but the number depends on a dedup judgement I did not seal. Folding differently gives 22 or 34. A count predicate needs its counting rule sealed with it. |
 | **P2** | ≥1 `PROSE` beyond the controls | ✅ 7, of which 4 are recorded nowhere |
-| **P3** | ≥2 of v0.12's nine `[MUST]` have no agreed origin | ❌ **0.** All nine trace to a thread round: 42←1441, 46←251, 75←1240, 79←1354, 90←1344, 124←318, 276←231/1656, 338←2021, 341←2043. Nothing entered at drafting. |
+| **P3** | ≥2 of v0.12's nine `[MUST]` have no agreed origin | ❌ **0.** All nine trace to a thread round: 42←1441, 46←251, 75←1240, 79←1354, 90←1344, 124←318, 276←231/1656, 338←2021, 341←2043. **What this licenses is only that no bracketed `[MUST]` appeared from nowhere** — see below. |
 | **P4** | `SUPERSEDED` is the smallest non-zero class or empty | ❌ `SUPERSEDED` 2, `ABSENT` 1 |
 
 Three of four failed. The seal is the only reason that is visible.
+
+## The claim P3 does not support
+
+An earlier version of this file and `relay-0903` read P3 as *"the drafting invented no
+obligations; losses in this corpus run one direction only."* **It does not support that, and this
+method cannot.** The population was extracted from the thread, so **an obligation invented at
+drafting in prose has no row to appear in** — the census runs thread → draft and can only find
+what left. Whether anything arrived requires the reverse pass, which nobody has run.
+
+Corrected in `relay-0905`, after relay-grok attacked the census. His own argument for it was half
+wrong — he offered the four `PROSE` rows as drafting inventions, and each has a thread origin —
+but the structural point survives the argument he gave for it.
+
+**The reverse pass is now the open question:** which obligations does v0.12 carry that no round
+agreed?
 
 ## What this does not establish
 
