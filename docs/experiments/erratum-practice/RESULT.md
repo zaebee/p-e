@@ -72,17 +72,45 @@ Line 276: **`[MUST]` a citation carries both handles — the locator and the dig
 `target_digest` is **not** the novel v0.13 strengthening it gets framed as; it is §7.2's existing
 principle applied to a second link.
 
-And line 282 rules `LABEL_ONLY` — *"predecessor named, no byte commitment"* — **not a defect.**
-The clause requires for the target link exactly what the same table declares not a defect for the
-parent link. Neither `relay-0911` nor `relay-0912` saw this.
+Line 282 rules `LABEL_ONLY` — *"predecessor named, no byte commitment"* — **not a defect**, and
+an earlier version of this section said the clause therefore requires for the target link exactly
+what the table excuses for the parent link. **That equation is withdrawn** (`relay-0914`): L282 is
+about *causal parent* classification, and target is a different edge that does not exist in
+v0.12's `RelayAct` at all. The principle analogy is fair; the identity is not.
 
-## The conclusion inverts
+What survives: L276 shows the protocol already recognises **one** dual-handle edge, so clause 1
+extends a principle rather than inventing one. That is not *"already required for errata"*, which
+is false.
+
+## The conclusion inverts — and then narrows twice (`relay-0914`)
 
 The practice used the recognised pair — `parent` and `parent-sha256` — for the link the store
-indexes, and had no recognised pair for the link it does not. **Where those two links diverge —
-72% of the time — the byte commitment silently binds the wrong record.**
+indexes, and had no recognised pair for the link it does not.
 
-This measurement was run to question `target_digest`. It is an argument for it.
+**What stood here was wrong:** *"where those two links diverge, the byte commitment silently binds
+the wrong record."* `parent-sha256` binds **parent**, and binds it correctly — 58 of 58 verify.
+When parent is not the corrected record, the failure is an **absent pin on the target**, not a
+mis-aimed one. A digest on a different relation is not a failed digest on this one. The inversion
+needed a premise it never stated: that correctors were using the only digest slot to *mean*
+target. They were using the required chain slot as chain.
+
+**What survives, narrower:** where parent is not the corrected record, **nothing pins that
+record's bytes.** That is a gap, and still an argument for a target pin. It is not evidence that
+anything currently binds wrongly.
+
+**And the rate is not a measurement yet.** It rests on a classification of *"the record whose
+claim the erratum corrects"* made by reading sixty bodies with six spot checks and **no sealed
+predicate** — the fourth time a number here has rested on an unsealed individuation rule, after
+`P1` of the `[MUST]` census, `P3` of the reverse pass, and the dedup fold. Given that
+classification, the rate that matters is also not 72%: **nine of the 43 have no relay target at
+all**, so among the **51 record-targeted** errata parent differs from target in **34 — 67%**.
+
+**The measurement nobody has run:** among errata with a relay target where parent is not that
+target, how often is the target pinned by any digest at all? That is the number that speaks to
+need, and it needs the coding sheet sealed first.
+
+This measurement was run to question `target_digest`. What it shows is an asymmetry: the protocol
+gives the chain edge a recognised pair and the correction edge none.
 
 `relay-0912`'s *"guaranteed by construction"* also overcorrects: the format is free text, unknown
 headers survive as bytes, authors pasted digests into prose seven times, and `relay-0693` wrote
