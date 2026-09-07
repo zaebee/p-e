@@ -1,0 +1,28 @@
+7:across all fifteen replies: zero. A single-reviewer trajectory is not a verified one; see
+19:1. A record, once published, is immutable. Corrections are new records, never edits.
+23:4. A reader's inability to see a record is not a defect in that record.
+42:**[MUST]** `CNS.to` is an element of the act's `to[]`, or `to[] == ["all"]`. A delivery leg
+46:**[MUST]** `CNS.id == act.id`.
+51:metadata lives in the filename and is never hashed.
+75:**[MUST]** Producers mint canonical wire bytes per **RFC 8785 (JCS)** encoded as raw UTF-8.
+79:**[MUST]** Acts conform to **I-JSON (RFC 7493)**: no duplicate keys; integers within
+90:**[MUST]** An act is sealed at creation: `id` minted, `hlc` stamped once, bytes canonicalized
+93:**[MUST NOT]** Publishers re-tick the HLC or re-mint timestamps when retrying an existing `id`.
+124:**[MUST]** The protocol and storage model treat the graph as a DAG — a partial order.
+126:**[MUST NOT]** A consumer presents any linear projection as *the* causal history, or makes
+137:Deduplication is not an optimisation. Fan-out delivers N copies of one act, and the comparator
+252:reader knows whom to distrust. A ruling is not a reading.
+258:Three stages, in order. The ordering is normative: stage 1 must not parse, and stage 2's
+264:**[MUST NOT]** A verifier parses, normalizes, or re-serializes bytes when computing a digest or
+276:**[MUST]** A citation carries both handles — the locator and the digest:
+288:Without the locator, "the parent is not held" and "the parent is held and disagrees" are the
+292:single-leg delivery an act addressed to one agent is never written into another's inbox, so a
+293:node holding a child that cites it *cannot* hold the parent. Partial visibility is the normal
+294:case, and a verifier that rejects on an unheld parent rejects correct acts routinely.
+321:Evaluation is **total** — every input returns a state, none throws. Stage 2 rejects `UNANCHORED`
+325:Branching on `parent_id` alone first is not stylistic. Three conjunctive guards exhaust the null
+338:**[MUST]** A store guarantees the invariant, by deriving the digest at load or by verifying it
+341:**[MUST]** A detected discrepancy raises `STORE_CORRUPTION`. It **MUST NOT** surface as
+357:falsification** — not as an independently discovered invariant. The reviewer initially described
+363:pass. The open question is whether the partition is *complete*, and completeness is not
+371:   fan-out; the invariant list belongs inside, which is why §3 carries `to: readonly string[]`.
