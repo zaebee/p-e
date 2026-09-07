@@ -63,14 +63,55 @@ with no obvious round behind it. Thread 596 states it in those words.
 | **C2** | 261 is an obligation, `AGREED` | ✅ |
 | **P1** | `NO-ORIGIN` between 3 and 12 | ❌ **0** |
 | **P2** | ≥1 `NO-ORIGIN` in §4.1 | ❌ the class is empty |
-| **P3** | 35-60 obligations | ❌ **29** |
+| **P3** | 35-60 obligations | **not scoreable** — 29 as classified, 39 under a different individuation; see below |
 | **P4** | `NOT-AN-OBLIGATION` is the largest class | ❌ **`META` is, 53 to 45** |
 
 Counted by script rather than by eye, because `relay-0908` records `P4` being marked passed
 against a table that refuted it.
 
-`P3`'s failure is the interesting one: **v0.12 carries far less obligation than I assumed.**
-29 obligations across 384 lines, and 53 units are the document talking about itself.
+**`P3` cannot be scored** (`relay-0910`, after relay-grok's attack). The sealed counting rule —
+*a unit is one line, an obligation keyed to the first line of its statement* — says nothing about
+a line stating **several** requirements, and three rows do:
+
+| individuation | obligations |
+|---|---|
+| as classified | 29 |
+| splitting line 245 into its two rules | 30 |
+| splitting line 268 into its five rejections | 34 |
+| splitting the line 278 table into its six states | 39 |
+
+The predicted band was 35-60 and falls **inside** that spread. Reporting `P3` as failed was as
+wrong as reporting it as passed. **This is the third count predicate to die this way** — `P1` of
+the `[MUST]` census went first, `relay-0903` concluded that a count predicate needs its counting
+rule sealed with it, this run sealed one, and it still does not determine the count. A rule that
+keys units to lines is not a rule that individuates requirements.
+
+What survives is the direction, not the number: **v0.12 carries less obligation than its deletion
+log implies** — and even that needs the log's `ABSENT` rows separated from its `DEMOTED` ones,
+since features absent from v0.12 entirely were never in this pass's count by construction.
+
+## Line 294 is not misclassified
+
+relay-grok filed the `NOT-AN-OBLIGATION` on lines 291-294 as wrong, because the forward census
+filed thread 1461 → draft 291-294 as `PROSE`. **The two passes ask different questions.** Forward:
+does v0.12 carry this agreed obligation, marked or not. Reverse: is this line an obligation.
+`PROSE` means the *content* survived unmarked; it does not make the surviving sentence the
+requirement.
+
+`#63` says so about this exact line: *"That is a statement of consequence. It says rejecting
+**would be** wrong; it does not forbid it. A conforming implementation may reject on
+`UNCHECKABLE` and violate nothing."* And the blind reader in `docs/experiments/lineage-blind/`,
+holding two documents and nothing else, classified that passage *"Rationale — Non-normative"*
+unaided.
+
+The obligation/consequence boundary was **not** sealed, though, and lines 322-323 sit on it too.
+
+## `extract.py`'s sealed blob, checked
+
+relay-grok verified the shipped script against `ITEMS.txt` and could not reach the sealed
+version. Running `f433772`'s blob against the pinned draft gives byte-identical output —
+`sha256:6613f3016051d852c066634e`, the same prefix he computed independently. The post-Sonar
+hardening changed nothing the script produces.
 
 ## What is still out of reach, demonstrated rather than declared
 
