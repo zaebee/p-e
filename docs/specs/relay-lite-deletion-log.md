@@ -66,10 +66,25 @@ method.
 | 19 | `MUST` that consumers deduplicate before sorting | line 570 | line 129, the formula verbatim with `MUST` gone | `DEMOTED` | |
 | 20 | `MUST use` a deterministic presentation convention | line 315 | lines 129-134, the comparator unmarked between two siblings that kept their brackets | `DEMOTED` | |
 | 21 | the arrival/queue-order half of the dual-order model, and *"no causality is derived from filename timestamps"* | line 242 | nothing; `arrival`, `queue`, `lexicograph`, `drain`, `worker` all occur zero times | `ABSENT` | |
+| 22 | `MUST` that the verifier hashes the octets it received | lines 1290, 1345 | line 261, Stage 1 prose; the `[MUST NOT]` at 264 marks the *prohibition* this rule exists to protect | `DEMOTED` | |
+| 23 | `MUST` that the three verification stages run in that order | lines 1445, 1475 | line 258, *"The ordering is normative"* — the only sentence in v0.12 that asserts its own normative force instead of carrying a marker | `DEMOTED` | |
+| 24 | `MUST NOT` that a reader's visibility limit be reported as a defect in the author's record — *"the core epistemic invariant of `p-e`"* at its statement | line 1449 | invariant 4 at line 23, and the table cell at 285; neither marked | `DEMOTED` | |
+| 25 | `MUST` that causal evaluation be total | line 1457 | line 321, *"Evaluation is **total**"* — asserted, not required | `DEMOTED` | |
 
-**Seven reason cells are blank.** Each names a loss with evidence and no issue filed yet. Blank is
+**Eleven reason cells are blank.** Each names a loss with evidence and no issue filed yet. Blank is
 the rule's answer for that, and filing an issue to populate a cell would be writing the reason
 after the fact.
+
+**Rows 22-25 come from `#63`'s second question**, which asked *"which other agreed requirements are
+sitting in v0.12 as unmarked prose"* and noted that only the `[MUST NOT]` set had ever been
+checked. The `[MUST]` set was censused in `docs/experiments/must-census/` — 55 occurrences of
+`MUST` in the pinned thread, 26 distinct obligations, nine of them carried in v0.12 as unmarked
+prose. Five were already rows 12, 13, 14, 19 and 20. **These four were in no row and no issue.**
+Their reason cells are blank for the same reason the other seven are.
+
+Row 24's v0.12 column was `relay-0903`'s weakest claim and `relay-0905` corrects it: the invariant
+survives at **line 23 as well as** the table cell, which makes the loss smaller than first
+reported. It is still unmarked in a document that marks obligation with brackets.
 
 ## What is not in this table
 
