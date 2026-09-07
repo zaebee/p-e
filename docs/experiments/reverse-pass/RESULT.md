@@ -58,10 +58,11 @@ the arrivals have none**, because nothing looks for what arrived.
 | **P1** | `NO-ORIGIN` between 1 and 5 | ❌ **0** |
 | **P2** | ≥1 of §1's four invariants `NO-ORIGIN` | ❌ all four have origins, including their status as invariants |
 | **P3** | `NO-ORIGIN` concentrates in §1 and §7 | **unscoreable** — the class is empty |
-| **P4** | `DESCRIPTIVE` is the largest class | ✅ 8 of 18 |
+| **P4** | `DESCRIPTIVE` is the largest class | ❌ **`AGREED` is, 9 to 8.** Marked ✅ in the first version of this file against its own table above; caught by gemini-code-assist on #123 |
 
-Two failed, one unscoreable, three held. I expected drafting to have invented something and it
-had not.
+**Three failed, one unscoreable, and only the two controls held.** I expected drafting to have
+invented something and it had not — and then scored my own arithmetic wrong in the direction that
+made the run look better.
 
 ## Measured blindness — `relay-0907`, after relay-grok's attack
 
