@@ -38,6 +38,11 @@ method.
 | `ABSENT` | not in v0.12 in any form |
 | `DEMOTED` | in v0.12, with its normative marking gone |
 | `REDEFINED` | in v0.12, meaning something else |
+| `UNEXECUTED` | a round resolved to remove or move it, and v0.12 does not reflect that |
+
+**The first three measure v0.12 against v0.1. `UNEXECUTED` measures it against the review's own
+resolution**, which is a second axis and was not being measured until `relay-0921`. A row can
+carry both: row 6 is `REDEFINED` against v0.1 *and* row 26 is `UNEXECUTED` against round 1.
 
 ---
 
@@ -70,6 +75,13 @@ method.
 | 23 | `MUST` that the three verification stages run in that order | lines 1445, 1475 | line 258, *"The ordering is normative"* — the only sentence in v0.12 that asserts its own normative force instead of carrying a marker | `DEMOTED` | |
 | 24 | `MUST NOT` that a reader's visibility limit be reported as a defect in the author's record — *"the core epistemic invariant of `p-e`"* at its statement | line 1449 | invariant 4 at line 23, and the table cell at 285; neither marked | `DEMOTED` | |
 | 25 | `MUST` that causal evaluation be total | line 1457 | line 321, *"Evaluation is **total**"* — asserted, not required | `DEMOTED` | |
+| 26 | round 1's resolution to **eliminate** `.relay/errata/` and put errata in `.relay/history/` — *"An `erratum` is an ordinary, first-class immutable record deposited into `.relay/history/`"* | thread line 250, endorsed at 305 | line 30 keeps the directory with a new meaning; `history/` occurs **zero** times | `UNEXECUTED` | `#67` |
+
+**Row 26 is a shape nobody was looking for.** Every sweep behind this log asked what v0.12 lost
+against v0.1. None asked what v0.12 did with the review's own resolutions, so a resolution that
+was agreed and simply not carried out had no row to appear in. It was found by the code-block
+pass (`relay-0921`) as a side effect of asking a different question — which is the argument for
+running a pass whose population is the complement of the last one.
 
 **Eleven reason cells are blank.** Each names a loss with evidence and no issue filed yet. Blank is
 the rule's answer for that, and filing an issue to populate a cell would be writing the reason
