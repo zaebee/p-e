@@ -41,7 +41,7 @@
  */
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { depositLocal } from "../src/relay/deposit.js";
 import { ID } from "../src/relay/store.js";
 
@@ -80,9 +80,16 @@ async function checkParentDigest(record: string, relayRoot: string): Promise<voi
     process.exit(1);
   }
 
+  const resolvedRoot = resolve(relayRoot);
+  const parentPath = resolve(resolvedRoot, `${parent}.txt`);
+  if (!parentPath.startsWith(resolvedRoot + sep) && parentPath !== resolvedRoot) {
+    console.error(`parent ${JSON.stringify(parent)} is outside relay root`);
+    process.exit(1);
+  }
+
   let parentBytes: string;
   try {
-    parentBytes = await readFile(join(relayRoot, `${parent}.txt`), "utf8");
+    parentBytes = await readFile(parentPath, "utf8");
   } catch {
     console.error(`parent ${parent} is not in ${relayRoot} — cannot check parent-sha256`);
     process.exit(1);
