@@ -1,0 +1,120 @@
+28|.relay/tmp/     ephemeral temp files, randomized names
+29|.relay/in/      published delivery files
+30|.relay/errata/  expired records
+36|to=<agent>;from=<agent>;thread=<thread_id>;ttl=<seconds>;id=<uuidv7>.json
+54|export interface HLC {
+55|  readonly l: number;         // Physical/wall timestamp in milliseconds UTC
+56|  readonly c: number;         // Monotonic logical counter per node
+57|  readonly node_id: string;   // Unique node/process identifier
+58|}
+60|export interface RelayAct<T = any> {
+61|  readonly id: string;                    // UUIDv7 locator
+62|  readonly thread_id: string;             // Context / task grouping
+63|  readonly parent_id: string | null;      // Predecessor locator (null for roots)
+64|  readonly parent_digest: string | null;  // SHA-256 of parent's wire octets
+65|  readonly type: "message" | "claim" | "challenge" | "ruling" | "erratum";
+66|  readonly from: string;                  // Author identity
+67|  readonly to: readonly string[];         // Invariant attested audience list
+68|  readonly hlc: HLC;                      // Explicit immutable HLC tuple
+69|  readonly payload: T;                    // I-JSON (RFC 7493) compliant payload
+70|}
+104|l' = max(physical_now_ms, last_l)
+105|c' = last_c + 1   if l' == last_l
+106|     0            if l' >  last_l
+112|l' = max(physical_now_ms, last_l, M.hlc.l)
+113|c' = max(last_c, M.hlc.c) + 1   if l' == last_l == M.hlc.l
+114|     last_c + 1                 if l' == last_l
+115|     M.hlc.c + 1                if l' == M.hlc.l
+116|     0                          otherwise
+132|ProjectThread(E) = Sort(DeduplicateByID(E), Comparator)
+134|Comparator:  TopologicalDepth  →  HLC (l, c, node_id)  →  id
+144|import { promises as fs } from "node:fs";
+145|import { join } from "node:path";
+146|import { createHash } from "node:crypto";
+148|export type PublishResult =
+149|  | { status: "PUBLISHED" }
+150|  | { status: "ALREADY_PUBLISHED" }
+151|  | { status: "COLLISION_REFUSED" }
+152|  | { status: "RETRY_EXHAUSTED" };
+154|export async function publishMessage(
+155|  payloadBytes: Buffer,
+156|  targetName: string,
+157|  relayRoot: string,
+158|  maxRetries = 3
+159|): Promise<PublishResult> {
+160|  const inDir = join(relayRoot, "in");
+161|  const tmpDir = join(relayRoot, "tmp");
+162|  const targetPath = join(inDir, targetName);
+164|  await fs.mkdir(tmpDir, { recursive: true });
+165|  await fs.mkdir(inDir, { recursive: true });
+167|  for (let attempt = 0; attempt < maxRetries; attempt++) {
+168|    const tmpPath = join(
+169|      tmpDir,
+170|      `.dep-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+171|    );
+173|    let tmpCreated = false;
+174|    let tmpHandle: fs.FileHandle | null = null;
+175|    let dirHandle: fs.FileHandle | null = null;
+177|    try {
+178|      tmpHandle = await fs.open(tmpPath, "wx");
+179|      tmpCreated = true;
+180|      await tmpHandle.writeFile(payloadBytes);
+181|      await tmpHandle.sync();
+182|      await tmpHandle.close();
+183|      tmpHandle = null;
+185|      try {
+186|        await fs.link(tmpPath, targetPath);
+187|      } catch (linkErr: any) {
+188|        if (linkErr.code === "EEXIST") {
+189|          let existingBytes: Buffer;
+190|          try {
+191|            existingBytes = await fs.readFile(targetPath);
+192|          } catch (readErr: any) {
+193|            if (readErr.code === "ENOENT") continue;   // target vanished; the name is free
+194|            throw readErr;
+195|          }
+197|          const existingDigest = createHash("sha256").update(existingBytes).digest("hex");
+198|          const payloadDigest = createHash("sha256").update(payloadBytes).digest("hex");
+200|          if (existingDigest === payloadDigest) {
+201|            dirHandle = await fs.open(inDir, "r");
+202|            await dirHandle.sync();
+203|            return { status: "ALREADY_PUBLISHED" };
+204|          }
+205|          return { status: "COLLISION_REFUSED" };
+206|        }
+207|        throw linkErr;
+208|      }
+210|      dirHandle = await fs.open(inDir, "r");
+211|      await dirHandle.sync();
+212|      return { status: "PUBLISHED" };
+213|    } finally {
+214|      if (tmpHandle) await tmpHandle.close().catch(() => {});
+215|      if (dirHandle) await dirHandle.close().catch(() => {});
+216|      if (tmpCreated) await fs.unlink(tmpPath).catch(() => {});
+217|    }
+218|  }
+220|  return { status: "RETRY_EXHAUSTED" };
+221|}
+297|export type CausalStatus =
+298|  | "NO_PARENT" | "UNANCHORED" | "LABEL_ONLY"
+299|  | "MATCHES"   | "DIVERGES"   | "UNCHECKABLE";
+301|export function evaluateCausalLink(
+302|  child: RelayAct,
+303|  localStore: Map<string, StoredRecord>
+304|): CausalStatus {
+305|  const { parent_id, parent_digest } = child;
+307|  if (parent_id === null) {
+308|    if (parent_digest === null) return "NO_PARENT";
+309|    return "UNANCHORED";
+310|  }
+311|  if (parent_digest === null) return "LABEL_ONLY";
+313|  const parentRecord = localStore.get(parent_id);
+314|  if (parentRecord !== undefined) {
+315|    return parentRecord.digest === parent_digest ? "MATCHES" : "DIVERGES";
+316|  }
+317|  return "UNCHECKABLE";
+318|}
+332|export interface StoredRecord {
+333|  readonly octets: Buffer;
+334|  readonly digest: string;   // INVARIANT: digest === SHA-256(octets)
+335|}
