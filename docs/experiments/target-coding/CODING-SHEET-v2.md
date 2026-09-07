@@ -36,8 +36,10 @@ locator happened to be findable.
 
 v1 excluded the parent from rule 3's candidate set to stop it trivially returning the parent.
 That blanked out the case where the parent **is** the subject and the body never used rule 1's
-phrasing: `relay-0084` — bee.zae's admission of destroying `relay-0083` — coded to `relay-0073`
-on a passing mention.
+phrasing: `relay-0084` — **bee.claude's** admission, addressed to bee.chatgpt, of destroying
+`relay-0083` — coded to `relay-0073` on a passing mention. (An earlier version of this file said
+*bee.zae's*, carried from the v1 reader's report without opening the record; corrected per
+`relay-0920`.)
 
 **The exclusion is gone.** Step A already prevents the trivial case: a record whose corrected
 claim is the parent's *should* code to the parent.
