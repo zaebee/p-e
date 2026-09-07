@@ -1,0 +1,156 @@
+1	META	heading, status, or the provenance section	
+3	META	heading, status, or the provenance section	
+5	META	heading, status, or the provenance section	
+6	META	heading, status, or the provenance section	
+7	META	heading, status, or the provenance section	
+8	META	heading, status, or the provenance section	
+10	NOT-AN-OBLIGATION	scope	
+11	NOT-AN-OBLIGATION	scope	
+12	NOT-AN-OBLIGATION	scope	
+13	NOT-AN-OBLIGATION	scope	
+15	META	heading, status, or the provenance section	
+17	META	heading, status, or the provenance section	
+19	AGREED	invariant 1 — records immutable, corrections are new records	12 (v0.1 §1 inv 1)
+20	AGREED	invariant 2 — order from the citation graph, not clocks	13 (v0.1 §1 inv 2); quoted at 200
+21	AGREED	invariant 3 — the causal graph is a partial order	318
+22	CONTINUATION	part of the statement at 21	
+23	AGREED	invariant 4 — a reader's inability to see is not a defect	1449
+25	META	heading, status, or the provenance section	
+33	META	heading, status, or the provenance section	
+39	AGREED	one leg per recipient; N agents give N files of identical bytes	790, 1255
+40	CONTINUATION	part of the statement at 39	
+42	BRACKETED-KNOWN	CNS.to element of to[]	1441
+43	CONTINUATION	part of the statement at 42	
+44	CONTINUATION	part of the statement at 42	
+46	BRACKETED-KNOWN	CNS.id == act.id	251
+48	META	heading, status, or the provenance section	
+50	AGREED	the hashed body carries only recipient-invariant content	787-790
+51	CONTINUATION	part of the statement at 50	
+73	META	heading, status, or the provenance section	
+75	BRACKETED-KNOWN	JCS canonical bytes	1240
+76	CONTINUATION	part of the statement at 75	
+77	CONTINUATION	part of the statement at 75	
+79	BRACKETED-KNOWN	I-JSON conformance	1354
+80	CONTINUATION	part of the statement at 79	
+81	CONTINUATION	part of the statement at 79	
+83	NOT-AN-OBLIGATION	why the domain constraint	
+84	NOT-AN-OBLIGATION	why the domain constraint	
+85	NOT-AN-OBLIGATION	why the domain constraint	
+86	NOT-AN-OBLIGATION	why the domain constraint	
+88	META	heading, status, or the provenance section	
+90	BRACKETED-KNOWN	sealed at creation	1344
+91	CONTINUATION	part of the statement at 90	
+93	BRACKETED-KNOWN	no HLC re-tick on retry	1255
+94	AGREED	retries and fan-out transmit the identical sealed buffer	1255
+96	NOT-AN-OBLIGATION	why sealing	
+97	NOT-AN-OBLIGATION	why sealing	
+99	META	heading, status, or the provenance section	
+101	META	heading, status, or the provenance section	
+109	META	heading, status, or the provenance section	
+119	NOT-AN-OBLIGATION	why max folds a regressing clock	
+120	NOT-AN-OBLIGATION	why max folds a regressing clock	
+122	META	heading, status, or the provenance section	
+124	BRACKETED-KNOWN	DAG, a partial order	318
+126	BRACKETED-KNOWN	no linear projection as the history	321
+127	CONTINUATION	part of the statement at 126	
+129	AGREED	a flat presentation deduplicates first, then sorts	573
+137	NOT-AN-OBLIGATION	why dedup is not an optimisation	
+138	NOT-AN-OBLIGATION	why dedup is not an optimisation	
+139	NOT-AN-OBLIGATION	why dedup is not an optimisation	
+141	META	heading, status, or the provenance section	
+224	META	heading, status, or the provenance section	
+226	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+227	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+228	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+229	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+230	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+231	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+232	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+233	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+234	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+235	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+236	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+237	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+238	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+239	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+240	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+241	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+242	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+243	NOT-AN-OBLIGATION	§4.1 rationale bullet	
+245	AGREED	the sweeper reaps tmp/ past 10 min and in/ past TTL	596 verbatim; 101 (v0.1)
+246	CONTINUATION	part of the statement at 245	
+248	META	heading, status, or the provenance section	
+250	AGREED	ruled_by records attribution, not a delegated mandate	343
+251	CONTINUATION	part of the statement at 250	
+252	AGREED	a ruling is not a reading	188, 236, 2074
+254	META	heading, status, or the provenance section	
+256	META	heading, status, or the provenance section	
+258	AGREED	the three stages run in that order	1445, 1475
+259	CONTINUATION	part of the statement at 258	
+261	AGREED	stage 1 hashes the octets received, no parse, no normalize	1290, 1345
+262	CONTINUATION	part of the statement at 261	
+264	BRACKETED-KNOWN	no parse, normalize or re-serialize when hashing	1347
+265	CONTINUATION	part of the statement at 264	
+266	CONTINUATION	part of the statement at 264	
+268	AGREED	stage 2 rejects: dup keys, unsafe numbers, CNS.id, CNS.to, unanchored	1355, 1356, 251, 1441, 1806
+269	CONTINUATION	part of the statement at 268	
+270	CONTINUATION	part of the statement at 268	
+272	AGREED	stage 3 is total and pure	1929, 1944
+274	META	heading, status, or the provenance section	
+276	BRACKETED-KNOWN	a citation carries both handles	1656
+278	AGREED	the six-state citation table	1795, 1929
+279	CONTINUATION	part of the statement at 278	
+280	CONTINUATION	part of the statement at 278	
+281	CONTINUATION	part of the statement at 278	
+282	CONTINUATION	part of the statement at 278	
+283	CONTINUATION	part of the statement at 278	
+284	CONTINUATION	part of the statement at 278	
+285	CONTINUATION	part of the statement at 278	
+287	NOT-AN-OBLIGATION	why both handles	
+288	NOT-AN-OBLIGATION	why both handles	
+289	NOT-AN-OBLIGATION	why both handles	
+291	NOT-AN-OBLIGATION	why UNCHECKABLE	
+292	NOT-AN-OBLIGATION	why UNCHECKABLE	
+293	NOT-AN-OBLIGATION	why UNCHECKABLE	
+294	NOT-AN-OBLIGATION	why UNCHECKABLE	
+321	AGREED	evaluation is total — every input returns a state	1457, 2002
+322	NOT-AN-OBLIGATION	why stage 3 still classifies	
+323	NOT-AN-OBLIGATION	why stage 3 still classifies	
+325	NOT-AN-OBLIGATION	why branch on parent_id first	
+326	NOT-AN-OBLIGATION	why branch on parent_id first	
+327	NOT-AN-OBLIGATION	why branch on parent_id first	
+329	META	heading, status, or the provenance section	
+338	BRACKETED-KNOWN	the store guarantees the digest invariant	2021
+339	CONTINUATION	part of the statement at 338	
+341	BRACKETED-KNOWN	STORE_CORRUPTION, never DIVERGES against a child	2043
+342	CONTINUATION	part of the statement at 341	
+343	CONTINUATION	part of the statement at 341	
+345	META	heading, status, or the provenance section	
+347	META	heading, status, or the provenance section	
+349	META	heading, status, or the provenance section	
+351	META	heading, status, or the provenance section	
+352	META	heading, status, or the provenance section	
+353	META	heading, status, or the provenance section	
+354	META	heading, status, or the provenance section	
+356	META	heading, status, or the provenance section	
+357	META	heading, status, or the provenance section	
+358	META	heading, status, or the provenance section	
+359	META	heading, status, or the provenance section	
+361	META	heading, status, or the provenance section	
+362	META	heading, status, or the provenance section	
+363	META	heading, status, or the provenance section	
+364	META	heading, status, or the provenance section	
+366	META	heading, status, or the provenance section	
+368	META	heading, status, or the provenance section	
+370	META	heading, status, or the provenance section	
+371	META	heading, status, or the provenance section	
+372	META	heading, status, or the provenance section	
+373	META	heading, status, or the provenance section	
+374	META	heading, status, or the provenance section	
+375	META	heading, status, or the provenance section	
+376	META	heading, status, or the provenance section	
+378	META	heading, status, or the provenance section	
+379	META	heading, status, or the provenance section	
+381	META	heading, status, or the provenance section	
+383	META	heading, status, or the provenance section	
+384	META	heading, status, or the provenance section	

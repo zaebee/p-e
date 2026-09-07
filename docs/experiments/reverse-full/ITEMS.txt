@@ -1,0 +1,156 @@
+1|# relay-lite — Working Draft v0.12
+3|**Status:** Working draft. Not verified. Not adopted by this project.
+5|**Origin:** Proposed in [issue #5](https://github.com/zaebee/p-e/issues/5) and revised across
+6|sixteen review rounds between one proposer and one reviewer (`bee.claude`). Contest language
+7|across all fifteen replies: zero. A single-reviewer trajectory is not a verified one; see
+8|**Provenance and standing** below before treating any part of this as established.
+10|relay-lite is a message transport for multiple agents exchanging records over a shared
+11|filesystem. It is **a different protocol from the one this repository runs** — that store uses
+12|`relay-NNNN` ids, allocation markers, text records split on `\n---\n`, digests over literal file
+13|bytes, and a comma-separated `to:` list. Nothing here describes `src/relay/`.
+15|---
+17|## 1. Invariants
+19|1. A record, once published, is immutable. Corrections are new records, never edits.
+20|2. Order comes from the citation graph, not from absolute system clocks.
+21|3. The causal graph is a **partial order**. Concurrent replies fork; there is no single true
+22|   linearisation.
+23|4. A reader's inability to see a record is not a defect in that record.
+25|## 2. Filesystem layout and CNS names
+33|### 2.1 Delivery filename
+39|`to=<agent>` names **one** delivery leg. A message addressed to N agents produces N delivery
+40|files carrying identical bytes.
+42|**[MUST]** `CNS.to` is an element of the act's `to[]`, or `to[] == ["all"]`. A delivery leg
+43|naming a recipient outside the attested audience is non-conformant and is rejected by the
+44|receiver.
+46|**[MUST]** `CNS.id == act.id`.
+48|## 3. The canonical act
+50|The hashed body carries only what is true regardless of who receives it. Per-recipient delivery
+51|metadata lives in the filename and is never hashed.
+73|### 3.1 Canonical serialization
+75|**[MUST]** Producers mint canonical wire bytes per **RFC 8785 (JCS)** encoded as raw UTF-8.
+76|JCS fixes key order (UTF-16 code units), number formatting (ECMAScript), and string escaping
+77|(non-ASCII emitted as literal UTF-8).
+79|**[MUST]** Acts conform to **I-JSON (RFC 7493)**: no duplicate keys; integers within
+80|`[-(2^53 - 1), 2^53 - 1]`, larger values encoded as strings; strings valid UTF-8 without
+81|overlong sequences or unpaired surrogates.
+83|*Why the domain constraint:* an integer past 2^53 is altered by the parse that precedes
+84|canonicalization, so the digest covers a value nobody sent. Duplicate keys resolve differently
+85|across parsers — a duplicated `from` gives two implementations different authors *and*
+86|different digests.
+88|### 3.2 Sealing
+90|**[MUST]** An act is sealed at creation: `id` minted, `hlc` stamped once, bytes canonicalized
+91|once.
+93|**[MUST NOT]** Publishers re-tick the HLC or re-mint timestamps when retrying an existing `id`.
+94|Retries and fan-out transmit the identical sealed byte buffer.
+96|Without this, a crash-recovery retry rebuilds the act with a later HLC, the digest changes, and
+97|the publisher's own retry is reported as a foreign collision.
+99|### 3.3 The Hybrid Logical Clock
+101|Emission, on creating a message:
+109|Ingest, on processing a received message `M`:
+119|`max` folds a regressing physical clock into the equal case, so the tuple stays monotonic per
+120|node across NTP steps, VM restore, and suspend.
+122|## 4. Ordering
+124|**[MUST]** The protocol and storage model treat the graph as a DAG — a partial order.
+126|**[MUST NOT]** A consumer presents any linear projection as *the* causal history, or makes
+127|protocol assertions from a linearized sequence.
+129|A consumer needing a flat presentation deduplicates first, then sorts:
+137|Deduplication is not an optimisation. Fan-out delivers N copies of one act, and the comparator
+138|would otherwise be asked to order records that are copies rather than siblings. Terminating on
+139|`id` is sound only after dedup, because `id` is what dedup keys on.
+141|### 4.1 Publishing
+224|Each element earns its place:
+226|- **`link`, not `rename`** — `rename` overwrites an existing name silently; `link` fails with
+227|  `EEXIST`, which is what a create-or-fail publish needs.
+228|- **Randomized temp name** — a crash leaves no `finally` to run. A deterministic
+229|  `<id>.tmp` would survive as an uncollectable file that blocks republication of exactly the
+230|  message that was interrupted. A random name leaves inert garbage instead.
+231|- **Directory `fsync`** — durable bytes do not make a durable name. Without it a crash can
+232|  leave a complete record that no directory entry points at.
+233|- **`EEXIST` scoped to `link`** — the temp `open` uses `O_EXCL` and produces `EEXIST` too.
+234|  Catching it at the outer level reports a temp-name collision as a publish collision and, via
+235|  the `finally`, deletes another writer's in-flight temp.
+236|- **`ENOENT` scoped to `readFile`** — the directory `fsync` also produces `ENOENT`, and the two
+237|  are indistinguishable by code.
+238|- **Digest comparison on `EEXIST`** — `EEXIST` alone does not say *whose* name it is. A publish
+239|  whose `link` succeeded and whose `fsync` then failed is retried and would otherwise be
+240|  reported as another writer's collision.
+241|- **`RETRY_EXHAUSTED`** — loop exhaustion is reachable only via the vanished-target path, which
+242|  means every attempt found the name free. Reporting that as a collision is the same error one
+243|  level out.
+245|**GC:** a sweeper reaps `.relay/tmp/` entries older than 10 minutes and moves `.relay/in/`
+246|entries past their TTL to `.relay/errata/`.
+248|## 5. Attribution
+250|`ruled_by` records **attribution of epistemic responsibility**, not a delegated mandate. It does
+251|not assert that anyone conferred authority; it names who made the judgment call, so a later
+252|reader knows whom to distrust. A ruling is not a reading.
+254|## 7. Verification
+256|### 7.1 Pipeline
+258|Three stages, in order. The ordering is normative: stage 1 must not parse, and stage 2's
+259|conformance checks require parsing.
+261|**Stage 1 — wire-octet hashing.** `act_digest = SHA-256(raw_received_bytes)`. No parsing, no
+262|normalization.
+264|**[MUST NOT]** A verifier parses, normalizes, or re-serializes bytes when computing a digest or
+265|verifying `parent_digest`. Re-serializing makes a non-canonical producer verify against a body
+266|nobody transmitted, and makes verification depend on the verifier's JSON library.
+268|**Stage 2 — structural and I-JSON conformance.** Parse; reject on duplicate keys, on numbers
+269|outside the safe range, on `CNS.id != act.id`, on `CNS.to ∉ act.to[]`, and on an unanchored
+270|citation (`parent_id == null && parent_digest != null`).
+272|**Stage 3 — causal link evaluation.** Total and pure; see below.
+274|### 7.2 Citations
+276|**[MUST]** A citation carries both handles — the locator and the digest:
+278|| `parent_id` | `parent_digest` | state | meaning |
+279|| :-- | :-- | :-- | :-- |
+280|| null | null | `NO_PARENT` | root act |
+281|| null | set | `UNANCHORED` | bytes claimed for nobody — malformed |
+282|| set | null | `LABEL_ONLY` | predecessor named, no byte commitment — **not a defect** |
+283|| set | set | `MATCHES` | parent held, digest agrees |
+284|| set | set | `DIVERGES` | parent held, digest differs — **author defect** |
+285|| set | set | `UNCHECKABLE` | parent not held — **reader gap, not a defect** |
+287|A digest alone is a content address, and a content-address lookup returns found or not-found.
+288|Without the locator, "the parent is not held" and "the parent is held and disagrees" are the
+289|same miss — so `DIVERGES` is unreachable and author defects launder into honest gaps.
+291|`UNCHECKABLE` is a consequence of this protocol's own transport, not an import: under §2.1's
+292|single-leg delivery an act addressed to one agent is never written into another's inbox, so a
+293|node holding a child that cites it *cannot* hold the parent. Partial visibility is the normal
+294|case, and a verifier that rejects on an unheld parent rejects correct acts routinely.
+321|Evaluation is **total** — every input returns a state, none throws. Stage 2 rejects `UNANCHORED`
+322|at ingest, where rejection belongs; stage 3 still classifies it, so an auditor sweeping records
+323|written under older rules gets a report instead of an aborted sweep.
+325|Branching on `parent_id` alone first is not stylistic. Three conjunctive guards exhaust the null
+326|cases logically, but TypeScript's control-flow analysis does not narrow across them, and the
+327|version that reads as exhaustive fails `tsc --strict` at `localStore.get(parent_id)`.
+329|### 7.3 Store integrity
+338|**[MUST]** A store guarantees the invariant, by deriving the digest at load or by verifying it
+339|before committing the record.
+341|**[MUST]** A detected discrepancy raises `STORE_CORRUPTION`. It **MUST NOT** surface as
+342|`DIVERGES` against a child record — the tri-state stops a reader's *visibility* gap from
+343|becoming an author's defect, and this stops the reader's *staleness* from doing the same.
+345|---
+347|## Provenance and standing
+349|### What is imported
+351|The six-state partition in §7.2 came from this repository's `src/relay/continuity.ts`. It
+352|entered the thread in the reviewer's first comment at 07:41 and was adopted by name — "Adopt
+353|`continuity.ts` semantics" — four minutes later. Every later refinement traces to blocks pasted
+354|from that file, comment text included.
+356|It is recorded here as a **formal hypothesis derived from `continuity.ts`, subject to
+357|falsification** — not as an independently discovered invariant. The reviewer initially described
+358|the agreement between the two systems as evidence and later retracted that: one system was
+359|copied into a specification and then observed arriving there.
+361|Falsifying it needs a reader that has not seen `continuity.ts` or issue #5. **Fuzzing will not
+362|do it:** a fuzzer emitting well-formed acts sees every state returned correctly and records a
+363|pass. The open question is whether the partition is *complete*, and completeness is not
+364|observable from inside the partition.
+366|### What was withdrawn during review
+368|Four reviewer findings did not survive:
+370|1. "Move `to` out of the hashed body" — too broad. Only the per-delivery singular breaks
+371|   fan-out; the invariant list belongs inside, which is why §3 carries `to: readonly string[]`.
+372|2. That hashing over literal file bytes makes the encoding question unaskable — the same
+373|   sentence conceded this project's Q1 axes are open on which octets count.
+374|3. That absence-collapsed-into-fault is a recurring general pattern — four instances found by
+375|   one reader in one artefact.
+376|4. The convergence claim, above.
+378|Items 2 and 3 fell to an outside reader who had written none of the findings
+379|(`relay-0709`–`relay-0712`); items 1 and 4 the reviewer caught alone.
+381|### What this project has not decided
+383|Whether to adopt relay-lite at all. The store this repository runs solves a different problem
+384|and has open questions relay-lite does not touch.
