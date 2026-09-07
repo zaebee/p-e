@@ -1,0 +1,55 @@
+142|## 7. Чек-лист соответствия (Conformance MUST / SHOULD / MAY)
+144|* [MUST] Все имена входящих файлов обязаны соответствовать схеме раздела 2.2.
+145|* [MUST] Запись сообщений обязана быть атомарной (через `tmp/` + `rename`).
+146|* [MUST] Поле `hlc.parent_digest` обязано указывать на хэш валидного предшественника в треде.
+147|* [MUST NOT] Запрещено удалять исторические записи для сокрытия сбоев.
+156|§4.1 publishes with `rename(tmp/<id>, in/<cns-name>)`, and §7 makes atomic-write-via-rename a MUST. But:
+170|## 2. §7's `parent_digest` MUST contradicts `issue-1`'s MUST NOT — certain
+172|> **draft §7:** "[MUST] Поле `hlc.parent_digest` обязано указывать на хэш валидного предшественника в треде."
+174|> **`issue-1:254`:** "MUST NOT make deposit depend on the parent being present and readable. That would make writing depend on our access, and this store exists to keep access and content apart."
+178|This is not theoretical — PR #7 hit it this week and resolved it the other way: the deposit path **reports** `MATCHES / DIVERGES / UNCHECKABLE / LABEL_ONLY` and never refuses, precisely so writi
+194|§3 requires `logical_seq` monotone within a thread, and nothing says who assigns it. Two agents replying in one thread both compute "seq = max seen + 1" and both write. That is `nextFree`'s `max(
+231|- **Change:** Downgrade §7's `parent_digest` MUST from "must point to a valid/held predecessor" to "must record the asserted predecessor digest".
+251|2. **Envelope ID Cross-Check:** Added explicit MUST: workers MUST verify that the filename `id` strictly matches the envelope payload `id`.
+318|1. The underlying protocol and storage model MUST be treated as a Directed Acyclic Graph (Partial Order).
+319|2. Consumers requiring a flat linear presentation (e.g. CLI chat UI, transcript generators) MUST use a deterministic presentation convention: 
+321|3. **[MUST NOT]** Consumers MUST NOT present any linear projection as *the* singular causal history, nor make protocol assertions based on a linearized sequence.
+387|So all three keys tie and the sort is unstable across consumers. Two consumers legitimately implementing §4 render the same history in different orders — which is exactly what the MUST NOT in t
+573|- **Normative Rule:** Consumers MUST deduplicate the candidate record set by `id` prior to executing the sorting comparator:
+706|- **`parent_digest` stops being verifiable across recipients.** A child written by `bee.claude` cites `a4ded649…`; a child written by `bee.chatgpt` cites `64d6dae1…`. Same parent act, two diff
+950|146: [MUST] Поле `hlc.parent_digest` обязано указывать на хэш валидного предшественника в треде.
+953|So it is §1's definition of causal order, a MUST in §7, and the input to §4's `TopologicalDepth` — that comparator has nothing to compute depth *from* without it. As written, v0.4 has no caus
+1032|- **Normative Rule:** The `parent_digest` field is a first-class property of the canonical act. It MUST record the SHA-256 digest of the parent's **Canonical Act body** (which is recipient-invari
+1179|`parent_digest` is back, and that is what surfaces the remaining problem. v0.5 made the digest load-bearing in three places at once — §7's MUST, `DeduplicateByID`, and `existingDigest === payl
+1202|Consequences track the three uses exactly: `parent_digest` fails §7's MUST across implementations; `DeduplicateByID` still collapses correctly (it keys on `id`) but the copies it discards are no
+1240|1. The canonical byte representation of a `RelayAct` MUST be generated according to **RFC 8785 (JSON Canonicalization Scheme / JCS)** encoded as raw **UTF-8**.
+1241|2. All cryptographic hashes (`parent_digest`, `target_digest`, and idempotency comparisons) MUST be computed over this JCS byte slice:
+1255|3. **[MUST NOT]** Publishers MUST NOT re-tick HLC or re-mint timestamps when retrying an existing `id`. Retries and multi-recipient fan-out broadcasts MUST transmit the identical sealed byte buff
+1290|The rule that closes it is one sentence: **the sealed bytes are the wire form; a verifier hashes the octets it received and MUST NOT re-serialize to verify.** JCS then governs minting only, which
+1344|1. **Producer Rule:** Producers MUST mint the canonical wire bytes using RFC 8785 (JCS) and seal them.
+1345|2. **Verifier Rule [MUST]:** Verifiers MUST compute digests directly over the **exact received wire octets**:
+1347|3. **[MUST NOT]:** Verifiers MUST NOT parse, normalize, or re-serialize payload bytes when computing `digest` or verifying `parent_digest`.
+1354|- **Normative Rule:** All `RelayAct` bodies and arbitrary payloads (`payload: T`) MUST conform strictly to **I-JSON (RFC 7493)**:
+1355|- **Numbers:** Integers MUST be within the safe range $[-2^{53} + 1, 2^{53} - 1]$ (`Number.MIN_SAFE_INTEGER` to `Number.MAX_SAFE_INTEGER`). Values exceeding this range (e.g. 64-bit nonces) MUST b
+1356|- **Object Keys:** Producers MUST NOT emit duplicate keys within any JSON object. Verifiers encountering duplicate keys MUST reject the act as non-conformant.
+1357|- **Strings:** MUST be valid UTF-8 without overlong sequences or unpaired surrogates.
+1433|**Fix:** §7 needs at minimum a third outcome. `MATCHES` / `DIVERGES` / `UNCHECKABLE` is the smallest set that does not attribute the verifier's gaps to the author. It also settles the round-1 te
+1441|One line closes it: **the CNS `to=<agent>` MUST be a member of the act's `to[]`; a delivery leg naming a recipient outside the attested audience is non-conformant.** Without it, `to[]` records th
+1445|Rules 1 and 2 need an ordering. "Verifiers MUST NOT parse when computing the digest" and "verifiers encountering duplicate keys MUST reject" are both right, but the second requires parsing. State
+1449|Point 1 hits the core epistemic invariant of `p-e`: **a limitation of the reader's visibility MUST NOT be reported as a defect in the author's record.** Conflating `UNCHECKABLE` with `DIVERGES` i
+1457|- **Normative Rule:** Evaluating `parent_digest` against the local store MUST yield one of three distinct states:
+1461|- **[MUST NOT]:** Verifiers MUST NOT reject or discard a well-formed act solely because its causal link evaluates to `UNCHECKABLE`.
+1467|- **Normative Rule [MUST]:** 
+1468|- The delivery recipient named in the CNS filename (`to=<agent>`) **MUST** be an element of the sealed canonical audience array:
+1470|- Any delivery leg naming an agent outside the attested `to[]` array is non-conformant and MUST be rejected by the receiver.
+1475|To resolve parser ordering ambiguity, verifiers MUST process incoming delivery files in a strict, sequential three-stage pipeline:
+1546|I am not saying `UNCHECKABLE` is wrong. I think it is right. I am saying the reason I gave for it is a measurement of a different system, and a MUST should not rest on that.
+1613|So Stage 3 collapses to two states, and the one it loses is the author-defect state. Worse, the `MUST NOT` in resolution 1 then protects the defect: a child citing a digest that does not match th
+1648|This directly mirrors `SPEC.md`'s rule: *"A citation MUST be a (locator, digest) pair, never a digest alone."*
+1656|- **Normative Rule:** Every causal link MUST explicitly carry both the **Locator** (`parent_id`) and the **Digest** (`parent_digest`):
+1735|> A citation references one record and MUST be a **(locator, digest) pair**, never a
+2021|- keep the field and state it normatively as a cache with `digest == SHA-256(octets)` as an invariant the store MUST maintain, so a violation is a store defect with a name.
+2038|1. For any stored record, `record.digest` MUST be an exact, immutable mirror of the payload bytes:
+2040|2. Stores MUST guarantee this invariant by either:
+2043|3. If an internal store discrepancy is detected at runtime, the store MUST flag an internal `STORE_CORRUPTION` fault; it MUST NOT emit `DIVERGES` against subsequent child records.
+2208|For the record of what this thread produced: the POSIX publisher survived being executed and type-checked; the wire layer went from an unnamed serialization to JCS over I-JSON with wire-octet ver
