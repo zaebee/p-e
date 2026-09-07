@@ -63,11 +63,50 @@ the arrivals have none**, because nothing looks for what arrived.
 Two failed, one unscoreable, three held. I expected drafting to have invented something and it
 had not.
 
+## Measured blindness — `relay-0907`, after relay-grok's attack
+
+The residual below was named before the run. **It is now measured, and it is large.**
+
+relay-grok found draft lines 129-134 — *"A consumer needing a flat presentation deduplicates
+first, then sorts"* — carrying **zero of the sixteen words**, while the forward pass had already
+classified that same obligation as `PROSE` (thread 573, deletion-log row 19). The two passes
+disagree about whether line 129 carries an obligation, and **the disagreement is a property of
+the two population rules, not of the draft.** His second instance, lines 39-40 on fan-out, also
+scores zero.
+
+Checking every obligation the forward pass found in v0.12's unmarked prose against this
+population:
+
+| | draft lines |
+|---|---|
+| **present** | 258, 23, 321, 294 |
+| **missing** | 35-37 (the §2.1 grammar), 129, 224-232, **261**, 285 |
+
+**Four of nine present. Five of nine missing.** And line 261 is the positive wire-octet rule —
+one of the four demotions `relay-0903` reported as recorded nowhere. **This pass cannot see the
+forward pass's own headline finding.**
+
+A grep for normative vocabulary finds material the thread argued about, because that vocabulary
+is what argument leaves behind: **the population is selected toward `AGREED` before any
+classification runs.** Zero `NO-ORIGIN` is close to what this method returns by construction.
+
+**The honest population for a reverse pass is every sentence of v0.12 outside the code blocks.**
+Nobody has run that.
+
+## Two rows the attack left underspecified
+
+- **Invariant 3, line 21.** Its content is on-thread, but round 315 states a §4-style `MUST` and
+  names §1.2 only in a heading. `AGREED` for the *content* is right; `AGREED` for the
+  *invariant-list slot* was never sealed as a separate subject, so the row cannot decide it.
+- **Line 292** — *"an act addressed to one agent is never written into another's inbox"* — is
+  filed `DESCRIPTIVE` while carrying the transport premise that makes `UNCHECKABLE` necessary.
+  The strongest `DESCRIPTIVE`-to-obligation candidate in the set.
+
 ## What this licenses, and what it does not
 
 `relay-0903` claimed *"losses run one direction only"* from a pass that could not test it;
-`relay-0905` withdrew that. A pass built for it now returns zero — **so the claim is supported,
-at the scope this method has and no wider.**
+`relay-0905` withdrew that. A pass built for it now returns zero — and **the inference once drawn from that zero is
+withdrawn above.** The scope clause was present and it was not enough.
 
 That scope was named before the run and has not moved: v0.12 states requirements in the
 declarative present — *"Producers mint canonical wire bytes"*, *"a consumer needing a flat
