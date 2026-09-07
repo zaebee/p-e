@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { sha256 } from "../src/manifest.js";
-import { appendRelay, depositLocal } from "../src/relay/deposit.js";
+import { MAX_RECORD_BYTES, appendRelay, depositLocal } from "../src/relay/deposit.js";
 import { loadStore } from "../src/relay/store.js";
 
 /** An empty store directory. */
@@ -82,6 +82,37 @@ describe("appendRelay", () => {
 
   it("refuses a malformed id", async () => {
     await expect(appendRelay(body("x"), "nope", scratch())).rejects.toThrow(/must look like/);
+  });
+
+  it("refuses a record that exceeds the maximum size limit", async () => {
+    const hugeBody = `@p-e/x0\nfrom: chatgpt\n\n${"x".repeat(MAX_RECORD_BYTES + 10)}`;
+    await expect(appendRelay(hugeBody, undefined, scratch())).rejects.toThrow(
+      /exceeds maximum limit/,
+    );
+  });
+
+  // The limit is inclusive, so the interesting pair is MAX and MAX + 1. A test
+  // at MAX + 39 passes whether the comparison is > or >=, and would not notice
+  // an off-by-one that refused every record of exactly the stated maximum.
+  const sized = (n: number) => {
+    const head = "@p-e/x0\nfrom: chatgpt\nkind: message\n\n";
+    return head + "x".repeat(n - Buffer.byteLength(head, "utf8"));
+  };
+
+  it("accepts a record of exactly the maximum size", async () => {
+    const body = sized(MAX_RECORD_BYTES);
+    expect(Buffer.byteLength(body, "utf8")).toBe(MAX_RECORD_BYTES);
+    await expect(appendRelay(body, undefined, scratch())).resolves.toMatchObject({
+      id: "relay-0002",
+    });
+  });
+
+  it("refuses a record one byte over the maximum size", async () => {
+    const body = sized(MAX_RECORD_BYTES + 1);
+    expect(Buffer.byteLength(body, "utf8")).toBe(MAX_RECORD_BYTES + 1);
+    await expect(appendRelay(body, undefined, scratch())).rejects.toThrow(
+      /exceeds maximum limit of 1000000 bytes \(got 1000001 bytes\)/,
+    );
   });
 });
 
