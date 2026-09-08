@@ -531,13 +531,22 @@ function refuseNonDigest(bytes: string): void {
   );
 }
 
-/** The MCP path. Always `mcp` / `as-received` — see the doc comment above. */
+/**
+ * The MCP path. Always `as-received`, and `deposited-by` is whatever the
+ * transport observed: `mcp` for the stdio channel, `mcp/<agent>` when an HTTP
+ * caller presented a credential (`#143`). The channel is supplied by the
+ * transport and never read out of the bytes — bytes are a claim.
+ */
 export async function appendRelay(
   bytes: string,
   proposedId?: string,
   root = STORE_ROOT,
+  channel = "mcp",
 ): Promise<DepositResult> {
-  return deposit(bytes, "mcp", "as-received", proposedId, root);
+  if (channel !== "mcp" && !/^mcp\/[a-z0-9][a-z0-9._-]{0,31}$/.test(channel)) {
+    throw new Error(`channel must be "mcp" or "mcp/<agent>", got ${JSON.stringify(channel)}`);
+  }
+  return deposit(bytes, channel, "as-received", proposedId, root);
 }
 
 /**

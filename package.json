@@ -11,6 +11,7 @@
     "diff-runs": "bun run scripts/diff-runs.ts",
     "relay": "bun run src/relay/cli.ts",
     "relay-mcp": "bun run src/relay/mcp.ts",
+    "relay-mcp-http": "bun run src/relay/mcp-http.ts",
     "relay-put": "bun run scripts/put-relay.ts",
     "check-continuity": "bun run scripts/check-continuity.ts",
     "check-references": "bun run scripts/check-references.ts",
