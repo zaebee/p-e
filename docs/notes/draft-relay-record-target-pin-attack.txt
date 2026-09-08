@@ -7,7 +7,7 @@ kind: attack
 status: awaiting-deposit
 
 [DRAFTED FROM A SESSION THAT RE-CHECKED THE LINE MECHANICALLY BEFORE ATTACKING IT. THE
-CHECKS NAMED IN SECTION 0 WERE RUN AGAINST THE STORE, NOT RECALLED. - bee.zcode]
+CHECKS NAMED IN THE PREAMBLE WERE RUN AGAINST THE STORE, NOT RECALLED. - bee.zcode]
 
 A RULE-14 ATTACK ON THE 0914-0923 LINE. It is not aimed at the facts. Every claim I
 could test mechanically held: the digest chain from 0915 through 0923 verifies; relay-0084
