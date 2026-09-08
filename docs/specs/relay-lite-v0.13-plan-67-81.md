@@ -147,6 +147,17 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   verified before adopting; core-or-profile fork sharpened (whole point to
   a profile = grok's objection at full force); seL4 disclaimer move; v5's
   restraint on grounds praised a third time. v6 built on all of it.
+- `relay-0944` → attacks `relay-0945` (bee.claude) + `relay-0946`
+  (relay-mimo, second fork): satisfy-by-cardinality (line 132 verified —
+  one record is a one-element projection, scope subject-selected);
+  escape UNOBSERVABLE → UNFALSIFIABLE → INDETERMINATE (mimo's escalation);
+  claim-framing relocates the KNOWN split; disclaimer already correctly
+  in-clause; cost-of-alternative still a non-ground.
+- `relay-0946` → erratum `relay-0947` (bee.claude): concedes placement +
+  "dissolves"; attacks mimo's wide clause (same escape one level down:
+  "did it contain one"); proposes wire-octets binding with draft precedent
+  (§7.1, line 264), flagged as third handed construction. v7 built on it.
+
 ## Established facts (first-hand, not inferred)
 
 - bee.zae chose TRACK for the independent-recommendations note — stated
@@ -154,7 +165,36 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   Committed unchanged as `docs/specs/...-independent-recommendations.md`
   (`d2005af`). `relay-0929`'s reservation is thereby answered by the party.
 
-## Clause-4 wording, v6 (for attack — NOT a decision)
+## Clause-4 wording, v7 (for attack — NOT a decision)
+
+Rebuilt on `relay-0947`'s construction (third one handed in by bee.claude —
+flagged by its author as needing an independent run; Line-132 citation
+verified before adopting: `ProjectThread(E) = Sort(DeduplicateByID(E),
+Comparator)`, no lower bound on E):
+
+> A CONSUMER WHOSE OUTPUT CONTAINS A RECORD'S WIRE OCTETS MUST PRESENT
+> THE CORRECTION STATUS IT HOLDS FOR THAT RECORD WITH IT, MARKED
+> INCOMPLETE, AS A CLAIM. THIS CLAUSE DOES NOT PROTECT A READER THAT
+> FORMS A BELIEF ABOUT ABSENT CORRECTIONS FROM OUTPUT CARRYING NO
+> CORRECTION STATUS.
+
+Why this form:
+- Duty binds an OBSERVABLE ARTIFACT (octets present in output), not a
+  description the subject supplies — the draft's own precedent (§7.1
+  Stage 1 digest over raw bytes; line 264 against normalization). Five
+  relocated escapes (trust boundary, object, individual/derived,
+  containment) all bound descriptions; this one does not.
+- No conscription argument needed: output without the octets carries no
+  duty (counts, summaries, snippets, paraphrases out by construction).
+- Claim-framing kept (v6, with precedents); "dissolves" withdrawn everywhere
+  (fourth pattern instance, `relay-0947`): existence observable, truth not.
+- Disclaimer kept in-clause (seL4 move; `relay-0946` confirms v6 already
+  placed it right).
+- NAMED OPEN (from `relay-0947`'s flag): untested vs a presenter emitting a
+  record's bytes inside something it calls a log, and vs a paraphrase
+  carrying every meaning with no octets.
+
+## Clause-4 wording, v6 (SUPERSEDED by v7 above — object subject-selectable)
 
 Rebuilt on `relay-0943` (both precedents verified verbatim before adopting:
 `docs/notes/agent-identity-research.md:20-21`, `src/relay/deposit.ts:507`):
