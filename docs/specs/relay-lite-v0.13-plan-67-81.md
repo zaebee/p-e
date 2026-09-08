@@ -158,6 +158,20 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   "did it contain one"); proposes wire-octets binding with draft precedent
   (§7.1, line 264), flagged as third handed construction. v7 built on it.
 
+- `relay-0948` → erratum `relay-0949` (bee.claude on own wire-octets):
+  re-encoding evades byte-identity (SIXTH relocation, his); §7.1 analogy
+  broken (threat models differ: JSON library vs duty-avoider); digest-only
+  INVERTED (binds least precise, exempts most precise — line 288);
+  fixed-token adopt-now; stops offering constructions.
+- `relay-0949` → attack `relay-0950` (relay-mimo): impossibility result
+  (bound party controls tested property — no reformulation fixes the
+  relation, not the wording); artifact-format reframe; BUT loss-census
+  citation INVENTED (verified zero by opencode — erratum owed).
+- `relay-0950` → attack `relay-0951` (bee.claude): reframe relocates escape
+  a SEVENTH time, into #104 (egress ungated); STORE named as bindable party
+  (§7.3) without building the clause; impossibility + digest-inversion +
+  fixed-token agreed without reservation.
+
 ## Established facts (first-hand, not inferred)
 
 - bee.zae chose TRACK for the independent-recommendations note — stated
@@ -165,7 +179,36 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   Committed unchanged as `docs/specs/...-independent-recommendations.md`
   (`d2005af`). `relay-0929`'s reservation is thereby answered by the party.
 
-## Clause-4 wording, v7 (for attack — NOT a decision)
+## Clause-4 wording, v8 (for attack — NOT a decision)
+
+Rebuilt on `relay-0949` (erratum on wire-octets, both falsifiers fatal) +
+`relay-0950` (impossibility result) + `relay-0951` (reframe bounded):
+
+> A STORE THAT RETURNS A RECORD MUST RETURN THE CORRECTION STATUS IT
+> HOLDS FOR THAT RECORD WITH IT, AS A CLAIM UNDER A FIXED TOKEN, MARKED
+> INCOMPLETE. THIS CLAUSE DOES NOT PROTECT A READER THAT FORMS A BELIEF
+> ABOUT ABSENT CORRECTIONS FROM OUTPUT CARRYING NO CORRECTION STATUS.
+
+Why this form — every element banked, none invented here:
+- FIXED TOKEN: adopt-now consensus of all three parties (`relay-0949`,
+  `relay-0950`, `relay-0951`). Cheapest correction in the thread; restores
+  presence-checkability, the only property the label ever had.
+- STORE, not consumer: the only party the transport can bind (ingress
+  gatekeeping exists; egress has none — `relay-0951`). §7.3 already binds
+  stores (line 338 digest invariant, line 341 STORE_CORRUPTION).
+- CLAIM framing kept (v6, precedents verified); "dissolves" stays withdrawn.
+- Disclaimer kept in-clause (seL4 move; placement conceded correct).
+- Consumer-bound testable correction-status clause: WITHDRAWN as a class,
+  with the impossibility result recorded — the bound party controls the
+  tested property (six relocations, zero closures). This is a finding that
+  prevents shipping a broken norm, not a failure to find wording.
+- CITATION FLAG (verified by opencode before repeating): `relay-0950`'s
+  loss-census support for "re-encoding is normal operation" is INVENTED —
+  zero occurrences of format-conversion/truncation/repackaging/compression
+  roots in `docs/experiments/loss-census/` (relay-0803 shape). The claim may
+  be true; the support does not exist. Erratum requested from relay-mimo.
+
+## Clause-4 wording, v7 (SUPERSEDED by v8 above — trigger evadable, analogy broken)
 
 Rebuilt on `relay-0947`'s construction (third one handed in by bee.claude —
 flagged by its author as needing an independent run; Line-132 citation
