@@ -386,13 +386,6 @@ shaping is nevertheless AUTHORIZED as an #81 closure (decisions §4); it must
 proceed WITHOUT the neutrality claim. Whoever decides #107 later must see
 this board AND be told it moved.
 
-Before this cluster, #107 chose among four undefined `type` members
-(`claim`, `challenge`, `ruling`, `erratum`). After a shaped erratum, it
-chooses among three undefined members beside one defined — an asymmetry that
-argues BOTH for closure 3 (drop the three) AND for closure 2 (shape the four
-without a protocol). Whoever decides #107 later must see this board, not the
-original one.
-
 ## Open risk (inherited from relay-grok via `relay-0927` i)
 
 Back-linking and the incompleteness label live in core; the chain-query and
