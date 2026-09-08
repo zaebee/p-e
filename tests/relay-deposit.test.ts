@@ -140,17 +140,23 @@ describe("depositLocal", () => {
     );
   });
 
-  it("refuses a depositor containing whitespace or newlines", async () => {
+  it("refuses a depositor containing whitespace, newlines, or control characters", async () => {
     const root = scratch();
     await expect(
       depositLocal(body("relay-0002"), "claude\nprovenance: authored", "relay-0002", root),
-    ).rejects.toThrow(/without whitespace or newlines/);
+    ).rejects.toThrow(/no whitespace and no control characters/);
     await expect(depositLocal(body("relay-0002"), "two words", "relay-0002", root)).rejects.toThrow(
-      /without whitespace or newlines/,
+      /no whitespace and no control characters/,
     );
     await expect(depositLocal(body("relay-0002"), "", "relay-0002", root)).rejects.toThrow(
-      /without whitespace or newlines/,
+      /no whitespace and no control characters/,
     );
+    await expect(
+      depositLocal(body("relay-0002"), "claude\x00", "relay-0002", root),
+    ).rejects.toThrow(/no whitespace and no control characters/);
+    await expect(
+      depositLocal(body("relay-0002"), "claude\x1b[31m", "relay-0002", root),
+    ).rejects.toThrow(/no whitespace and no control characters/);
   });
 });
 

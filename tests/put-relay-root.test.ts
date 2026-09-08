@@ -65,7 +65,7 @@ describe("relay-put --root", () => {
 
       const out = put([input, "--as", "local\nprovenance: authored", "--root", root]);
       expect(out.status).toBe(1);
-      expect(out.stderr).toContain("without whitespace or newlines");
+      expect(out.stderr).toContain("no whitespace and no control characters");
       // Matched by SHAPE, not by substring. `not.toContain("throw new Error")`
       // passes if bun prints any other frame, or changes its format; and a bare
       // `not.toContain("at ")` fails on a refusal's own prose — "cannot read the
