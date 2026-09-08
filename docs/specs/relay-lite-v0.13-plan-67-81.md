@@ -106,6 +106,13 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   one clause later. Position taken (not decision): obligatory status WITH the
   target representation (see Clause-4 position).
 
+- `relay-0932` → attack `relay-0933` (bee.claude): falsifier 3 FIRES —
+  draft already has CONSUMER + PRESENTS (line 126 MUST NOT, line 129), SERVE
+  unneeded; widening framing withdrawn (second obligation on bound role);
+  falsifier 1 fires on verifier-reports inclusion (lines 341–343); falsifier
+  2 partial (presence, not coverage). v3 adopts the attacker's construction
+  with the interested-co-authorship flag. relay-mimo on (i) still pending.
+
 ## Established facts (first-hand, not inferred)
 
 - bee.zae chose TRACK for the independent-recommendations note — stated
@@ -113,7 +120,38 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   Committed unchanged as `docs/specs/...-independent-recommendations.md`
   (`d2005af`). `relay-0929`'s reservation is thereby answered by the party.
 
-## Clause-4 wording, v2 (for attack — NOT a decision)
+## Clause-4 wording, v3 (for attack — NOT a decision)
+
+Adopts `relay-0933`'s construction (claude's — flagged as interested
+co-authorship; needs an independent run like any other proposal):
+
+> A CONSUMER THAT PRESENTS A RECORD ACROSS A TRUST BOUNDARY MUST PRESENT
+> ITS KNOWN CORRECTION STATUS WITH IT, MARKED INCOMPLETE.
+
+Why this form (all from the attack, verified before adopting):
+- No new verb: CONSUMER + PRESENTS are the draft's own (line 126 MUST NOT,
+  line 129) — falsifier 3 fired against v2's SERVE.
+- No widening to defend: line 126 already binds a consumer for what it
+  presents. This is a SECOND OBLIGATION ON AN ALREADY-BOUND ROLE, not core
+  expanding to views. The v2 widening framing is withdrawn with thanks —
+  we were conceding more than the draft asks.
+- Verifier reports EXCLUDED on principled ground, not by enumeration:
+  a verifier is not a consumer presenting a record, and lines 341–343
+  forbid rejoining the reader's condition to a judgement about a record.
+  Falsifier 1 fired against v2's explicit inclusion — conceded.
+- Observability stated as presence, not coverage (falsifier 2, partial):
+  the recipient can check the label is PRESENT; the label is constant and
+  boilerplate-satisfiable (settled, `relay-0912`, NIP-09 precedent). Said
+  plainly so the claim holds.
+- Kept from v2: the trust-boundary test (first line-drawing formulation in
+  the thread) and the light-client ground — reading owes nothing, serving
+  owes for what is served.
+
+(Supersedes v2's SERVE wording above it in git history — REDEFINED verb
+reuse is fixed by using the draft's own vocabulary, not by defining a new
+one.)
+
+## Clause-4 wording, v2 (SUPERSEDED by v3 above)
 
 New verb, defined in place (answers `relay-0931`: no reuse of PUBLISH,
 no undefined REPRESENTATION):
