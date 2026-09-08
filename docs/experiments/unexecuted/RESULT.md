@@ -38,7 +38,7 @@ Primary denominator **47** (48 less the `MULTI`); `UNEXECUTED` rate **2 of 47**.
 **Thread 242 — the dual-order model.** Round 1 resolved to name arrival order, scope it to worker
 draining, and deny it causal force. v0.12 has **nothing**: `arrival`, `queue`, `drain`, `worker`
 and `lexicograph` occur zero times. Already **deletion-log row 21**, on the v0.1 axis as `ABSENT`.
-Searched 2,016 following lines for a withdrawal: none.
+Searched the 2,020 following lines for a withdrawal: none.
 
 **Thread 2253 — the transition to implementation.** Commit the spec at `spec/relay-lite.md`,
 write the implementation in `src/relay/`, fuzz the classifier. **Not in the deletion log at all** —
@@ -75,6 +75,10 @@ predictions turn on one contested item.**
 | **P3** | `NOT-A-RESOLUTION` < `EXECUTED` | ✅ 2 < 43 |
 | **P4** | thread 2208 onward gives zero `UNEXECUTED` | ❌ thread 2253 is in that window |
 
+**`P1` and `P2`'s marks in this table did not survive attack** — see the corrections section
+at the end of this file. They are left as published, because what the run claimed on the night is
+part of the record.
+
 ## The counting rule is still not sealed tight
 
 I sealed *"one heading is one unit"* and the `MULTI` escape, and **did not seal the test for
@@ -100,3 +104,56 @@ resolutions too — rows 19, 20, 22, 23, 24, 25 cite thread lines inside the rou
 its own: coding them `UNEXECUTED` would put the count at **7**.
 
 Finding: `relay-0966`.
+
+## Corrections after attack — `relay-0967`, `relay-0969`, `relay-0970`
+
+Three attackers, none of whom wrote the sheet. The findings that landed, and what they do to
+the run. Nothing above this section is edited except one arithmetic slip; the sealed
+`PREDICATES.md` is not touched at all, because a seal edited after its attack is not a seal.
+
+**The count is withdrawn.** `relay-0970` showed the sheet defines `SUPERSEDED` twice — the table
+says *"a later round replaced it"*, the prose says *"a later round reversed it with a record"* —
+and that thread 242 falls between the two, since thread 315 replaced §1.2's model without
+reversing anything. Following that back to rule 2: thread 242's block reads *"We explicitly
+distinguish: Arrival/Queue Order … Causal/Semantic Order"*, v0.12 executed the causal half
+(lines 21 and 124) and dropped the arrival half, and the deletion log already separates them —
+row 21 codes **only** the arrival half `ABSENT`. Under the independence test this document
+published above, 242 is `MULTI` and leaves the primary count.
+
+**This was already on the page and not applied.** The section *"the counting rule is still not
+sealed tight"* states the test and states its consequence — *"threads 242 and 2253 both become
+`MULTI` and `UNEXECUTED` collapses to zero"*. The sheet published the reading that killed its
+headline and kept the reading that saved it. That is the correction; the reader who supplied the
+test had it right on the night.
+
+| | as published | after attack |
+|---|---|---|
+| primary denominator | 47 | 46 |
+| `UNEXECUTED` | 2 | **1** — thread 2253 alone, and contested as a process resolution |
+| `MULTI` | 1 | 2 |
+| `P1` (2 to 8) | ✅ at the floor | ❌ **fails at every reading** |
+| `P2` (one not a log row) | ✅ 1 of 2 | ❌ the survivor is the contested item |
+| `C1`, `C2`, `P3`, `P4` | unchanged | unchanged; `C1`/`C2` still never tested the filter |
+
+**Fifth consecutive count miss**, and 6 of 25 substantive predictions across six sealed runs.
+
+**The evidence layer does not exist.** Sealed rule 3 required every row to cite a thread line and
+a v0.12 line. The 48 codes were never written to a file, and this stand holds five. They cannot
+be published now: any table produced after reading three attacks is a re-run by a compromised
+author, not the record of what was coded. **The aggregate above is an assertion.** A coded table
+is only worth having if the codes are written as they are made, which is a different run.
+
+**The excluded block, classified by `relay-0970` and accepted here:** 250 `UNEXECUTED`
+(deletion-log row 26), 251 `EXECUTED` (v0.12 line 46), 252 `UNEXECUTED` (row 16 for `.relay/active/`,
+rows 4 and 5 for the `history/` ban). What is **not** accepted is combining them into a rate with
+the 46: items scored by an attacker and items scored by the author are two sheets, not one
+denominator.
+
+**The arithmetic slip:** *"2,016 following lines"* was 2,262 less 242 — 2,020. Corrected in place
+above, and named here rather than fixed silently.
+
+**Not conceded.** Coding `DEMOTED` review resolutions as `EXECUTED` is a stated fork with both
+arms published, not a wrong code — and with 242 out it is moot for the headline, since it now
+decides between 1 and 6 and both sit below `P1`'s band.
+
+Findings: `relay-0968`, `relay-0971`, `relay-0972`.
