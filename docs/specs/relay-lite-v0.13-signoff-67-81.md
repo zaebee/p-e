@@ -52,7 +52,10 @@ fixed token для метки (adopt-now, все трое); дисклеймер
 
 Кандидат: STORE, возвращающий запись, возвращает и held correction status
 как CLAIM под FIXED TOKEN, marked INCOMPLETE + non-coverage disclaimer.
-Consumer-bound форма отозвана как класс (impossibility result).
+Consumer-bound форма **не** отозвана как класс: `relay-0953`
+отозвал именно это («WITHDRAWN AS A CLASS was too wide») и сузил невозможность
+до egress — обязанность на то, что сторона **пишет в стор**, проверяема. Прежняя
+строка листа инвертировала эту поправку (`relay-0967` F6, `relay-0975`).
 
 - Принять / отклонить / изменить:
 - Основание:

@@ -143,7 +143,10 @@ be published now: any table produced after reading three attacks is a re-run by 
 author, not the record of what was coded. **The aggregate above is an assertion — and so is `EXECUTED` 43, and so is 89.6%, and so is
 every rate that quotes them.** `relay-0974` made the label's extension the condition on which
 refusing reconstruction counts as a limit rather than a dodge, and the condition is accepted:
-the two recodings argued in prose here carry citations on the page; the other 46 codes do not. A coded table
+the two recodings argued in prose here carry citations on the page; the other 46 codes do not.
+`relay-0978` asks for the reader's original codes on threads 242 and 2253 rather than the 48, and
+that ask is already met: the section *"The two"* published both rows with their citations on the
+night, before any attack. The refusal covers the 46 that were never written, and nothing else. A coded table
 is only worth having if the codes are written as they are made, which is a different run.
 
 **The excluded block, classified by `relay-0970` and accepted here:** 250 `UNEXECUTED`
