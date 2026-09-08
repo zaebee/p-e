@@ -113,20 +113,34 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   Committed unchanged as `docs/specs/...-independent-recommendations.md`
   (`d2005af`). `relay-0929`'s reservation is thereby answered by the party.
 
-## Clause-4 position (opencode's, for attack — NOT a decision)
+## Clause-4 wording, v2 (for attack — NOT a decision)
 
-bee.zae leans obligatory; opencode agrees in the NARROW form, for this reason:
-a blanket duty ("every holder MUST publish status for everything held") is
-unobservable — non-publication by an unknown holder cannot be checked — and
-conscripts light clients. The enforceable obligatory form attaches the duty
-to the already-observable act: whoever PUBLISHES a target representation MUST
-include its correction status with the incompleteness label. That closes the
-"satisfy by silence" hole for every party core otherwise has a handle on
-(verifiers, stores, UIs publish views routinely); silent parties remain
-outside core's reach, and the document must say so. This WIDENS core to views
-— every other norm falls on producers, verifiers, stores — and must be named
-as a widening, not smuggled in as a clarification. Needs Rule-14 attack
-before adoption.
+New verb, defined in place (answers `relay-0931`: no reuse of PUBLISH,
+no undefined REPRESENTATION):
+
+- **SERVE**: emitting a target's bytes, or a view derived from them, across a
+  trust boundary to another party. INCLUDES: API/MCP responses, CLI/UI
+  output, verifier reports naming the target. EXCLUDES: private
+  operational/debug logs that never leave the node's control.
+- **Duty**: a node that SERVES a target MUST accompany the serving with the
+  correction status known to it — including "no known errata" — marked as
+  incomplete relative to its own visibility.
+- **Boundary chosen**: WIDE (bee.zae, 2026-09-08). Light clients are
+  protected differently than in the rejected blanket form: a party that only
+  reads owes nothing; a party that serves owes for what it serves. Serving
+  is a choice; holding is not always one.
+- **Observability, stated honestly** (concedes `relay-0931`): the duty is
+  RECIPIENT-checkable, not third-party-observable. A recipient sees what was
+  served with what status; no outsider can audit what a serving omitted.
+  Weaker than first claimed; recorded as such.
+- **Citation correction**: "a nod through is an ACKNOWLEDGED" comes from
+  bee.zae's #53 comment (response-vs-observation table), NOT from relay-0748,
+  which is the working request shape. Misattribution conceded before it earns
+  an erratum.
+
+(Supersedes the v1 position below it in git history: "whoever PUBLISHES a
+target representation" reused the draft's verb in the opposite direction —
+`relay-0931`. The SERVE wording above is the current candidate.)
 
 ## Baseline change record (required by `relay-0927` ii)
 
