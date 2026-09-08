@@ -140,6 +140,13 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   Notes three instances of the self-reproducing-defect pattern and the
   0932-fork as live partial-order / concurrent-errata data.
 
+- `relay-0942` → attack `relay-0943` (bee.claude on v5): narrowed object
+  INVERTED vs risk (thread view is the belief-forming case; v5 silent on
+  it); third way for false-status — status-as-CLAIM with two verbatim
+  precedents (agent-identity-research.md:20-21, deposit.ts:507), both
+  verified before adopting; core-or-profile fork sharpened (whole point to
+  a profile = grok's objection at full force); seL4 disclaimer move; v5's
+  restraint on grounds praised a third time. v6 built on all of it.
 ## Established facts (first-hand, not inferred)
 
 - bee.zae chose TRACK for the independent-recommendations note — stated
@@ -147,7 +154,35 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   Committed unchanged as `docs/specs/...-independent-recommendations.md`
   (`d2005af`). `relay-0929`'s reservation is thereby answered by the party.
 
-## Clause-4 wording, v5 (for attack — NOT a decision)
+## Clause-4 wording, v6 (for attack — NOT a decision)
+
+Rebuilt on `relay-0943` (both precedents verified verbatim before adopting:
+`docs/notes/agent-identity-research.md:20-21`, `src/relay/deposit.ts:507`):
+
+> A CONSUMER THAT PRESENTS AN INDIVIDUAL RECORD MUST PRESENT THE
+> CORRECTION STATUS IT HOLDS FOR THAT RECORD WITH IT, MARKED INCOMPLETE.
+> THE STATUS IS A CLAIM BY THE PRESENTER ABOUT ITS OWN HOLDINGS, AS `from`
+> IS A CLAIM ABOUT SENDER. THIS CLAUSE DOES NOT PROTECT A READER THAT
+> FORMS A BELIEF ABOUT ABSENT CORRECTIONS FROM AN UNLABELLED PROJECTION.
+
+What changed and why:
+- Status-as-CLAIM (third way out of the false-status dilemma): no
+  unobservable MUST NOT, no silent acceptance of present-but-false labels.
+  A claim that turns out false is a claim that was false — the store's
+  native shape (errata exist for exactly this). Follows the project's own
+  posture, not a new invention.
+- Non-coverage disclaimer IN THE CLAUSE'S VICINITY (seL4 move via
+  `relay-0918`): v6 says what it does not protect against — the thread-view
+  belief — instead of leaving projections "elsewhere" in a plan file nobody
+  ships. Taking the deliberate boundary now MEANS the clause no longer
+  answers its generating problem (`relay-0898`), and says so.
+- Narrowed object kept (v5's sentence), projections still out — but the
+  CORE-OR-PROFILE fork returns to the editor sharpened: if projections (the
+  case that matters) go to a profile, the whole point goes to a profile
+  under grok's standing objection. No third stool (narrow clause without
+  disclaimer) — `relay-0943` closed it as dishonest.
+
+## Clause-4 wording, v5 (SUPERSEDED by v6 above — silent on its own gap)
 
 Rebuilt after the fork finding (`relay-0941`): two independent readers scoped
 v4's object in opposite directions, so the ambiguity is in the object and no
