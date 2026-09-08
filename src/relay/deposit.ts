@@ -252,9 +252,21 @@ async function deposit(
   proposedId: string | undefined,
   root: string,
 ): Promise<DepositResult> {
-  // Refuse depositedBy containing whitespace or newlines to prevent header
-  // injection into the store's deposit metadata block above ---.
-  if (typeof depositedBy !== "string" || depositedBy === "" || /\s/.test(depositedBy)) {
+  // Refuse depositedBy containing whitespace, newlines, or control characters
+  // to prevent header injection into the store's deposit metadata block above ---.
+  const hasControlChar = (s: string) => {
+    for (let i = 0; i < s.length; i++) {
+      const code = s.charCodeAt(i);
+      if (code < 32 || code === 127) return true;
+    }
+    return false;
+  };
+  if (
+    typeof depositedBy !== "string" ||
+    depositedBy === "" ||
+    /\s/.test(depositedBy) ||
+    hasControlChar(depositedBy)
+  ) {
     throw new Error(
       `depositedBy must be a single non-empty token without whitespace or newlines, got ${JSON.stringify(depositedBy)}`,
     );
