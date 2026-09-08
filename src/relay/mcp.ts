@@ -1,5 +1,5 @@
 /**
- * An MCP server over the relay store. Read-only, and no dependencies.
+ * An MCP server over the relay store. Five reads and one append, no dependencies.
  *
  * Written by hand against the JSON-RPC stdio transport rather than pulled from
  * an SDK: this repository has one runtime dependency, `viem`, justified where it
