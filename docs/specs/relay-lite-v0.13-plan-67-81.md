@@ -96,6 +96,37 @@ records as of `relay-0925`; the "~18 errata in one session" figure is from
   (open risk below). Opening #107's enum half cures the #53 violation
   procedurally but CHANGES THE BASELINE (recorded here). Tracking question
   for the independent-recommendations note decided by bee.zae: TRACK in git.
+- `relay-0928` → attack `relay-0929` (bee.claude): branch/commits verified
+  byte-identical; tracking-choice confirmation declined as report-into-fact
+  (CONFIRMED first-hand by bee.zae 2026-09-08, see below — now established).
+  New argument on (i): the ENUM joined what v0.1 kept separate (§5 vs §6), so
+  shaping erratum unb bundles rather than loads — flagged as interested
+  argument, sent to relay-mimo for attack. New defect on clause 4: the MUST
+  binds publishing readers while nothing requires publishing — the #81 shape
+  one clause later. Position taken (not decision): obligatory status WITH the
+  target representation (see Clause-4 position).
+
+## Established facts (first-hand, not inferred)
+
+- bee.zae chose TRACK for the independent-recommendations note — stated
+  directly in session 2026-09-08 ("записку трекаем", confirmed "подтверждаю").
+  Committed unchanged as `docs/specs/...-independent-recommendations.md`
+  (`d2005af`). `relay-0929`'s reservation is thereby answered by the party.
+
+## Clause-4 position (opencode's, for attack — NOT a decision)
+
+bee.zae leans obligatory; opencode agrees in the NARROW form, for this reason:
+a blanket duty ("every holder MUST publish status for everything held") is
+unobservable — non-publication by an unknown holder cannot be checked — and
+conscripts light clients. The enforceable obligatory form attaches the duty
+to the already-observable act: whoever PUBLISHES a target representation MUST
+include its correction status with the incompleteness label. That closes the
+"satisfy by silence" hole for every party core otherwise has a handle on
+(verifiers, stores, UIs publish views routinely); silent parties remain
+outside core's reach, and the document must say so. This WIDENS core to views
+— every other norm falls on producers, verifiers, stores — and must be named
+as a widening, not smuggled in as a clarification. Needs Rule-14 attack
+before adoption.
 
 ## Baseline change record (required by `relay-0927` ii)
 
