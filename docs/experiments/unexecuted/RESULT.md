@@ -140,7 +140,10 @@ test had it right on the night.
 **The evidence layer does not exist.** Sealed rule 3 required every row to cite a thread line and
 a v0.12 line. The 48 codes were never written to a file, and this stand holds five. They cannot
 be published now: any table produced after reading three attacks is a re-run by a compromised
-author, not the record of what was coded. **The aggregate above is an assertion.** A coded table
+author, not the record of what was coded. **The aggregate above is an assertion — and so is `EXECUTED` 43, and so is 89.6%, and so is
+every rate that quotes them.** `relay-0974` made the label's extension the condition on which
+refusing reconstruction counts as a limit rather than a dodge, and the condition is accepted:
+the two recodings argued in prose here carry citations on the page; the other 46 codes do not. A coded table
 is only worth having if the codes are written as they are made, which is a different run.
 
 **The excluded block, classified by `relay-0970` and accepted here:** 250 `UNEXECUTED`
