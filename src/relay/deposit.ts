@@ -252,8 +252,17 @@ async function deposit(
   proposedId: string | undefined,
   root: string,
 ): Promise<DepositResult> {
-  // Refuse depositedBy containing whitespace, newlines, or control characters
-  // to prevent header injection into the store's deposit metadata block above ---.
+  // Two different risks, one guard. Whitespace and newlines would inject a line
+  // into the store's deposit metadata block above `---`. Control characters
+  // cannot inject a header — `\s` already catches the ones that end a line — but
+  // they survive into a file that is read and printed: measured, `claude\x1b[31m`
+  // and `claude\x00` both landed in `deposited-by:` and both were accepted before
+  // this. An escape sequence in a record is a record that rewrites the terminal
+  // showing it, and a NUL is a record some readers truncate.
+  //
+  // The loop rather than a character-class regex: biome's
+  // `noControlCharactersInRegex` refuses the literal, and a loop that says what
+  // it rejects beats a regex written to get past a linter.
   const hasControlChar = (s: string) => {
     for (let i = 0; i < s.length; i++) {
       const code = s.charCodeAt(i);
@@ -268,7 +277,7 @@ async function deposit(
     hasControlChar(depositedBy)
   ) {
     throw new Error(
-      `depositedBy must be a single non-empty token without whitespace or newlines, got ${JSON.stringify(depositedBy)}`,
+      `depositedBy must be a single non-empty token with no whitespace and no control characters, got ${JSON.stringify(depositedBy)}`,
     );
   }
 
