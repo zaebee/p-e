@@ -94,6 +94,30 @@ describe("a slow call must not hold the server", () => {
   });
 });
 
+describe("the append_relay description", () => {
+  it("carries the two lines a caller has to copy, exactly", async () => {
+    // The description is how an agent learns to sign: every MCP client reads it
+    // and shows it to whatever is driving. So it is data with a contract, and
+    // the contract is these two lines — the header a caller sends and the
+    // string it signs. It was one long source line until #161 split it into
+    // paragraphs; the split must not have moved a character of either.
+    const listed = (await handle({ jsonrpc: "2.0", id: 1, method: "tools/list" })) as {
+      result: { tools: Array<{ name: string; description: string }> };
+    };
+    const description =
+      listed.result.tools.find((tool) => tool.name === "append_relay")?.description ?? "";
+    expect(description).toContain(
+      "  Authorization: PE-HMAC agent=<name>, ts=<unix seconds>, sig=<hex>\n",
+    );
+    expect(description).toContain(
+      '  sig = HMAC-SHA256(key, "POST" + "\\n" + ts + "\\n" + sha256hex(raw request body))',
+    );
+    // And the reason the write is signed at all, which is the part a reader
+    // skips at their peril.
+    expect(description).toMatch(/replayed deposit is a second permanent record/);
+  });
+});
+
 describe("the read/write classification", () => {
   it("classifies every tool, because the HTTP transport serves reads to anyone", () => {
     // The transport asks whether a tool is a named read and demands a signature
