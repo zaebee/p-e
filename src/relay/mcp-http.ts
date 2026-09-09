@@ -59,7 +59,11 @@ const AGENT = /^[a-z0-9][a-z0-9._-]{0,23}$/;
 const MIN_TOKEN = 32;
 
 /**
- * `YYYY-MM-DD`, or a full ISO-8601 instant carrying its zone.
+ * The two shapes an expiry may take: a calendar day, or a full ISO-8601 instant
+ * carrying its zone. Two patterns rather than one with an optional tail —
+ * SonarCloud counted the combined form at complexity 27 against a limit of 20,
+ * and the split also gives the round-trip check below the day-only test it was
+ * doing by string length.
  *
  * `Date.parse` accepts far more and reads some of it in the server's LOCAL
  * zone: `2026-12-31T23:59:59` is 8 hours later in Los Angeles than in UTC and
@@ -67,7 +71,8 @@ const MIN_TOKEN = 32;
  * turns `2026-02-30` into March 2 without complaint, and reads `99` as 1999.
  * A credential's end is not a place to be generous.
  */
-const EXPIRY = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$/;
+const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})$/;
 
 /** One credential: what it becomes in `deposited-by`, and when it stops. */
 export interface Credential {
@@ -137,7 +142,8 @@ export function parseTokens(text: string): TokenTable {
     seen.add(agent);
     let expiresAt: number | undefined;
     if (expires !== undefined) {
-      if (!EXPIRY.test(expires)) {
+      const dayOnly = CALENDAR_DAY.test(expires);
+      if (!dayOnly && !INSTANT.test(expires)) {
         throw new RangeError(
           `token file line ${i + 1}: field 3 is the expiry and must be YYYY-MM-DD or a full ISO-8601 instant with its zone`,
         );
@@ -147,7 +153,7 @@ export function parseTokens(text: string): TokenTable {
       // not survive the round trip is a typo, not a date.
       if (
         !Number.isNaN(expiresAt) &&
-        expires.length === 10 &&
+        dayOnly &&
         new Date(expiresAt).toISOString().slice(0, 10) !== expires
       ) {
         throw new RangeError(`token file line ${i + 1}: field 3 is not a real calendar date`);
