@@ -46,9 +46,17 @@ export const MAX_BODY_BYTES = MAX_RECORD_BYTES + 64 * 1024;
 /** `mcp/<agent>`: what a credential is allowed to become in `deposited-by`. */
 const AGENT = /^[a-z0-9][a-z0-9._-]{0,31}$/;
 
+/** One credential: what it becomes in `deposited-by`, and when it stops. */
+export interface Credential {
+  /** e.g. `mcp/zcode`. */
+  readonly channel: string;
+  /** Epoch ms, or undefined for a credential with no stated end. */
+  readonly expiresAt?: number;
+}
+
 export interface TokenTable {
-  /** sha256(token) in hex → the channel label, e.g. `mcp/zcode`. */
-  readonly byHash: ReadonlyMap<string, string>;
+  /** sha256(token) in hex → the credential. */
+  readonly byHash: ReadonlyMap<string, Credential>;
 }
 
 function sha256Hex(s: string): string {
@@ -56,26 +64,33 @@ function sha256Hex(s: string): string {
 }
 
 /**
- * Parse a token table: one `<token> <agent>` per line, `#` comments, blanks
- * ignored. Tokens are hashed on load and the plaintext is not retained.
+ * Parse a token table: one `<token> <agent> [expires]` per line, `#` comments,
+ * blanks ignored. Tokens are hashed on load and the plaintext is not retained.
+ *
+ * `expires` is optional and is any date `Date` accepts — `2026-12-31` or
+ * `2026-12-31T23:59:59Z`. The MCP authorization spec asks for short-lived
+ * credentials and it is the only defence against a leaked one that works
+ * without an authorization server; here it costs a third column. A credential
+ * with no third field does not expire, which is a decision the file's owner
+ * makes per line rather than a default that hides.
  *
  * Rejects rather than skips a malformed line. A token file that silently drops
  * the line it could not read is a file whose owner believes an agent can write
  * and finds out otherwise at the deposit.
  */
 export function parseTokens(text: string): TokenTable {
-  const byHash = new Map<string, string>();
+  const byHash = new Map<string, Credential>();
   const seen = new Set<string>();
   text.split("\n").forEach((raw, i) => {
     const line = raw.trim();
     if (line === "" || line.startsWith("#")) return;
     const parts = line.split(/\s+/);
-    if (parts.length !== 2) {
+    if (parts.length < 2 || parts.length > 3) {
       throw new Error(
-        `token file line ${i + 1}: expected "<token> <agent>", got ${parts.length} fields`,
+        `token file line ${i + 1}: expected "<token> <agent> [expires]", got ${parts.length} fields`,
       );
     }
-    const [token, agent] = parts as [string, string];
+    const [token, agent, expires] = parts as [string, string, string | undefined];
     if (token.length < 16) {
       throw new Error(`token file line ${i + 1}: token shorter than 16 characters`);
     }
@@ -86,9 +101,18 @@ export function parseTokens(text: string): TokenTable {
     }
     if (seen.has(agent)) throw new Error(`token file line ${i + 1}: agent ${agent} appears twice`);
     seen.add(agent);
+    let expiresAt: number | undefined;
+    if (expires !== undefined) {
+      expiresAt = Date.parse(expires);
+      if (Number.isNaN(expiresAt)) {
+        throw new Error(
+          `token file line ${i + 1}: ${JSON.stringify(expires)} is not a date Date.parse accepts`,
+        );
+      }
+    }
     const hash = sha256Hex(token);
     if (byHash.has(hash)) throw new Error(`token file line ${i + 1}: duplicate token`);
-    byHash.set(hash, `mcp/${agent}`);
+    byHash.set(hash, { channel: `mcp/${agent}`, expiresAt });
   });
   if (byHash.size === 0) throw new Error("token file holds no tokens");
   return { byHash };
@@ -106,14 +130,22 @@ export function loadTokens(path = process.env.PE_MCP_TOKENS): TokenTable {
   return parseTokens(readFileSync(path, "utf8"));
 }
 
-/** Constant-time lookup: compare the presented hash against every known one. */
-function channelFor(tokens: TokenTable, presented: string): string | undefined {
+/**
+ * Constant-time lookup: compare the presented hash against every known one, and
+ * decide expiry only afterwards, so the loop takes the same path either way.
+ *
+ * `now` is a parameter because expiry is checked per request rather than at
+ * load: a server that ran through an expiry date and kept serving would make
+ * the third column decorative.
+ */
+function channelFor(tokens: TokenTable, presented: string, now = Date.now()): string | undefined {
   const want = Buffer.from(sha256Hex(presented), "hex");
-  let found: string | undefined;
-  for (const [hash, channel] of tokens.byHash) {
-    if (timingSafeEqual(want, Buffer.from(hash, "hex"))) found = channel;
+  let found: Credential | undefined;
+  for (const [hash, credential] of tokens.byHash) {
+    if (timingSafeEqual(want, Buffer.from(hash, "hex"))) found = credential;
   }
-  return found;
+  if (!found) return undefined;
+  return found.expiresAt !== undefined && found.expiresAt <= now ? undefined : found.channel;
 }
 
 function bearer(req: IncomingMessage): string | undefined {
@@ -211,9 +243,20 @@ export function createHttpServer(tokens: TokenTable): Server {
 
       const presented = bearer(req);
       const channel = presented ? channelFor(tokens, presented) : undefined;
-      // The refusal never says which half failed. "No such token" and "token
-      // known, wrong shape" are the same sentence here on purpose.
-      if (!channel) return send(res, 401, rpcError(null, -32001, "unauthorized"));
+      if (!channel) {
+        // RFC 6750: a 401 from a bearer-protected resource names its scheme, so
+        // a client learns HOW to authenticate instead of guessing. The MCP
+        // authorization spec builds its whole discovery on this header, and
+        // adds `resource_metadata=` pointing at an RFC 9728 document — which
+        // this server does not serve, because that document MUST name an
+        // authorization server and there is none to name. Half a metadata
+        // document would be a worse answer than none.
+        //
+        // No `error="invalid_token"` either. The refusal never says which half
+        // failed: absent, unknown, expired and malformed are one sentence.
+        res.setHeader("www-authenticate", 'Bearer realm="p-e relay"');
+        return send(res, 401, rpcError(null, -32001, "unauthorized"));
+      }
 
       const taken = await take(req, res);
       if (!taken.ok) return;
@@ -245,9 +288,17 @@ export async function serveHttp(
   const server = createHttpServer(tokens);
   await new Promise<void>((resolve) => server.listen(port, HOST, resolve));
   // Agent labels, never tokens. The count is the useful part: a table that
-  // silently lost a line is visible here before anyone's deposit fails.
+  // silently lost a line is visible here before anyone's deposit fails — and so
+  // is a credential that has already expired, which would otherwise present as
+  // an agent mysteriously getting 401 from a file that looks right.
+  const now = Date.now();
+  const described = [...tokens.byHash.values()].map((c) =>
+    c.expiresAt === undefined
+      ? c.channel
+      : `${c.channel}(${c.expiresAt <= now ? "EXPIRED" : `until ${new Date(c.expiresAt).toISOString()}`})`,
+  );
   console.error(
-    `p-e mcp over http on ${HOST}:${port}, ${tokens.byHash.size} credential(s): ${[...tokens.byHash.values()].join(" ")}`,
+    `p-e mcp over http on ${HOST}:${port}, ${tokens.byHash.size} credential(s): ${described.join(" ")}`,
   );
   return server;
 }

@@ -33,15 +33,22 @@ const body = (id: string) => `@p-e/x0\nid: ${id}\nfrom: probe\nkind: probe\n\nsc
 describe("parseTokens", () => {
   it("maps a token to mcp/<agent> and keeps no plaintext", () => {
     const table = parseTokens(`# a comment\n\n${TOKEN} zcode\n`);
-    expect([...table.byHash.values()]).toEqual(["mcp/zcode"]);
+    expect([...table.byHash.values()]).toEqual([{ channel: "mcp/zcode", expiresAt: undefined }]);
     expect(JSON.stringify([...table.byHash])).not.toContain(TOKEN);
+  });
+
+  it("takes an optional expiry and refuses a date it cannot read", () => {
+    const dated = parseTokens(`${TOKEN} zcode 2026-12-31T23:59:59Z\n`);
+    expect([...dated.byHash.values()][0]?.expiresAt).toBe(Date.parse("2026-12-31T23:59:59Z"));
+    expect(() => parseTokens(`${TOKEN} zcode soon\n`)).toThrow(/not a date/);
+    expect(() => parseTokens(`${TOKEN} zcode 2026-12-31 extra\n`)).toThrow(/line 1/);
   });
 
   it("refuses a malformed line rather than skipping it", () => {
     // A file that drops the line it could not read leaves its owner believing
     // an agent can write, and the discovery happens at someone's deposit.
     expect(() => parseTokens(`${TOKEN}\n`)).toThrow(/line 1/);
-    expect(() => parseTokens(`${TOKEN} zcode extra\n`)).toThrow(/line 1/);
+    expect(() => parseTokens(`${TOKEN} zcode 2026-12-31 one-too-many\n`)).toThrow(/line 1/);
   });
 
   it("refuses a short token, a bad agent, and a repeat of either", () => {
@@ -65,7 +72,7 @@ describe("loadTokens", () => {
   it("reads the named file", () => {
     const path = join(mkdtempSync(join(tmpdir(), "p-e-tok-")), "tokens");
     writeFileSync(path, `${TOKEN} grok\n`);
-    expect([...loadTokens(path).byHash.values()]).toEqual(["mcp/grok"]);
+    expect([...loadTokens(path).byHash.values()].map((c) => c.channel)).toEqual(["mcp/grok"]);
   });
 });
 
@@ -102,6 +109,11 @@ describe("the HTTP transport", () => {
     expect([none.status, wrong.status, malformed.status]).toEqual([401, 401, 401]);
     const bodies = await Promise.all([none.json(), wrong.json(), malformed.json()]);
     for (const b of bodies) expect(b.error.message).toBe("unauthorized");
+    // RFC 6750: the refusal names its scheme, and names nothing else — the same
+    // sentence and the same header whichever half failed.
+    for (const res of [none, wrong, malformed]) {
+      expect(res.headers.get("www-authenticate")).toBe('Bearer realm="p-e relay"');
+    }
   });
 
   it("serves tools/list to a credential it knows", async () => {
@@ -136,6 +148,43 @@ describe("the HTTP transport", () => {
   it("refuses a batch, which this transport does not serve", async () => {
     const res = await authed([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
     expect(res.status).toBe(400);
+  });
+});
+
+describe("an expired credential", () => {
+  const EXPIRED = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const server = createHttpServer(
+    parseTokens(`${TOKEN} zcode 2999-01-01\n${EXPIRED} grok 2020-01-01\n`),
+  );
+  let url = "";
+
+  beforeAll(async () => {
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+  });
+  afterAll(async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  });
+
+  const call = (token: string) =>
+    fetch(url, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+
+  it("is refused while a live one is served, and the refusal is the same one", async () => {
+    // Expiry is decided per request, not at load: a server that ran through the
+    // date and kept serving would make the third column decorative.
+    const live = await call(TOKEN);
+    const dead = await call(EXPIRED);
+    expect(live.status).toBe(200);
+    expect(dead.status).toBe(401);
+    expect(((await dead.json()) as { error: { message: string } }).error.message).toBe(
+      "unauthorized",
+    );
   });
 });
 

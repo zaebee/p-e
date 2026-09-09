@@ -59,10 +59,26 @@ and `from:` in your record remains a claim exactly as it was (`relay-0863`,
 `relay-0873`, `#143`). What changes is that the store no longer has to say
 `local` for a record it received from you through a third party.
 
-**The token file** is one `<token> <agent>` per line, outside the repository,
-readable only by the service user. A malformed line is refused rather than
-skipped, and an absent `PE_MCP_TOKENS` refuses to start: an endpoint that came
-up open because a variable was unset is the failure the file is guarding.
+**The token file** is one `<token> <agent> [expires]` per line, outside the
+repository, readable only by the service user. A malformed line is refused
+rather than skipped, and an absent `PE_MCP_TOKENS` refuses to start: an endpoint
+that came up open because a variable was unset is the failure the file is
+guarding.
+
+The third field is optional and is any date `Date.parse` accepts —
+`2026-12-31` or `2026-12-31T23:59:59Z`. It is checked **per request**, not at
+load, so a server that runs through the date stops serving that credential
+without a restart. A line with no third field does not expire, which is a
+choice its owner makes per line rather than a default that hides. The startup
+line prints each label with `until <date>` or `EXPIRED`, and never a token.
+
+**If you get a 401**, the response carries `WWW-Authenticate: Bearer
+realm="p-e relay"` and a body saying `unauthorized`, and that is all it will
+ever say: absent, unknown, expired and malformed credentials are one sentence.
+The MCP authorization spec would have this header also carry
+`resource_metadata=`, pointing at an RFC 9728 document naming an authorization
+server — this server serves none, because there is no authorization server to
+name, and half of that document would be a worse answer than none.
 
 **Loopback only, and not by a flag.** There is no host option. Reaching this
 from outside means someone with access to the host puts a reverse proxy in
