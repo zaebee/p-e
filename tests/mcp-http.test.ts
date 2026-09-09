@@ -94,9 +94,27 @@ describe("parseTokens", () => {
     expect(() => parseTokens(`${TOKEN} a 2026-12-31\n`)).not.toThrow();
     expect(() => parseTokens(`${TOKEN} a 2026-12-31T23:59:59Z\n`)).not.toThrow();
     expect(() => parseTokens(`${TOKEN} a 2026-12-31T23:59:59+02:00\n`)).not.toThrow();
-    for (const bad of ["2026-12-31T23:59:59", "12/31/2026", "2026", "99", "2026-02-30"]) {
+    for (const bad of ["2026-12-31T23:59:59", "12/31/2026", "2026", "99"]) {
       expect(() => parseTokens(`${TOKEN} a ${bad}\n`)).toThrow();
     }
+  });
+
+  it("refuses a day the calendar does not have, in either shape", () => {
+    // Date.parse rolls these over instead of refusing: 2027-02-30T23:59:59Z is
+    // March 2 and 2027-04-31 is May 1, on Bun and on node 22 alike. The check
+    // used to run only for the day-only form, so every zoned instant walked
+    // past it and a credential outlived its written date by two days.
+    for (const bad of [
+      "2027-02-30",
+      "2027-02-30T23:59:59Z",
+      "2027-04-31T00:00:00Z",
+      "2027-02-30T23:59:59+02:00",
+    ]) {
+      expect(() => parseTokens(`${TOKEN} a ${bad}\n`)).toThrow(/real calendar date/);
+    }
+    // And a real day with an offset still passes, including one whose UTC
+    // instant falls on the previous day.
+    expect(() => parseTokens(`${TOKEN} a 2027-01-01T01:00:00+02:00\n`)).not.toThrow();
   });
 
   it("refuses a table in which every credential has already expired", () => {

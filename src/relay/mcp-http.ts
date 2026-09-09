@@ -142,22 +142,35 @@ export function parseTokens(text: string): TokenTable {
     seen.add(agent);
     let expiresAt: number | undefined;
     if (expires !== undefined) {
-      const dayOnly = CALENDAR_DAY.test(expires);
-      if (!dayOnly && !INSTANT.test(expires)) {
+      if (!CALENDAR_DAY.test(expires) && !INSTANT.test(expires)) {
         throw new RangeError(
           `token file line ${i + 1}: field 3 is the expiry and must be YYYY-MM-DD or a full ISO-8601 instant with its zone`,
         );
       }
-      expiresAt = Date.parse(expires);
-      // `Date.parse` accepts 2026-02-30 and answers March 2. A date that does
-      // not survive the round trip is a typo, not a date.
+      // `Date.parse` accepts a day the calendar does not have and rolls it
+      // over: `2027-02-30T23:59:59Z` becomes March 2, `2027-04-31` becomes May
+      // 1 — measured on both Bun and node 22, so this is not a runtime quirk.
+      // The day is therefore checked on its own, from the string's first ten
+      // characters, rather than by round-tripping the parsed instant: an
+      // instant carrying an offset legitimately lands on a different UTC day
+      // than the one written, and a round trip cannot tell that from a typo.
+      // gemini-code-assist found the hole on #157 — the check was there and
+      // ran only for the day-only form, so every zoned instant walked past it.
+      const year = Number(expires.slice(0, 4));
+      const month = Number(expires.slice(5, 7));
+      const day = Number(expires.slice(8, 10));
+      // `Date.UTC` maps years 0-99 onto 1900-1999, so a four-digit `0026`
+      // fails this comparison. A credential expiring in the year 26 is a typo
+      // either way, and refusing it names the field rather than the century.
+      const asWritten = new Date(Date.UTC(year, month - 1, day));
       if (
-        !Number.isNaN(expiresAt) &&
-        dayOnly &&
-        new Date(expiresAt).toISOString().slice(0, 10) !== expires
+        asWritten.getUTCFullYear() !== year ||
+        asWritten.getUTCMonth() !== month - 1 ||
+        asWritten.getUTCDate() !== day
       ) {
         throw new RangeError(`token file line ${i + 1}: field 3 is not a real calendar date`);
       }
+      expiresAt = Date.parse(expires);
       if (Number.isNaN(expiresAt)) {
         // `RangeError`, not the `TypeError` SonarCloud's S7786 asks for and not
         // the bare `Error` this was: a string that is not a date is well-typed
