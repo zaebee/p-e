@@ -8,9 +8,12 @@ import {
   MAX_BODY_BYTES,
   SKEW_MS,
   type TokenTable,
+  WRITES_PER_WINDOW,
+  WRITE_WINDOW_MS,
   createHttpServer,
   describeCredential,
   forgetSignatures,
+  forgetWriteCounts,
   loadTokens,
   parseTokens,
   replayed,
@@ -238,9 +241,12 @@ function serving(table: TokenTable): () => string {
 
 describe("the HTTP transport", () => {
   const url = serving(parseTokens(`${KEY} zcode\n`));
-  // The replay cache is process-global, so one test's accepted signature must
-  // not count as another's replay.
-  beforeEach(() => forgetSignatures());
+  // The replay cache and the write counters are process-global, so one test's
+  // accepted signature must not count as another's replay or spend its quota.
+  beforeEach(() => {
+    forgetSignatures();
+    forgetWriteCounts();
+  });
 
   const post = (init: RequestInit) => fetch(url(), { method: "POST", ...init });
 
@@ -435,6 +441,36 @@ describe("the HTTP transport", () => {
       handleSpy.mockRestore();
       consoleSpy.mockRestore();
     }
+  });
+
+  it("spends a per-agent write quota, and only on writes", async () => {
+    // A stolen credential's flood costs permanent rows rather than CPU, and the
+    // only limiter in front of this endpoint counts per IP — the wrong unit
+    // when the harm is attributable to a key. relay-1014 named the gap.
+    //
+    // The bytes here cannot become a record, so the deposit refuses each one
+    // and the corpus is untouched while the quota is spent.
+    for (let i = 0; i < WRITES_PER_WINDOW; i++) {
+      const res = await signed({ ...writeCall, id: i });
+      expect(res.status).toBe(200);
+    }
+    const refused = await signed({ ...writeCall, id: 999 });
+    expect(refused.status).toBe(429);
+    // Retry-After is the time actually left in the window, so it is a range and
+    // not a constant: a flat 600 would tell a caller with three seconds left to
+    // sleep for ten minutes.
+    const retryAfter = Number(refused.headers.get("retry-after"));
+    expect(retryAfter).toBeGreaterThan(WRITE_WINDOW_MS / 1000 - 30);
+    expect(retryAfter).toBeLessThanOrEqual(WRITE_WINDOW_MS / 1000);
+
+    // Reads are not counted, so a throttled agent can still read — and the
+    // corpus is public anyway, so counting them would cost compatibility and
+    // protect nothing.
+    const read = await post({
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    expect(read.status).toBe(200);
   });
 
   it("refuses a request carrying two Authorization headers", async () => {

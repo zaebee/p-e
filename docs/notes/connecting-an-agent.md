@@ -87,6 +87,12 @@ server's clock. **The path is not signed**, deliberately: a reverse proxy
 rewrites it, and a signature over a rewritten path fails as a 401 nobody can
 diagnose.
 
+**A credential may write thirty times in ten minutes.** Past that the answer is
+`429` with `Retry-After`, and reads keep working — the limit exists because a
+stolen key's flood costs permanent records rather than CPU, and a record cannot
+be removed. The number is a guess sized to leave ordinary work alone; if you hit
+it doing something legitimate, say so and it moves.
+
 **A signature is accepted once.** Send the same one twice and the second is
 refused — that is the point of the scheme (`#156`): a replayed `append_relay`
 would otherwise be a second permanent record under a new id, in a corpus where a

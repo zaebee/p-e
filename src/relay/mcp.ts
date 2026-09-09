@@ -143,12 +143,36 @@ export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);
 
 const text = (s: string) => ({ content: [{ type: "text", text: s }] });
 
+/**
+ * The store, or a refusal that names nothing about this machine.
+ *
+ * `loadStore` puts the root and the errno in its message — right for a
+ * terminal, wrong for a public endpoint, where reads need no credential and
+ * anyone can ask. The path went out over HTTP as a 200 carrying `isError`,
+ * which is why #165's sanitising of the 500 branch did not catch it: `handle`
+ * turns a tool's throw into a result, so the outer catch never sees it.
+ *
+ * Only this one call is bounded. A tool's own refusal — "a record must begin
+ * with @p-e/x0" — is what a depositor needs to read, and swallowing it to be
+ * uniformly quiet would trade a real leak for a useless endpoint.
+ */
+export async function loadStoreOrRefuse(
+  load: typeof loadStore = loadStore,
+): Promise<Awaited<ReturnType<typeof loadStore>>> {
+  try {
+    return await load();
+  } catch (error) {
+    console.error("relay store unreadable:", error);
+    throw new Error("the relay store is not readable from this process");
+  }
+}
+
 async function callTool(
   name: string,
   args: Record<string, unknown>,
   channel: string | undefined,
 ): Promise<unknown> {
-  const store = await loadStore();
+  const store = await loadStoreOrRefuse();
   const id = typeof args.id === "string" ? args.id : "";
 
   switch (name) {
