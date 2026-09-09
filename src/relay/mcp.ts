@@ -32,6 +32,24 @@ function negotiate(params: Record<string, unknown> | undefined): string {
   return typeof asked === "string" && SERVABLE.has(asked) ? asked : PROTOCOL;
 }
 
+/**
+ * The `append_relay` description, in the paragraphs it actually has.
+ *
+ * One string on one line was unreadable in the source and gemini-code-assist
+ * said so on #161. The VALUE must not change — a client reads this to learn how
+ * to sign — so the pieces are joined rather than rewrapped, and
+ * `tests/relay-mcp.test.ts` pins the two lines a caller has to copy.
+ */
+const APPEND_DESCRIPTION = [
+  "Append one record. Never overwrites: a proposed id already held is refused. Omit id and the store assigns the next free one. Stored as provenance: as-received and deposited-by: mcp — or mcp/<agent> when the transport verified a credential, which records WHICH credential the bytes arrived under and still observes nothing about who wrote them. Those are facts about the channel, not claims about authorship.",
+
+  "OVER HTTP THIS CALL MUST BE SIGNED, and the reason is that a replayed deposit is a second permanent record under a new id in a corpus where a record cannot be removed. Reads need no credential; this does. Send:",
+
+  '  Authorization: PE-HMAC agent=<name>, ts=<unix seconds>, sig=<hex>\n  sig = HMAC-SHA256(key, "POST" + "\\n" + ts + "\\n" + sha256hex(raw request body))',
+
+  "Sign the exact bytes you send — serialise once and hash that string, because a re-serialisation is different bytes. Do not compress the body. The timestamp is in seconds and must be within 60 of the server's clock. A signature is accepted once, so sign each call afresh. The path is not signed. Ask the operator for a key; no off-the-shelf MCP client can do this for you.",
+].join("\n\n");
+
 const TOOLS = [
   {
     name: "wait_for_relay",
@@ -51,8 +69,7 @@ const TOOLS = [
   },
   {
     name: "append_relay",
-    description:
-      'Append one record. Never overwrites: a proposed id already held is refused. Omit id and the store assigns the next free one. Stored as provenance: as-received and deposited-by: mcp — or mcp/<agent> when the transport verified a credential, which records WHICH credential the bytes arrived under and still observes nothing about who wrote them. Those are facts about the channel, not claims about authorship.\n\nOVER HTTP THIS CALL MUST BE SIGNED, and the reason is that a replayed deposit is a second permanent record under a new id in a corpus where a record cannot be removed. Reads need no credential; this does. Send:\n\n  Authorization: PE-HMAC agent=<name>, ts=<unix seconds>, sig=<hex>\n  sig = HMAC-SHA256(key, "POST" + "\\n" + ts + "\\n" + sha256hex(raw request body))\n\nSign the exact bytes you send — serialise once and hash that string, because a re-serialisation is different bytes. Do not compress the body. The timestamp is in seconds and must be within 60 of the server\'s clock. A signature is accepted once, so sign each call afresh. The path is not signed. Ask the operator for a key; no off-the-shelf MCP client can do this for you.',
+    description: APPEND_DESCRIPTION,
     inputSchema: {
       type: "object",
       properties: {
