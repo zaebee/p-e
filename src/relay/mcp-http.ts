@@ -292,6 +292,16 @@ export function createHttpServer(tokens: TokenTable): Server {
   });
 }
 
+/** `mcp/zcode`, `mcp/grok(until 2026-12-31T00:00:00.000Z)`, `mcp/old(EXPIRED)`. */
+function describeCredential(credential: Credential, now = Date.now()): string {
+  if (credential.expiresAt === undefined) return credential.channel;
+  const when =
+    credential.expiresAt <= now
+      ? "EXPIRED"
+      : `until ${new Date(credential.expiresAt).toISOString()}`;
+  return `${credential.channel}(${when})`;
+}
+
 export async function serveHttp(
   port = Number(process.env.PE_MCP_HTTP_PORT ?? DEFAULT_PORT),
 ): Promise<Server> {
@@ -302,12 +312,7 @@ export async function serveHttp(
   // silently lost a line is visible here before anyone's deposit fails — and so
   // is a credential that has already expired, which would otherwise present as
   // an agent mysteriously getting 401 from a file that looks right.
-  const now = Date.now();
-  const described = [...tokens.byHash.values()].map((c) =>
-    c.expiresAt === undefined
-      ? c.channel
-      : `${c.channel}(${c.expiresAt <= now ? "EXPIRED" : `until ${new Date(c.expiresAt).toISOString()}`})`,
-  );
+  const described = [...tokens.byHash.values()].map(describeCredential);
   console.error(
     `p-e mcp over http on ${HOST}:${port}, ${tokens.byHash.size} credential(s): ${described.join(" ")}`,
   );
