@@ -105,6 +105,25 @@ const TOOLS = [
   },
 ];
 
+/**
+ * The tools that only read. **Membership here is a security decision**, not a
+ * description: the HTTP transport serves a read to anyone and demands a
+ * signature for everything else, so a tool absent from this set is protected by
+ * default. Adding a tool without classifying it fails a test rather than
+ * quietly opening it — gemini-code-assist asked for the fail-closed direction
+ * on #159, and this is where the list belongs, beside the tools themselves.
+ */
+export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
+  "wait_for_relay",
+  "get_relay",
+  "exists",
+  "list_relays",
+  "list_replies",
+]);
+
+/** Every tool this server serves, for the test that keeps the set above honest. */
+export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);
+
 const text = (s: string) => ({ content: [{ type: "text", text: s }] });
 
 async function callTool(

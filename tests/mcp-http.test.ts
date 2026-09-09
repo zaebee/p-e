@@ -291,6 +291,22 @@ describe("the HTTP transport", () => {
     expect(withCredential.status).toBe(200);
   });
 
+  it("treats an unknown tool as a write, because the default has to protect", async () => {
+    // Fail-closed: the transport asks whether the tool is a NAMED READ, not
+    // whether it is the one known writer. A tool added later — or a typo — is
+    // protected rather than served.
+    const res = await post({
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "append_relay_v2", arguments: {} },
+      }),
+    });
+    expect(res.status).toBe(401);
+  });
+
   it("refuses an unsigned write", async () => {
     const res = await post({
       headers: { "content-type": "application/json" },
@@ -369,7 +385,7 @@ describe("the HTTP transport", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
     });
     expect(read.status).toBe(200);
-    expect(read.headers.get("access-control-allow-origin")).toBe(null);
+    expect(read.headers.get("access-control-allow-origin")).toBeNull();
 
     const write = await post({
       headers: { "content-type": "application/json", origin: "https://example.org" },

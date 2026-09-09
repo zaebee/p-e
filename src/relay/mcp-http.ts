@@ -56,7 +56,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { MAX_RECORD_BYTES } from "./deposit.js";
-import { handle } from "./mcp.js";
+import { READ_ONLY_TOOLS, handle } from "./mcp.js";
 
 /** Loopback only. Not configurable — see the file comment. */
 const HOST = "127.0.0.1";
@@ -438,14 +438,20 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 /**
- * Whether this request would change the store. One tool does; everything else
- * reads. A transport that guessed from the method name rather than the tool
- * would be guessing, so the list is explicit and short.
+ * Whether this request must be signed. Anything that is not a **named read** is
+ * treated as a write, including a tool this server does not have.
+ *
+ * The first version asked whether the tool was `append_relay`, which is
+ * fail-open: a write tool added later would serve unauthenticated until someone
+ * remembered this line. gemini-code-assist named that on #159. Inverted, the
+ * default protects, and `READ_ONLY_TOOLS` lives beside the tool definitions in
+ * `mcp.ts` where a new tool is written, with a test that fails if one is added
+ * and left unclassified.
  */
 function isWrite(request: Parameters<typeof handle>[0]): boolean {
   if (request.method !== "tools/call") return false;
   const params = request.params as { name?: unknown } | undefined;
-  return params?.name === "append_relay";
+  return typeof params?.name !== "string" || !READ_ONLY_TOOLS.has(params.name);
 }
 
 /** Either a request to serve, or the refusal that ends the exchange. */

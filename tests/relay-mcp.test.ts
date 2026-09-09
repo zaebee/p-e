@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handle } from "../src/relay/mcp.js";
+import { READ_ONLY_TOOLS, TOOL_NAMES, handle } from "../src/relay/mcp.js";
 
 /** Drives the server the way a client would, over the JSON-RPC shapes. */
 const call = (method: string, params?: Record<string, unknown>) =>
@@ -91,5 +91,24 @@ describe("a slow call must not hold the server", () => {
     const handshake = (await call("initialize")) as { result: { serverInfo: { name: string } } };
     expect(handshake.result.serverInfo.name).toBe("p-e-relay");
     await slow;
+  });
+});
+
+describe("the read/write classification", () => {
+  it("classifies every tool, because the HTTP transport serves reads to anyone", () => {
+    // The transport asks whether a tool is a named read and demands a signature
+    // for everything else. A tool added to TOOLS and left out of
+    // READ_ONLY_TOOLS is therefore protected — but a tool added and wrongly
+    // called a read would be served to the world, so the list is pinned here.
+    expect([...READ_ONLY_TOOLS].sort()).toEqual([
+      "exists",
+      "get_relay",
+      "list_relays",
+      "list_replies",
+      "wait_for_relay",
+    ]);
+    // Every name is a real tool, and the one that is not a read is the writer.
+    for (const name of READ_ONLY_TOOLS) expect(TOOL_NAMES).toContain(name);
+    expect(TOOL_NAMES.filter((name) => !READ_ONLY_TOOLS.has(name))).toEqual(["append_relay"]);
   });
 });
