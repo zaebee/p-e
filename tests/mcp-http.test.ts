@@ -189,6 +189,20 @@ describe("the replay cache", () => {
     expect(replayed("aaa", t0 + 2 * SKEW_MS + 2)).toBe(false);
   });
 
+  it("keeps refusing across a backwards clock jump, and starts rotating again", () => {
+    // NTP, a VM resume, a hand on the system time. Rotation must resume — or
+    // the buckets grow without bound — and the memory must survive, or a
+    // signature captured just before the jump becomes usable again: the skew
+    // check refuses only what is strictly further than SKEW_MS away.
+    const t0 = Date.parse("2026-06-01T12:00:00Z");
+    expect(replayed("bbb", t0)).toBe(false);
+    const jumped = t0 - 10 * SKEW_MS;
+    expect(replayed("bbb", jumped)).toBe(true);
+    // Rotation resumes on the new clock rather than waiting for it to catch up.
+    expect(replayed("ccc", jumped + SKEW_MS + 1)).toBe(false);
+    expect(replayed("ccc", jumped + SKEW_MS + 2)).toBe(true);
+  });
+
   it("costs the same per request whether it holds ten entries or twenty thousand", () => {
     // The swept-map version this replaced was quadratic under sustained load:
     // nothing in it was expired yet, so the sweep deleted nothing and ran again

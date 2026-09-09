@@ -318,7 +318,20 @@ let rotatedAt = 0;
 
 function alreadyUsed(sig: string, now: number): boolean {
   const since = now - rotatedAt;
-  if (since >= SKEW_MS) {
+  if (since < 0) {
+    // The clock went backwards — NTP, a VM resume, a hand on the system time.
+    // Without this, `since` stays negative until the clock catches up and the
+    // buckets never rotate, which grows without bound. gemini-code-assist on
+    // #158 found that.
+    //
+    // But the fix it proposed clears the buckets, and that would OPEN A REPLAY
+    // WINDOW: a signature accepted moments before a backwards jump is still
+    // inside the skew window afterwards — the skew check refuses only what is
+    // strictly further than SKEW_MS away — so forgetting it makes the captured
+    // request usable again. The memory is what refuses the replay. So the clock
+    // moves and the memory stays; rotation resumes from the new clock.
+    rotatedAt = now;
+  } else if (since >= SKEW_MS) {
     // A gap of two windows or more means neither bucket can still hold anything
     // replayable, so both go rather than one sliding into the other.
     previousBucket = since >= 2 * SKEW_MS ? new Set() : currentBucket;
