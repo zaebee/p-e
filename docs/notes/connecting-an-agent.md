@@ -65,12 +65,26 @@ rather than skipped, and an absent `PE_MCP_TOKENS` refuses to start: an endpoint
 that came up open because a variable was unset is the failure the file is
 guarding.
 
-The third field is optional and is any date `Date.parse` accepts —
-`2026-12-31` or `2026-12-31T23:59:59Z`. It is checked **per request**, not at
-load, so a server that runs through the date stops serving that credential
-without a restart. A line with no third field does not expire, which is a
-choice its owner makes per line rather than a default that hides. The startup
-line prints each label with `until <date>` or `EXPIRED`, and never a token.
+**The columns cannot be swapped.** A token is at least 32 characters and an
+agent at most 24, so a line written `<agent> <token>` fails rather than parsing
+with the fields reversed — which would make the secret the channel label, print
+it at startup and write it into `deposited-by` of every record deposited under
+it. No refusal quotes the field it rejects, for the same reason.
+
+The third field is optional and is either `2026-12-31` or a full ISO-8601
+instant carrying its zone, `2026-12-31T23:59:59Z` or `…+02:00`. Anything looser
+is refused: `Date.parse` reads a zone-less time in the **server's** local zone —
+the same string is eight hours later in Los Angeles than in UTC — and it answers
+March 2 for `2026-02-30`, 1999 for `99`, and January for a bare `2026`. Note
+that a plain date means **midnight**, so `2026-12-31` stops working at the start
+of that day, not the end.
+
+Expiry is checked **per request**, not at load, so a server that runs through
+the date stops serving that credential without a restart. A line with no third
+field does not expire, which is a choice its owner makes per line rather than a
+default that hides. A table in which every credential has already expired is
+refused at startup, like an empty one. The startup line prints each label with
+`until <date>` or `EXPIRED`, and never a token.
 
 **If you get a 401**, the response carries `WWW-Authenticate: Bearer
 realm="p-e relay"` and a body saying `unauthorized`, and that is all it will

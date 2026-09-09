@@ -43,8 +43,31 @@ const DEFAULT_PORT = 8787;
  */
 export const MAX_BODY_BYTES = MAX_RECORD_BYTES + 64 * 1024;
 
-/** `mcp/<agent>`: what a credential is allowed to become in `deposited-by`. */
-const AGENT = /^[a-z0-9][a-z0-9._-]{0,31}$/;
+/**
+ * `mcp/<agent>`: what a credential is allowed to become in `deposited-by`.
+ *
+ * The lengths of the two columns are deliberately **disjoint** — an agent is at
+ * most 24 characters, a token at least 32 — so that a line written in the wrong
+ * order fails instead of being accepted with the fields swapped. Found by a
+ * reviewer on #157 and reproduced here: `openssl rand -hex 16` is 32 lowercase
+ * hex characters, which matched this pattern, so `<agent> <token>` parsed
+ * cleanly and made THE SECRET the channel label — printed to stderr at startup
+ * and written into `deposited-by` of every record deposited under it, in a
+ * corpus where a record cannot be removed.
+ */
+const AGENT = /^[a-z0-9][a-z0-9._-]{0,23}$/;
+const MIN_TOKEN = 32;
+
+/**
+ * `YYYY-MM-DD`, or a full ISO-8601 instant carrying its zone.
+ *
+ * `Date.parse` accepts far more and reads some of it in the server's LOCAL
+ * zone: `2026-12-31T23:59:59` is 8 hours later in Los Angeles than in UTC and
+ * 14 hours earlier in Kiritimati — measured. It also accepts `12/31/2026`,
+ * turns `2026-02-30` into March 2 without complaint, and reads `99` as 1999.
+ * A credential's end is not a place to be generous.
+ */
+const EXPIRY = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$/;
 
 /** One credential: what it becomes in `deposited-by`, and when it stops. */
 export interface Credential {
@@ -97,19 +120,38 @@ export function parseTokens(text: string): TokenTable {
       );
     }
     const [token, agent, expires] = parts as [string, string, string | undefined];
-    if (token.length < 16) {
-      throw new Error(`token file line ${i + 1}: token shorter than 16 characters`);
+    // No refusal below quotes the field it rejects. A line written in the wrong
+    // order puts a secret where a name belongs, and a message that echoes it
+    // writes the secret to stderr — the same reviewer's finding, one step on.
+    if (token.length < MIN_TOKEN) {
+      throw new Error(
+        `token file line ${i + 1}: field 1 is the token and must be at least ${MIN_TOKEN} characters`,
+      );
     }
     if (!AGENT.test(agent)) {
       throw new Error(
-        `token file line ${i + 1}: agent ${JSON.stringify(agent)} is not [a-z0-9][a-z0-9._-]{0,31}`,
+        `token file line ${i + 1}: field 2 is the agent and must match [a-z0-9][a-z0-9._-]{0,23} — note the columns are <token> <agent>, in that order`,
       );
     }
     if (seen.has(agent)) throw new Error(`token file line ${i + 1}: agent ${agent} appears twice`);
     seen.add(agent);
     let expiresAt: number | undefined;
     if (expires !== undefined) {
+      if (!EXPIRY.test(expires)) {
+        throw new RangeError(
+          `token file line ${i + 1}: field 3 is the expiry and must be YYYY-MM-DD or a full ISO-8601 instant with its zone`,
+        );
+      }
       expiresAt = Date.parse(expires);
+      // `Date.parse` accepts 2026-02-30 and answers March 2. A date that does
+      // not survive the round trip is a typo, not a date.
+      if (
+        !Number.isNaN(expiresAt) &&
+        expires.length === 10 &&
+        new Date(expiresAt).toISOString().slice(0, 10) !== expires
+      ) {
+        throw new RangeError(`token file line ${i + 1}: field 3 is not a real calendar date`);
+      }
       if (Number.isNaN(expiresAt)) {
         // `RangeError`, not the `TypeError` SonarCloud's S7786 asks for and not
         // the bare `Error` this was: a string that is not a date is well-typed
@@ -117,9 +159,7 @@ export function parseTokens(text: string): TokenTable {
         // `new Date("soon").toISOString()` throws `RangeError: Invalid Date`.
         // The sibling refusals here stay `Error`: a duplicate agent or a short
         // token is neither a type nor a range.
-        throw new RangeError(
-          `token file line ${i + 1}: ${JSON.stringify(expires)} is not a date Date.parse accepts`,
-        );
+        throw new RangeError(`token file line ${i + 1}: field 3 is not a date`);
       }
     }
     const hash = sha256Hex(token);
@@ -127,6 +167,14 @@ export function parseTokens(text: string): TokenTable {
     byHash.set(hash, { channel: `mcp/${agent}`, expiresAt });
   });
   if (byHash.size === 0) throw new Error("token file holds no tokens");
+  // A table whose every credential has already expired serves nobody, which is
+  // the state an empty file is refused for. Refusing here too means the failure
+  // is a startup error naming the file rather than four agents each getting 401
+  // from a file that looks correct.
+  const now = Date.now();
+  if ([...byHash.values()].every((c) => c.expiresAt !== undefined && c.expiresAt <= now)) {
+    throw new Error("token file holds no credential that has not expired");
+  }
   return {
     byHash,
     probes: [...byHash].map(
@@ -166,9 +214,23 @@ function channelFor(tokens: TokenTable, presented: string, now = Date.now()): st
 }
 
 function bearer(req: IncomingMessage): string | undefined {
+  // More than one Authorization header is refused rather than resolved. Node
+  // keeps the first and Bun's compatibility layer keeps the last — measured on
+  // #157 — so a proxy that adds its own would produce a different credential
+  // depending on the runtime underneath. There is no reading of two credentials
+  // that this server should pick between.
+  let seen = 0;
+  for (let i = 0; i < req.rawHeaders.length; i += 2) {
+    if (req.rawHeaders[i]?.toLowerCase() === "authorization") seen++;
+  }
+  if (seen > 1) return undefined;
+
   const header = req.headers.authorization;
   if (typeof header !== "string") return undefined;
-  const m = /^Bearer\s+(\S+)$/.exec(header.trim());
+  // A single space and printable ASCII, per RFC 6750. `\s` also matched tabs and
+  // a non-breaking space, which no client should be sending and which this has
+  // no reason to accept.
+  const m = /^Bearer ([\x21-\x7e]+)$/.exec(header.trim());
   return m?.[1];
 }
 

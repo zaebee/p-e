@@ -1,5 +1,5 @@
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import type { AddressInfo } from "node:net";
+import { type AddressInfo, connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -42,7 +42,7 @@ describe("parseTokens", () => {
   it("takes an optional expiry and refuses a date it cannot read", () => {
     const dated = parseTokens(`${TOKEN} zcode 2026-12-31T23:59:59Z\n`);
     expect([...dated.byHash.values()][0]?.expiresAt).toBe(Date.parse("2026-12-31T23:59:59Z"));
-    expect(() => parseTokens(`${TOKEN} zcode soon\n`)).toThrow(/not a date/);
+    expect(() => parseTokens(`${TOKEN} zcode soon\n`)).toThrow(/field 3/);
     expect(() => parseTokens(`${TOKEN} zcode 2026-12-31 extra\n`)).toThrow(/line 1/);
   });
 
@@ -54,11 +54,54 @@ describe("parseTokens", () => {
   });
 
   it("refuses a short token, a bad agent, and a repeat of either", () => {
-    expect(() => parseTokens("short zcode\n")).toThrow(/shorter than 16/);
-    expect(() => parseTokens(`${TOKEN} Zcode\n`)).toThrow(/is not/);
+    expect(() => parseTokens("short zcode\n")).toThrow(/at least 32/);
+    expect(() => parseTokens(`${TOKEN} Zcode\n`)).toThrow(/field 2/);
     expect(() => parseTokens(`${TOKEN} bee..ok\n`)).not.toThrow();
     expect(() => parseTokens(`${TOKEN} zcode\n${OTHER} zcode\n`)).toThrow(/twice/);
     expect(() => parseTokens(`${TOKEN} zcode\n${TOKEN} grok\n`)).toThrow(/duplicate token/);
+  });
+
+  it("refuses a line written in the wrong order instead of swapping the columns", () => {
+    // A reviewer's finding on #157, reproduced before fixing: `openssl rand
+    // -hex 16` is 32 lowercase hex characters, which the old agent pattern
+    // accepted, so `<agent> <token>` parsed and THE TOKEN BECAME THE CHANNEL
+    // LABEL — stderr at startup, and `deposited-by` in every record it wrote.
+    const secret = "4e9fa61a5fe7d6ad1239afe73c3d644d";
+    expect(() => parseTokens(`claude-code-agent ${secret}\n`)).toThrow();
+    // The lengths are disjoint, so the swap cannot pass either column.
+    expect(secret.length).toBeLessThan(33);
+    expect("claude-code-agent".length).toBeLessThan(32);
+  });
+
+  it("never quotes the field it refuses, because a swapped line puts a secret there", () => {
+    const secret = "649bb7fb1234567890abcdef1234567890abcdef1234567890abcdeff313b412";
+    for (const line of [`claude-code-agent ${secret}`, `${TOKEN} zcode ${secret}`]) {
+      let message = "";
+      try {
+        parseTokens(`${line}\n`);
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error);
+      }
+      expect(message).not.toBe("");
+      expect(message).not.toContain(secret);
+    }
+  });
+
+  it("takes only a plain date or a full instant with its zone", () => {
+    // Date.parse reads a zone-less time in the server's local zone — the same
+    // string is 8 hours later in Los Angeles than in UTC — and it answers March
+    // 2 for 2026-02-30, 1999 for 99, and January for a bare 2026.
+    expect(() => parseTokens(`${TOKEN} a 2026-12-31\n`)).not.toThrow();
+    expect(() => parseTokens(`${TOKEN} a 2026-12-31T23:59:59Z\n`)).not.toThrow();
+    expect(() => parseTokens(`${TOKEN} a 2026-12-31T23:59:59+02:00\n`)).not.toThrow();
+    for (const bad of ["2026-12-31T23:59:59", "12/31/2026", "2026", "99", "2026-02-30"]) {
+      expect(() => parseTokens(`${TOKEN} a ${bad}\n`)).toThrow();
+    }
+  });
+
+  it("refuses a table in which every credential has already expired", () => {
+    expect(() => parseTokens(`${TOKEN} zcode 2020-01-01\n`)).toThrow(/has not expired/);
+    expect(() => parseTokens(`${TOKEN} zcode 2020-01-01\n${OTHER} grok\n`)).not.toThrow();
   });
 
   it("refuses a file with no tokens, which would serve an open endpoint", () => {
@@ -179,6 +222,36 @@ describe("the HTTP transport", () => {
     const json = (await res.json()) as { error: { code: number; message: string } };
     expect(json.error.code).toBe(-32700);
     expect(json.error.message).toBe("parse error");
+  });
+
+  it("refuses a request carrying two Authorization headers", async () => {
+    // Node keeps the first and Bun's compat layer keeps the last, so a proxy
+    // that adds its own would decide the credential differently depending on
+    // what is underneath. Raw socket, because fetch will not send two.
+    const { port } = new URL(url());
+    const reply = await new Promise<string>((resolve, reject) => {
+      const socket = connect(Number(port), "127.0.0.1", () => {
+        const request = [
+          "POST / HTTP/1.1",
+          "Host: localhost",
+          `Authorization: Bearer ${TOKEN}`,
+          `Authorization: Bearer ${OTHER}`,
+          "Content-Type: application/json",
+          "Content-Length: 2",
+          "Connection: close",
+          "",
+          "{}",
+        ].join("\r\n");
+        socket.write(request);
+      });
+      let out = "";
+      socket.on("data", (chunk) => {
+        out += chunk.toString();
+      });
+      socket.on("end", () => resolve(out));
+      socket.on("error", reject);
+    });
+    expect(reply.split("\r\n")[0]).toContain("401");
   });
 
   it("refuses a batch, which this transport does not serve", async () => {
