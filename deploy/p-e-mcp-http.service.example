@@ -1,0 +1,62 @@
+# The HTTP transport for the relay's MCP server, as a systemd *user* unit.
+#
+# Copy to ~/.config/systemd/user/p-e-mcp-http.service — verbatim, unless the
+# repository or bun live somewhere other than the paths below — and then:
+#
+#     systemctl --user daemon-reload
+#     systemctl --user enable --now p-e-mcp-http
+#
+# `loginctl enable-linger <user>` is what makes a user unit survive logout and
+# come back after a reboot. Without it this starts when you log in and stops
+# when you leave, which is a confusing way to lose a public endpoint.
+#
+# WHY A UNIT AT ALL. This process was started by hand for a week, which works
+# until the host reboots — and then the public /api/mcp answers 502 with nothing
+# obviously wrong anywhere. A hand-started server is a scheduled outage with no
+# date on it.
+
+[Unit]
+Description=p-e MCP transport (HTTP, loopback only)
+Documentation=https://github.com/zaebee/p-e/blob/main/docs/notes/connecting-an-agent.md
+After=network.target
+
+[Service]
+Type=simple
+
+# `--no-env-file` and a working directory outside the repository, both on
+# purpose. Bun loads `.env` from its working directory, and this repository's
+# `.env` holds keys this process has no use for; the flag disables the loading
+# and the directory removes the file it would find. CLAUDE.md's rule: prefer the
+# flag where the command line is yours, the directory where it is not, and both
+# where a silent failure would go unnoticed. The store's location comes from the
+# source file's own path, so neither choice can point it anywhere.
+# `%h` is systemd's own expansion of the user's home directory, which is what
+# makes this file copyable rather than a template someone has to edit — and an
+# edited example is an example that drifts from what is running.
+WorkingDirectory=%h
+ExecStart=%h/.bun/bin/bun --no-env-file run %h/projects/p-e/src/relay/mcp-http.ts
+
+# The credential table. Absent, the server refuses to start rather than serving
+# an open write endpoint — see `loadTokens`.
+Environment=PE_MCP_TOKENS=%h/.config/p-e/mcp-tokens
+
+Restart=on-failure
+RestartSec=2
+
+# It writes into the corpus, so it needs the repository writable and nothing
+# else. `ProtectHome` is not set for that reason: both the store and the token
+# table live under the home directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+# stderr carries the startup line — agent labels and a count, never a key.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
