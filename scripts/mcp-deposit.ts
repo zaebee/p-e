@@ -124,7 +124,7 @@ function printable(text: string): string {
     out +=
       code === 10 || code === 9 || (code >= 32 && code !== 127)
         ? ch
-        : `\\x${code.toString(16).padStart(2, "0")}`;
+        : String.raw`\x${code.toString(16).padStart(2, "0")}`;
   }
   return out;
 }
