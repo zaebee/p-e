@@ -1,0 +1,175 @@
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { appendRelay } from "../src/relay/deposit.js";
+import {
+  MAX_BODY_BYTES,
+  createHttpServer,
+  loadTokens,
+  parseTokens,
+} from "../src/relay/mcp-http.js";
+import { handle } from "../src/relay/mcp.js";
+
+const TOKEN = "0123456789abcdef0123456789abcdef";
+const OTHER = "fedcba9876543210fedcba9876543210";
+
+/**
+ * The HTTP transport is tested against `tools/list` and `initialize`, which
+ * touch no store, plus one deposit at the `appendRelay` level with a scratch
+ * root. A deposit driven through `handle()` would land in the live corpus:
+ * `STORE_ROOT` is a fixed path, and `relay-0734` is the record that proves a
+ * write probe with no root goes into the real store and cannot be taken out.
+ */
+function empty(): string {
+  const root = join(mkdtempSync(join(tmpdir(), "p-e-http-")), "relay");
+  mkdirSync(root, { recursive: true });
+  return root;
+}
+
+const body = (id: string) => `@p-e/x0\nid: ${id}\nfrom: probe\nkind: probe\n\nscratch\n`;
+
+describe("parseTokens", () => {
+  it("maps a token to mcp/<agent> and keeps no plaintext", () => {
+    const table = parseTokens(`# a comment\n\n${TOKEN} zcode\n`);
+    expect([...table.byHash.values()]).toEqual(["mcp/zcode"]);
+    expect(JSON.stringify([...table.byHash])).not.toContain(TOKEN);
+  });
+
+  it("refuses a malformed line rather than skipping it", () => {
+    // A file that drops the line it could not read leaves its owner believing
+    // an agent can write, and the discovery happens at someone's deposit.
+    expect(() => parseTokens(`${TOKEN}\n`)).toThrow(/line 1/);
+    expect(() => parseTokens(`${TOKEN} zcode extra\n`)).toThrow(/line 1/);
+  });
+
+  it("refuses a short token, a bad agent, and a repeat of either", () => {
+    expect(() => parseTokens("short zcode\n")).toThrow(/shorter than 16/);
+    expect(() => parseTokens(`${TOKEN} Zcode\n`)).toThrow(/is not/);
+    expect(() => parseTokens(`${TOKEN} bee..ok\n`)).not.toThrow();
+    expect(() => parseTokens(`${TOKEN} zcode\n${OTHER} zcode\n`)).toThrow(/twice/);
+    expect(() => parseTokens(`${TOKEN} zcode\n${TOKEN} grok\n`)).toThrow(/duplicate token/);
+  });
+
+  it("refuses a file with no tokens, which would serve an open endpoint", () => {
+    expect(() => parseTokens("# nothing here\n")).toThrow(/no tokens/);
+  });
+});
+
+describe("loadTokens", () => {
+  it("refuses to run without PE_MCP_TOKENS", () => {
+    expect(() => loadTokens(undefined)).toThrow(/PE_MCP_TOKENS is required/);
+  });
+
+  it("reads the named file", () => {
+    const path = join(mkdtempSync(join(tmpdir(), "p-e-tok-")), "tokens");
+    writeFileSync(path, `${TOKEN} grok\n`);
+    expect([...loadTokens(path).byHash.values()]).toEqual(["mcp/grok"]);
+  });
+});
+
+describe("the HTTP transport", () => {
+  const server = createHttpServer(parseTokens(`${TOKEN} zcode\n`));
+  let url = "";
+
+  beforeAll(async () => {
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
+  });
+  afterAll(async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  });
+
+  const post = (init: RequestInit) => fetch(url, { method: "POST", ...init });
+  const authed = (payload: unknown) =>
+    post({
+      headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+  it("refuses anything but POST", async () => {
+    const res = await fetch(url, { method: "GET" });
+    expect(res.status).toBe(405);
+  });
+
+  it("refuses an absent, malformed or unknown credential with the same sentence", async () => {
+    const none = await post({ body: "{}" });
+    const wrong = await post({ headers: { authorization: `Bearer ${OTHER}` }, body: "{}" });
+    const malformed = await post({ headers: { authorization: TOKEN }, body: "{}" });
+    expect([none.status, wrong.status, malformed.status]).toEqual([401, 401, 401]);
+    const bodies = await Promise.all([none.json(), wrong.json(), malformed.json()]);
+    for (const b of bodies) expect(b.error.message).toBe("unauthorized");
+  });
+
+  it("serves tools/list to a credential it knows", async () => {
+    const res = await authed({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { result: { tools: { name: string }[] } };
+    expect(json.result.tools.map((t) => t.name)).toContain("append_relay");
+  });
+
+  it("answers a notification with 204 and no body", async () => {
+    const res = await authed({ jsonrpc: "2.0", method: "notifications/initialized" });
+    expect(res.status).toBe(204);
+    expect(await res.text()).toBe("");
+  });
+
+  it("refuses a body over the cap before parsing it", async () => {
+    const res = await post({
+      headers: { authorization: `Bearer ${TOKEN}` },
+      body: "x".repeat(MAX_BODY_BYTES + 1),
+    });
+    expect(res.status).toBe(413);
+  });
+
+  it("names a parse error without echoing the body", async () => {
+    const res = await post({ headers: { authorization: `Bearer ${TOKEN}` }, body: "{not json" });
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: { code: number; message: string } };
+    expect(json.error.code).toBe(-32700);
+    expect(json.error.message).toBe("parse error");
+  });
+
+  it("refuses a batch, which this transport does not serve", async () => {
+    const res = await authed([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("the channel reaches the deposit", () => {
+  it("lands in deposited-by", async () => {
+    const root = empty();
+    const { id } = await appendRelay(body("relay-0001"), undefined, root, "mcp/zcode");
+    const stored = readFileSync(join(root, `${id}.txt`), "utf8");
+    expect(stored.startsWith("deposited-by: mcp/zcode\n")).toBe(true);
+    expect(stored).toContain("provenance: as-received");
+  });
+
+  it("refuses a channel the transport did not derive from a credential", async () => {
+    // Guards the wiring: handle() must pass ctx.channel down, and appendRelay
+    // must reject anything that is not `mcp` or `mcp/<agent>`. The refusal
+    // happens before any write, so the live store is untouched by this call.
+    const response = (await handle(
+      {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "append_relay", arguments: { bytes: body("relay-0001") } },
+      },
+      { channel: "somebody-on-the-internet" },
+    )) as { result: { isError?: boolean; content: { text: string }[] } };
+    expect(response.result.isError).toBe(true);
+    expect(response.result.content[0]?.text).toMatch(/channel must be/);
+  });
+
+  it("defaults to mcp when a transport observed nothing", async () => {
+    const root = empty();
+    const { id } = await appendRelay(body("relay-0001"), undefined, root);
+    expect(readFileSync(join(root, `${id}.txt`), "utf8").startsWith("deposited-by: mcp\n")).toBe(
+      true,
+    );
+  });
+});

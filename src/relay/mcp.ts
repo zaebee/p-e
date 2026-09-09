@@ -52,7 +52,7 @@ const TOOLS = [
   {
     name: "append_relay",
     description:
-      "Append one record. Never overwrites: a proposed id already held is refused. Stored as provenance: as-received and deposited-by: mcp, because this path cannot observe emission and cannot authenticate its caller — those are facts about the channel, not claims about who wrote the bytes. Omit id and the store assigns the next free one.",
+      "Append one record. Never overwrites: a proposed id already held is refused. Stored as provenance: as-received and deposited-by: mcp — or mcp/<agent> when the transport presented a credential, which records WHICH credential the bytes arrived under and still observes nothing about who wrote them. Those are facts about the channel, not claims about authorship. Omit id and the store assigns the next free one.",
     inputSchema: {
       type: "object",
       properties: {
@@ -107,7 +107,11 @@ const TOOLS = [
 
 const text = (s: string) => ({ content: [{ type: "text", text: s }] });
 
-async function callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
+async function callTool(
+  name: string,
+  args: Record<string, unknown>,
+  channel: string,
+): Promise<unknown> {
   const store = await loadStore();
   const id = typeof args.id === "string" ? args.id : "";
 
@@ -151,9 +155,9 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
       const bytes = typeof args.bytes === "string" ? args.bytes : "";
       if (bytes.trim() === "") return text("refused: bytes is empty");
       const proposed = typeof args.id === "string" ? args.id : undefined;
-      const r = await appendRelay(bytes, proposed);
+      const r = await appendRelay(bytes, proposed, undefined, channel);
       return text(
-        `stored ${r.id}\nid chosen by: ${r.idSource}\nprovenance: as-received\ndeposited-by: mcp\nintegrity-sha256: ${r.sha256}\n\nThis store recorded that a call arrived over this transport carrying these bytes. It did not observe who sent them, and does not assert it.`,
+        `stored ${r.id}\nid chosen by: ${r.idSource}\nprovenance: as-received\ndeposited-by: ${channel}\nintegrity-sha256: ${r.sha256}\n\nThis store recorded that a call arrived over this transport carrying these bytes. It did not observe who sent them, and does not assert it.`,
       );
     }
     case "list_replies": {
@@ -173,7 +177,18 @@ interface Request {
   params?: Record<string, unknown>;
 }
 
-export async function handle(request: Request): Promise<object | null> {
+/**
+ * `channel` is what the transport observed about the call, and it lands in
+ * `deposited-by`. The stdio path has nothing to observe beyond the channel
+ * itself, so it stays `mcp`; the HTTP path maps a credential to `mcp/<agent>`.
+ * A transport may never derive this from the request body: bytes are a claim.
+ */
+export interface CallContext {
+  readonly channel?: string;
+}
+
+export async function handle(request: Request, ctx: CallContext = {}): Promise<object | null> {
+  const channel = ctx.channel ?? "mcp";
   const reply = (result: unknown) => ({ jsonrpc: "2.0" as const, id: request.id, result });
 
   switch (request.method) {
@@ -194,7 +209,7 @@ export async function handle(request: Request): Promise<object | null> {
         arguments?: Record<string, unknown>;
       };
       try {
-        return reply(await callTool(params.name ?? "", params.arguments ?? {}));
+        return reply(await callTool(params.name ?? "", params.arguments ?? {}, channel));
       } catch (error) {
         return reply({
           content: [{ type: "text", text: error instanceof Error ? error.message : String(error) }],
