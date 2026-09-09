@@ -41,8 +41,15 @@ function num(n: number): string {
   return Object.is(n, -0) ? "0" : String(n);
 }
 
+/** JCS escapes quote, backslash, and C0 controls (\x00-\x1f). Fast check avoids character iteration. */
+// biome-ignore lint/suspicious/noControlCharactersInRegex: JCS RFC 8785 requires checking C0 control characters
+const NEED_ESCAPE = /[\x00-\x1f"\\]/;
+
 /** JCS escapes the quote, the backslash, and the C0 controls. Nothing else. */
 function str(s: string): string {
+  // Fast path: strings without C0 control characters, quotes, or backslashes
+  // need no JCS character escaping and can be wrapped directly.
+  if (!NEED_ESCAPE.test(s)) return `"${s}"`;
   let out = '"';
   for (const ch of s) {
     switch (ch) {
@@ -148,6 +155,10 @@ function emit(value: unknown): string {
  * so a refusal points at the member name rather than at some value inside it.
  */
 function assertWellFormed(value: string, where: "string" | "key"): void {
+  // Fast path: String.prototype.isWellFormed is a native engine check for unpaired surrogates.
+  // When well-formed, avoids the character-by-character JS loop entirely.
+  const fn = (value as unknown as { isWellFormed?: () => boolean }).isWellFormed;
+  if (typeof fn === "function" && fn.call(value)) return;
   for (let i = 0; i < value.length; i++) {
     const code = value.charCodeAt(i);
     const isHigh = code >= 0xd800 && code <= 0xdbff;

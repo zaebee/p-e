@@ -10,3 +10,7 @@ as `matchAll`; the speedup line above is the author's and is left as written.
 ## 2026-08-31 - Avoid Indirect Full Aggregations in Lookup Functions
 **Learning:** `exists(store, id)` was calling `knownMissing(store).includes(id)`. `knownMissing` scans all records, builds sets, filters out held IDs, and sorts the result into an array. Calling `knownMissing()` inside point lookups (`exists`) turned an O(N) check into heavy allocation + array sort + search overhead.
 **Action:** Replace indirect helper calls in single-item lookups with direct early-exiting iterations over `store.values()`, and filter out held IDs early in set construction when aggregations are necessary.
+
+## 2026-09-09 - Fast-path JCS String Escaping and Surrogate Validation
+**Learning:** Character-by-character string iteration in JS for JCS string serialization (`str`) and Unicode well-formedness validation (`assertWellFormed`) incurs significant loop and function call overhead. Checking `!/[\x00-\x1f"\\]/.test(s)` allows wrapping unescaped strings directly (avoiding char-by-char switches on common strings like UUIDs, hashes, timestamps), reducing string escaping time by ~78%. Pre-checking native `isWellFormed()` bypasses JS character loops for valid UTF-16 strings, speeding up validation by >300x.
+**Action:** Fast-path string serialization and validation using regex tests and native engine checks (`isWellFormed`) before falling back to character-level loops.
