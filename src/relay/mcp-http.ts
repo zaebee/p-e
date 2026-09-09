@@ -114,7 +114,13 @@ function sha256Hex(s: string): string {
  */
 export function parseTokens(text: string): TokenTable {
   const byHash = new Map<string, Credential>();
-  const seen = new Set<string>();
+  // Agent → the line that first used it, and hash → likewise. A repeat is
+  // reported by naming both lines, which is more useful than naming the value
+  // and does not quote a field: an operator with two line numbers can see the
+  // pair, and a message that echoes the field would print a secret whenever
+  // the line it rejects is one with the columns swapped.
+  const agentLine = new Map<string, number>();
+  const tokenLine = new Map<string, number>();
   text.split("\n").forEach((raw, i) => {
     const line = raw.trim();
     if (line === "" || line.startsWith("#")) return;
@@ -138,8 +144,13 @@ export function parseTokens(text: string): TokenTable {
         `token file line ${i + 1}: field 2 is the agent and must match [a-z0-9][a-z0-9._-]{0,23} — note the columns are <token> <agent>, in that order`,
       );
     }
-    if (seen.has(agent)) throw new Error(`token file line ${i + 1}: agent ${agent} appears twice`);
-    seen.add(agent);
+    const earlierAgent = agentLine.get(agent);
+    if (earlierAgent !== undefined) {
+      throw new Error(
+        `token file line ${i + 1}: field 2 repeats the agent on line ${earlierAgent}`,
+      );
+    }
+    agentLine.set(agent, i + 1);
     let expiresAt: number | undefined;
     if (expires !== undefined) {
       if (!CALENDAR_DAY.test(expires) && !INSTANT.test(expires)) {
@@ -182,7 +193,13 @@ export function parseTokens(text: string): TokenTable {
       }
     }
     const hash = sha256Hex(token);
-    if (byHash.has(hash)) throw new Error(`token file line ${i + 1}: duplicate token`);
+    const earlierToken = tokenLine.get(hash);
+    if (earlierToken !== undefined) {
+      throw new Error(
+        `token file line ${i + 1}: field 1 repeats the token on line ${earlierToken}`,
+      );
+    }
+    tokenLine.set(hash, i + 1);
     byHash.set(hash, { channel: `mcp/${agent}`, expiresAt });
   });
   if (byHash.size === 0) throw new Error("token file holds no tokens");

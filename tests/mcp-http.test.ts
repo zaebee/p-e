@@ -57,8 +57,12 @@ describe("parseTokens", () => {
     expect(() => parseTokens("short zcode\n")).toThrow(/at least 32/);
     expect(() => parseTokens(`${TOKEN} Zcode\n`)).toThrow(/field 2/);
     expect(() => parseTokens(`${TOKEN} bee..ok\n`)).not.toThrow();
-    expect(() => parseTokens(`${TOKEN} zcode\n${OTHER} zcode\n`)).toThrow(/twice/);
-    expect(() => parseTokens(`${TOKEN} zcode\n${TOKEN} grok\n`)).toThrow(/duplicate token/);
+    expect(() => parseTokens(`${TOKEN} zcode\n${OTHER} zcode\n`)).toThrow(
+      /line 2: field 2 repeats the agent on line 1/,
+    );
+    expect(() => parseTokens(`${TOKEN} zcode\n${TOKEN} grok\n`)).toThrow(
+      /line 2: field 1 repeats the token on line 1/,
+    );
   });
 
   it("refuses a line written in the wrong order instead of swapping the columns", () => {
