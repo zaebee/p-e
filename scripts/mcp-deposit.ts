@@ -44,27 +44,38 @@ usage: mcp-deposit <file|-> --as <agent> [--url <url>] [--tokens <file>]
   process.exit(2);
 }
 
-function parse(argv: readonly string[]): Options {
+const FLAGS = ["--as", "--url", "--tokens"] as const;
+type Flag = (typeof FLAGS)[number];
+
+/** `--as x --url y file` → the flags that were given and what is left over. */
+function split(argv: readonly string[]): { flags: Map<Flag, string>; rest: string[] } {
+  const flags = new Map<Flag, string>();
   const rest: string[] = [];
-  let agent = "";
-  let url = DEFAULT_URL;
-  let tokens = DEFAULT_TOKENS;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i] as string;
-    const value = argv[i + 1];
-    if (arg === "--as" || arg === "--url" || arg === "--tokens") {
-      if (value === undefined) usage(`${arg} needs a value`);
-      if (arg === "--as") agent = value;
-      if (arg === "--url") url = value;
-      if (arg === "--tokens") tokens = value;
-      i++;
-    } else {
+    if (!(FLAGS as readonly string[]).includes(arg)) {
       rest.push(arg);
+      continue;
     }
+    const value = argv[i + 1];
+    if (value === undefined) usage(`${arg} needs a value`);
+    flags.set(arg as Flag, value);
+    i++;
   }
+  return { flags, rest };
+}
+
+function parse(argv: readonly string[]): Options {
+  const { flags, rest } = split(argv);
   if (rest.length !== 1) usage("name exactly one record file, or - for stdin");
+  const agent = flags.get("--as") ?? "";
   if (agent === "") usage("--as is required: it is the name the key is filed under");
-  return { source: rest[0] as string, agent, url, tokens };
+  return {
+    source: rest[0] as string,
+    agent,
+    url: flags.get("--url") ?? DEFAULT_URL,
+    tokens: flags.get("--tokens") ?? DEFAULT_TOKENS,
+  };
 }
 
 /**
@@ -85,16 +96,49 @@ function keyFor({ agent, tokens }: Options): string {
     usage(`no PE_MCP_KEY, and ${tokens} could not be read`);
   }
   for (const line of table.split("\n")) {
-    const parts = line.trim().split(/\s+/);
+    // Blanks and comments are skipped exactly as the server skips them.
+    // Without this, `# bee.claude key is here` matches on its second word and
+    // the script signs with "#" — reproduced before fixing: a 401 that looks
+    // like a bad key rather than a misread file.
+    const trimmed = line.trim();
+    if (trimmed === "" || trimmed.startsWith("#")) continue;
+    const parts = trimmed.split(/\s+/);
     if (parts.length >= 2 && parts[1] === agent) return parts[0] as string;
   }
   return usage(`${tokens} holds no key filed under ${agent}`);
 }
 
+/**
+ * Whatever came back, with control characters made visible.
+ *
+ * The store guards `deposited-by` against control characters because they are a
+ * DISPLAY risk — a terminal reading them can be made to show something other
+ * than what arrived (`#146`). A client that prints a server's answer raw
+ * reopens that at the other end of the wire, and SonarCloud's S5145 says the
+ * same thing in its own vocabulary.
+ */
+function printable(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    out +=
+      code === 10 || code === 9 || (code >= 32 && code !== 127)
+        ? ch
+        : `\\x${code.toString(16).padStart(2, "0")}`;
+  }
+  return out;
+}
+
 async function main(argv: readonly string[]): Promise<number> {
   const options = parse(argv);
-  const bytes =
-    options.source === "-" ? readFileSync(0, "utf8") : readFileSync(options.source, "utf8");
+  let bytes: string;
+  try {
+    bytes = options.source === "-" ? readFileSync(0, "utf8") : readFileSync(options.source, "utf8");
+  } catch (error) {
+    // A stack trace is a poor first impression for the reference client other
+    // agents copy, and a missing file is the ordinary mistake.
+    usage(`could not read ${options.source}: ${error instanceof Error ? error.message : error}`);
+  }
   if (bytes.trim() === "") usage("the record is empty");
 
   // Serialise ONCE and sign that string. Re-serialising would produce different
@@ -127,16 +171,24 @@ async function main(argv: readonly string[]): Promise<number> {
     // names everything else.
     console.error(`${response.status} ${response.statusText}`);
     const challenge = response.headers.get("www-authenticate");
-    if (challenge) console.error(`www-authenticate: ${challenge}`);
-    console.error(text);
+    if (challenge) console.error(printable(challenge));
+    console.error(printable(text));
     return 1;
   }
 
-  const answer = JSON.parse(text) as {
-    result?: { isError?: boolean; content?: Array<{ text?: string }> };
-  };
+  let answer: { result?: { isError?: boolean; content?: Array<{ text?: string }> } };
+  try {
+    answer = JSON.parse(text) as typeof answer;
+  } catch {
+    // A 200 that is not JSON is what a proxy returns when it answers instead of
+    // forwarding — this project served exactly that for an hour, an HTML page
+    // under a 200, from a catch-all route in front of the endpoint.
+    console.error("the endpoint answered 200 with something that is not JSON:");
+    console.error(printable(text));
+    return 1;
+  }
   const said = answer.result?.content?.[0]?.text ?? text;
-  console.log(said);
+  console.log(printable(said));
   // A deposit the store refused comes back as a 200 carrying an error result —
   // JSON-RPC's shape, not a failure of the call. The exit code says which.
   return answer.result?.isError ? 1 : 0;
