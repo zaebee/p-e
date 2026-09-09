@@ -102,37 +102,47 @@ willing to keep heads and compare. Note what it does **not** cost — an identit
 layer. CT needs a key whose misbehaviour is provable, not a person; `#51`'s
 objection, that this project has no anchor for identity, does not reach it.
 
-## A finding for `D7`, which is where this started
+## The `D7` finding this note carried, and why it is withdrawn
 
-`D7` asks what a **store** is, because §7.3 binds one:
+**The first version of this section claimed** that §7.3's duty on "a store"
+exists only because §7.2's classifier compares a cached digest instead of hashing
+the octets beside it — and that deriving there would leave the word "store"
+needing no definition in that clause.
 
-> **[MUST]** A store guarantees the invariant, by deriving the digest at load or
-> by verifying it before committing the record.
+**It is wrong, and a blind reader found it by opening the files.** Three
+corrections, each one grep:
 
-The invariant is `digest === SHA-256(octets)` on a `StoredRecord` that carries
-both. **That duty exists only because the classifier reads the stored field
-rather than the bytes beside it.** From §7.2:
+1. **There is no `evaluateCausalLink` in `src/relay/mcp.ts`.** Zero occurrences.
+   The spec's classifier is implemented as `stage3` in `src/relay-lite/verify.ts`.
+   I named a file I had not opened.
+2. **The legacy field is `RelayRecord.sha256`, computed by `parse()` at load.**
+   `loadStore` hashes every record on the way in, so the value the comparison
+   reads was derived from those same bytes moments earlier. There is nothing
+   stale to drift.
+3. **`verify.ts` already does what the note proposed:**
 
-```typescript
-  const parentRecord = localStore.get(parent_id);
-  if (parentRecord !== undefined) {
-    return parentRecord.digest === parent_digest ? "MATCHES" : "DIVERGES";
-  }
-```
+   ```typescript
+   // §7.3's invariant is checked here rather than assumed, because a stale
+   // cached digest would otherwise be reported as the child author's defect.
+   if (sha256Hex(parent.bytes) !== parent.digest) throw new StoreCorruption(act.parent_id);
+   ```
 
-`parentRecord.digest` — cached. Had that line compared `SHA-256(parentRecord.octets)`,
-there would be no cached value to drift, §7.3 would guard nothing, and **the word
-"store" would not need a definition there at all**. The role that `D7` cannot
-define was created by one line choosing a field over a computation.
+   The comment above it is this note's own argument, written first, with two
+   tests covering the throw.
 
-This does not dissolve `D7` — clause-4 v8 binds "a store" for a *different* duty,
-returning correction status, and that subject still needs naming. What it does is
-split one undefined word into two questions, and show that one of them may be
-removable rather than answerable. The cost of removing it is a hash per
-comparison against a field read, on a store that already hashes every record at
-deposit.
+So `D7` stands where it stood. What survives is smaller and is a defect in the
+**draft** rather than a route out of `D7`: §7.2's code listing compares the
+cached field while the implementation of that clause derives first and raises
+`STORE_CORRUPTION`. The listing and the implementation disagree, and the
+implementation is the one that took the point.
 
-**None of this is adopted.** Rule 14 covers proposals as much as repairs: the
-paragraph above is mine, it has not been attacked, and the measurement that would
-decide it — what a derive-on-compare costs against this corpus — has not been
-made.
+**The numbers, since they were measured** (957 records; bodies min 25 B, median
+2,950 B, p90 4,871 B, max 11,981 B): a hash costs 1.2 µs at the smallest record
+and 12.8 µs at the largest; a full classification pass costs 407 µs reading the
+stored value against 4,572 µs deriving — about four milliseconds on top of a
+`loadStore` that itself costs 18 ms under bun and 64 ms under node. Four
+predictions sealed before the measurement all held. Being right about all four
+did not make the mechanism what the note said it was: **the seal disciplines the
+answer, not the question.**
+
+`relay-1001` records the withdrawal.
