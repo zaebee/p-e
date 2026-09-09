@@ -14,9 +14,30 @@
  *
  * **This is not identity and must not be described as it.** `relay-0863` and
  * `relay-0873`: this project cannot establish `authored` over any transport it
- * has, and a shared secret does not change that — a leaked token deposits as
- * its owner. What a token gives is a genuine observation about the channel,
+ * has, and a shared secret does not change that — a leaked key deposits as its
+ * owner. What a credential gives is a genuine observation about the channel,
  * which is the job `deposited-by` already has. `from:` stays a claim.
+ *
+ * **The secret does not travel.** A request carries an agent name, a timestamp
+ * and an HMAC over its own bytes:
+ *
+ *     Authorization: PE-HMAC agent=zcode, ts=1789000000, sig=<hex>
+ *     sig = HMAC-SHA256(key, `${method}\n${ts}\n${sha256(raw body)}`)
+ *
+ * `#156` is why. A bearer token replays: the same captured request deposits a
+ * SECOND permanent record under a new id, in a corpus where a record cannot be
+ * removed. Signing the bytes and the moment closes that — the window is ±60
+ * seconds and a signature already seen inside it is refused — and it also keeps
+ * the secret off the wire, out of proxy logs and out of anything that records a
+ * header. OAuth would not have supplied either property: its tokens are plain
+ * bearer, verified against the spec in `#156`.
+ *
+ * **The path is deliberately NOT signed.** A reverse proxy rewrites it — the
+ * public `/api/pe/mcp` arrives here as whatever the proxy forwards — and a
+ * signature over a rewritten path fails as an opaque 401 that no operator can
+ * diagnose. The bytes and the moment are what a replay would reuse; this server
+ * has one route. A second route would need a label in the signed string, and
+ * that is the moment to add one.
  *
  * **Bound to loopback, deliberately, and not by a flag.** There is no host
  * option. Publishing this endpoint means putting a reverse proxy in front of
@@ -25,7 +46,7 @@
  * atomic on one filesystem and not across machines, so the writer must be the
  * process that holds the store.
  */
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { MAX_RECORD_BYTES } from "./deposit.js";
@@ -80,17 +101,19 @@ export interface Credential {
   readonly channel: string;
   /** Epoch ms, or undefined for a credential with no stated end. */
   readonly expiresAt?: number;
+  /**
+   * The shared key, in plaintext, because HMAC needs the material rather than a
+   * digest of it. The bearer version kept only `sha256(token)` and could
+   * therefore not be dumped out of memory; this one can. That is the cost of
+   * taking the secret off the wire, it is a real cost, and it is named here
+   * rather than left for someone to discover.
+   */
+  readonly key: string;
 }
 
 export interface TokenTable {
-  /** sha256(token) in hex → the credential. Used to report and to detect repeats. */
-  readonly byHash: ReadonlyMap<string, Credential>;
-  /**
-   * The same pairs with the hash already decoded, because the comparison wants
-   * bytes and the table never changes after load. gemini-code-assist on #157
-   * caught the decode sitting inside the per-request loop.
-   */
-  readonly probes: readonly (readonly [Buffer, Credential])[];
+  /** Agent name → the credential. The name is public; the key is not. */
+  readonly byAgent: ReadonlyMap<string, Credential>;
 }
 
 function sha256Hex(s: string): string {
@@ -113,7 +136,7 @@ function sha256Hex(s: string): string {
  * and finds out otherwise at the deposit.
  */
 export function parseTokens(text: string): TokenTable {
-  const byHash = new Map<string, Credential>();
+  const byAgent = new Map<string, Credential>();
   // Agent → the line that first used it, and hash → likewise. A repeat is
   // reported by naming both lines, which is more useful than naming the value
   // and does not quote a field: an operator with two line numbers can see the
@@ -200,23 +223,18 @@ export function parseTokens(text: string): TokenTable {
       );
     }
     tokenLine.set(hash, i + 1);
-    byHash.set(hash, { channel: `mcp/${agent}`, expiresAt });
+    byAgent.set(agent, { channel: `mcp/${agent}`, expiresAt, key: token });
   });
-  if (byHash.size === 0) throw new Error("token file holds no tokens");
+  if (byAgent.size === 0) throw new Error("token file holds no tokens");
   // A table whose every credential has already expired serves nobody, which is
   // the state an empty file is refused for. Refusing here too means the failure
   // is a startup error naming the file rather than four agents each getting 401
   // from a file that looks correct.
   const now = Date.now();
-  if ([...byHash.values()].every((c) => c.expiresAt !== undefined && c.expiresAt <= now)) {
+  if ([...byAgent.values()].every((c) => c.expiresAt !== undefined && c.expiresAt <= now)) {
     throw new Error("token file holds no credential that has not expired");
   }
-  return {
-    byHash,
-    probes: [...byHash].map(
-      ([hash, credential]) => [Buffer.from(hash, "hex"), credential] as const,
-    ),
-  };
+  return { byAgent };
 }
 
 /**
@@ -227,29 +245,24 @@ export function parseTokens(text: string): TokenTable {
  * whole file exists to avoid.
  */
 export function loadTokens(path = process.env.PE_MCP_TOKENS): TokenTable {
-  if (!path) throw new Error("PE_MCP_TOKENS is required: the path to a <token> <agent> table");
+  if (!path) throw new Error("PE_MCP_TOKENS is required: the path to a <key> <agent> table");
   return parseTokens(readFileSync(path, "utf8"));
 }
 
-/**
- * Constant-time lookup: compare the presented hash against every known one, and
- * decide expiry only afterwards, so the loop takes the same path either way.
- *
- * `now` is a parameter because expiry is checked per request rather than at
- * load: a server that ran through an expiry date and kept serving would make
- * the third column decorative.
- */
-function channelFor(tokens: TokenTable, presented: string, now = Date.now()): string | undefined {
-  const want = Buffer.from(sha256Hex(presented), "hex");
-  let found: Credential | undefined;
-  for (const [hash, credential] of tokens.probes) {
-    if (timingSafeEqual(want, hash)) found = credential;
-  }
-  if (!found) return undefined;
-  return found.expiresAt !== undefined && found.expiresAt <= now ? undefined : found.channel;
+/** How far a request's timestamp may sit from the server's clock. */
+export const SKEW_MS = 60_000;
+
+/** `PE-HMAC agent=zcode, ts=1789000000, sig=<64 hex>` */
+const AUTHORIZATION =
+  /^PE-HMAC agent=([a-z0-9][a-z0-9._-]{0,23}), ts=(\d{1,15}), sig=([0-9a-f]{64})$/;
+
+interface Presented {
+  readonly agent: string;
+  readonly ts: number;
+  readonly sig: string;
 }
 
-function bearer(req: IncomingMessage): string | undefined {
+function presented(req: IncomingMessage): Presented | undefined {
   // More than one Authorization header is refused rather than resolved. Node
   // keeps the first and Bun's compatibility layer keeps the last — measured on
   // #157 — so a proxy that adds its own would produce a different credential
@@ -263,11 +276,81 @@ function bearer(req: IncomingMessage): string | undefined {
 
   const header = req.headers.authorization;
   if (typeof header !== "string") return undefined;
-  // A single space and printable ASCII, per RFC 6750. `\s` also matched tabs and
-  // a non-breaking space, which no client should be sending and which this has
-  // no reason to accept.
-  const m = /^Bearer ([\x21-\x7e]+)$/.exec(header.trim());
-  return m?.[1];
+  const m = AUTHORIZATION.exec(header.trim());
+  if (!m) return undefined;
+  return { agent: m[1] as string, ts: Number(m[2]), sig: m[3] as string };
+}
+
+/** What the client signed: the method, the moment, and the bytes. */
+export function signingString(method: string, ts: number, body: string | Buffer): string {
+  return `${method}\n${ts}\n${createHash("sha256").update(body).digest("hex")}`;
+}
+
+export function sign(key: string, method: string, ts: number, body: string | Buffer): string {
+  return createHmac("sha256", key)
+    .update(signingString(method, ts, body))
+    .digest("hex");
+}
+
+/**
+ * Signatures already accepted, and the instant each stops being replayable.
+ *
+ * Bounded by the window rather than by a count: an entry lives at most
+ * `2 × SKEW_MS`, and the sweep runs on insert so the work is proportional to
+ * traffic and stops when it does — the same shape relay-ui uses for its rate
+ * limiter. A signature covers the body and the timestamp, so this is what
+ * makes a captured request unusable rather than merely stale.
+ */
+const seenSignatures = new Map<string, number>();
+
+function alreadyUsed(sig: string, now: number): boolean {
+  if (seenSignatures.size > 10_000) {
+    for (const [s, until] of seenSignatures) if (until <= now) seenSignatures.delete(s);
+  }
+  const until = seenSignatures.get(sig);
+  if (until !== undefined && until > now) return true;
+  seenSignatures.set(sig, now + 2 * SKEW_MS);
+  return false;
+}
+
+/** For tests: the cache is process-global, and a test must not see another's. */
+export function forgetSignatures(): void {
+  seenSignatures.clear();
+}
+
+/**
+ * The channel this request arrived on, or `undefined` for every way of failing.
+ *
+ * The agent name is public, so looking it up by name leaks nothing a caller did
+ * not already send. What must not leak by timing is whether a NAME is known, so
+ * an unknown agent is compared against a fixed dummy key and takes the same
+ * path — and the comparison of the signature itself is `timingSafeEqual`.
+ *
+ * `now` is a parameter because expiry and skew are decided per request rather
+ * than at load: a server that ran through an expiry date and kept serving would
+ * make the third column decorative.
+ */
+function channelFor(
+  tokens: TokenTable,
+  req: IncomingMessage,
+  body: string | Buffer,
+  now = Date.now(),
+): string | undefined {
+  const claim = presented(req);
+  if (!claim) return undefined;
+
+  const credential = tokens.byAgent.get(claim.agent);
+  const key = credential?.key ?? "no such agent, and this string is not one";
+  const want = sign(key, req.method ?? "", claim.ts, body);
+  const ok = timingSafeEqual(Buffer.from(want, "hex"), Buffer.from(claim.sig, "hex"));
+  if (!ok || !credential) return undefined;
+
+  if (Math.abs(now - claim.ts * 1000) > SKEW_MS) return undefined;
+  if (credential.expiresAt !== undefined && credential.expiresAt <= now) return undefined;
+  // Last, because a replay is only worth recording once the signature is known
+  // to be genuine: otherwise anyone could fill the cache with invented ones.
+  if (alreadyUsed(claim.sig, now)) return undefined;
+  return credential.channel;
 }
 
 function send(res: ServerResponse, status: number, body: unknown): void {
@@ -309,7 +392,7 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 /** Either a request to serve, or the refusal that ends the exchange. */
-type Taken = { ok: true; request: Parameters<typeof handle>[0] } | { ok: false };
+type Taken = { ok: true; request: Parameters<typeof handle>[0]; body: string } | { ok: false };
 
 /** Read and parse one request, answering every refusal itself. */
 async function take(req: IncomingMessage, res: ServerResponse): Promise<Taken> {
@@ -343,7 +426,7 @@ async function take(req: IncomingMessage, res: ServerResponse): Promise<Taken> {
     send(res, 400, rpcError(null, -32600, "expected one JSON-RPC request object"));
     return { ok: false };
   }
-  return { ok: true, request: parsed as Parameters<typeof handle>[0] };
+  return { ok: true, request: parsed as Parameters<typeof handle>[0], body };
 }
 
 /**
@@ -356,30 +439,44 @@ export function createHttpServer(tokens: TokenTable): Server {
     void (async () => {
       if (req.method !== "POST") return send(res, 405, rpcError(null, -32600, "POST only"));
 
-      const presented = bearer(req);
-      const channel = presented ? channelFor(tokens, presented) : undefined;
-      if (!channel) {
-        // RFC 6750: a 401 from a bearer-protected resource names its scheme, so
-        // a client learns HOW to authenticate instead of guessing. The MCP
-        // authorization spec builds its whole discovery on this header, and
-        // adds `resource_metadata=` pointing at an RFC 9728 document — which
-        // this server does not serve, because that document MUST name an
-        // authorization server and there is none to name. Half a metadata
-        // document would be a worse answer than none.
-        //
-        // No `error="invalid_token"` either. The refusal never says which half
-        // failed: absent, unknown, expired and malformed are one sentence.
-        res.setHeader("www-authenticate", 'Bearer realm="p-e relay"');
-        return send(res, 401, rpcError(null, -32001, "unauthorized"));
+      // The Streamable HTTP transport requires a server to validate `Origin`
+      // against DNS rebinding. A browser is not a depositor here, so the
+      // strongest form of that check is also the simplest: a request carrying
+      // an Origin at all is refused.
+      if (req.headers.origin !== undefined) {
+        return send(res, 403, rpcError(null, -32001, "forbidden"));
       }
 
+      // The body is read BEFORE the credential is checked, because the
+      // signature covers the body: there is no way to verify a caller without
+      // the bytes they signed. An unauthenticated caller can therefore make
+      // this process read up to MAX_BODY_BYTES, which the cap bounds and the
+      // proxy in front should bound again.
       const taken = await take(req, res);
       if (!taken.ok) return;
 
+      const channel = channelFor(tokens, req, taken.body);
+      if (!channel) {
+        // A 401 names its scheme, per RFC 6750's shape, so a client learns HOW
+        // to authenticate instead of guessing. The MCP authorization spec would
+        // have this header also carry `resource_metadata=` pointing at an RFC
+        // 9728 document — which this server does not serve, because that
+        // document MUST name an authorization server and there is none to name.
+        // Half a metadata document is a worse answer than none.
+        //
+        // Nothing else is said. Absent, malformed, unknown agent, wrong
+        // signature, stale timestamp, expired credential and a replayed
+        // signature are one sentence.
+        res.setHeader("www-authenticate", 'PE-HMAC realm="p-e relay"');
+        return send(res, 401, rpcError(null, -32001, "unauthorized"));
+      }
+
       try {
         const response = await handle(taken.request, { channel });
-        // A notification carries no id and gets no body, per JSON-RPC.
-        if (response === null) return void res.writeHead(204).end();
+        // A notification carries no id and gets no body. 202 rather than 204:
+        // the Streamable HTTP transport says a server accepting a notification
+        // MUST answer 202 Accepted with no body.
+        if (response === null) return void res.writeHead(202).end();
         return send(res, 200, response);
       } catch (error) {
         send(
@@ -427,9 +524,9 @@ export async function serveHttp(
   // silently lost a line is visible here before anyone's deposit fails — and so
   // is a credential that has already expired, which would otherwise present as
   // an agent mysteriously getting 401 from a file that looks right.
-  const described = [...tokens.byHash.values()].map((c) => describeCredential(c));
+  const described = [...tokens.byAgent.values()].map((c) => describeCredential(c));
   console.error(
-    `p-e mcp over http on ${HOST}:${port}, ${tokens.byHash.size} credential(s): ${described.join(" ")}`,
+    `p-e mcp over http on ${HOST}:${port}, ${tokens.byAgent.size} credential(s): ${described.join(" ")}`,
   );
   return server;
 }
