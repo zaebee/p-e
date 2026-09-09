@@ -111,7 +111,13 @@ export function parseTokens(text: string): TokenTable {
     if (expires !== undefined) {
       expiresAt = Date.parse(expires);
       if (Number.isNaN(expiresAt)) {
-        throw new Error(
+        // `RangeError`, not the `TypeError` SonarCloud's S7786 asks for and not
+        // the bare `Error` this was: a string that is not a date is well-typed
+        // and out of domain, which is what the language itself says —
+        // `new Date("soon").toISOString()` throws `RangeError: Invalid Date`.
+        // The sibling refusals here stay `Error`: a duplicate agent or a short
+        // token is neither a type nor a range.
+        throw new RangeError(
           `token file line ${i + 1}: ${JSON.stringify(expires)} is not a date Date.parse accepts`,
         );
       }
@@ -295,12 +301,16 @@ export function createHttpServer(tokens: TokenTable): Server {
 /**
  * `mcp/zcode`, `mcp/grok(until 2026-12-31T00:00:00.000Z)`, `mcp/old(EXPIRED)`.
  *
- * Never pass this to `.map` directly: `map` supplies the index as the second
- * argument, so `now` would be 0, 1, 2… and every expired credential would print
- * `until <a date in the past>`. SonarCloud caught exactly that on #157, one
- * commit after the extraction introduced it.
+ * The clock arrives in an options object so that `.map(describeCredential)` is a
+ * **compile error** rather than a bug: `map` supplies the index as the second
+ * argument, and with a bare `now = Date.now()` every expiry compared against 0,
+ * 1, 2… so an expired credential printed `until <a past date>` — the exact
+ * opposite of this line's job. SonarCloud caught the live instance on #157 and a
+ * test pinned it; gemini-code-assist then pointed out that the type system can
+ * refuse it outright, which beats detecting it.
  */
-export function describeCredential(credential: Credential, now = Date.now()): string {
+export function describeCredential(credential: Credential, options: { now?: number } = {}): string {
+  const now = options.now ?? Date.now();
   if (credential.expiresAt === undefined) return credential.channel;
   const when =
     credential.expiresAt <= now

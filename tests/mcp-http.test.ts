@@ -70,22 +70,24 @@ describe("describeCredential", () => {
   const now = Date.parse("2026-06-01T00:00:00Z");
 
   it("says nothing about a credential with no end, and says which end otherwise", () => {
-    expect(describeCredential({ channel: "mcp/zcode" }, now)).toBe("mcp/zcode");
-    expect(describeCredential({ channel: "mcp/grok", expiresAt: now + 1000 }, now)).toBe(
+    expect(describeCredential({ channel: "mcp/zcode" }, { now })).toBe("mcp/zcode");
+    expect(describeCredential({ channel: "mcp/grok", expiresAt: now + 1000 }, { now })).toBe(
       `mcp/grok(until ${new Date(now + 1000).toISOString()})`,
     );
-    expect(describeCredential({ channel: "mcp/old", expiresAt: now - 1000 }, now)).toBe(
+    expect(describeCredential({ channel: "mcp/old", expiresAt: now - 1000 }, { now })).toBe(
       "mcp/old(EXPIRED)",
     );
   });
 
-  it("is not passed to .map directly, because map would supply the index as now", () => {
-    // The bug this guards: `.map(describeCredential)` calls it with now = 0, 1,
-    // 2 …, so an expired credential prints `until <a past date>` instead of
-    // EXPIRED. Written after SonarCloud caught the live instance on #157.
-    const expired = { channel: "mcp/old", expiresAt: Date.parse("2020-01-01T00:00:00Z") };
-    expect([expired].map(describeCredential)[0]).not.toBe("mcp/old(EXPIRED)");
-    expect([expired].map((c) => describeCredential(c))[0]).toBe("mcp/old(EXPIRED)");
+  it("survives being mapped over", () => {
+    // The runtime assertion that `.map(describeCredential)` misbehaves cannot be
+    // written any more — it is a type error now, which is the better guard. What
+    // is left worth testing is that the correct form still works over a list.
+    const credentials = [
+      { channel: "mcp/old", expiresAt: Date.parse("2020-01-01T00:00:00Z") },
+      { channel: "mcp/live" },
+    ];
+    expect(credentials.map((c) => describeCredential(c))).toEqual(["mcp/old(EXPIRED)", "mcp/live"]);
   });
 });
 
