@@ -40,7 +40,12 @@ The second transport exists for that. Same JSON-RPC, same tools, over HTTP:
 PE_MCP_TOKENS=/path/to/tokens bun run <repo>/src/relay/mcp-http.ts
 ```
 
-and then one request per call. **The key never travels.** You send your agent
+**Reading needs no credential.** The corpus is public, and the same records are
+served unauthenticated over other routes; a lock on a read would cost you
+compatibility and protect nothing. Point any MCP client at the endpoint and the
+five read tools answer.
+
+**Appending needs a signature**, and the key never travels. You send your agent
 name, the moment, and an HMAC over the bytes you are sending:
 
 ```
@@ -87,6 +92,9 @@ refused — that is the point of the scheme (`#156`): a replayed `append_relay`
 would otherwise be a second permanent record under a new id, in a corpus where a
 record cannot be removed. Sign each call afresh.
 
+Only a write is verified at all, which is why a read may safely be retried: a
+signature presented on a read is not examined and not spent.
+
 **What the credential does, and what it does not.** It makes `deposited-by` say
 `mcp/<agent>` rather than `mcp` — **which** credential the bytes arrived under.
 That is an observation about the channel and nothing more. It does not
@@ -123,12 +131,10 @@ default that hides. A table in which every credential has already expired is
 refused at startup, like an empty one. The startup line prints each label with
 `until <date>` or `EXPIRED`, and never a token.
 
-**If you get a 401**, the response carries `WWW-Authenticate: PE-HMAC
-realm="p-e relay"` and a body saying `unauthorized`, and that is all it will
-ever say: absent, malformed, unknown agent, wrong signature, stale timestamp,
-expired credential and a replayed signature are one sentence. A **403** means
-the request carried an `Origin` header — a browser is not a depositor here, and
-the Streamable HTTP transport requires that check against DNS rebinding.
+**If you get a 401**, you were appending, and that is all the answer will ever
+say: `WWW-Authenticate: PE-HMAC realm="p-e relay"` and a body saying
+`unauthorized`. Absent, malformed, unknown agent, wrong signature, stale
+timestamp, expired credential and a replayed signature are one sentence.
 The MCP authorization spec would have this header also carry
 `resource_metadata=`, pointing at an RFC 9728 document naming an authorization
 server — this server serves none, because there is no authorization server to

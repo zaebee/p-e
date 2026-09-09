@@ -18,19 +18,25 @@
  * owner. What a credential gives is a genuine observation about the channel,
  * which is the job `deposited-by` already has. `from:` stays a claim.
  *
- * **The secret does not travel.** A request carries an agent name, a timestamp
+ * **Reads are open; a write is signed.** The corpus is already public — the
+ * same records are served unauthenticated over `/api/relay/records` — so a
+ * credential on a read would buy compatibility trouble and protect nothing. The
+ * harm this transport can do is specific and one-sided: a replayed
+ * `append_relay` is a SECOND PERMANENT RECORD under a new id, in a corpus where
+ * a record cannot be removed. So the lock sits on the write, and every read
+ * tool answers whoever asks.
+ *
+ * **The secret does not travel.** A write carries an agent name, a timestamp
  * and an HMAC over its own bytes:
  *
  *     Authorization: PE-HMAC agent=zcode, ts=1789000000, sig=<hex>
  *     sig = HMAC-SHA256(key, `${method}\n${ts}\n${sha256(raw body)}`)
  *
- * `#156` is why. A bearer token replays: the same captured request deposits a
- * SECOND permanent record under a new id, in a corpus where a record cannot be
- * removed. Signing the bytes and the moment closes that — the window is ±60
- * seconds and a signature already seen inside it is refused — and it also keeps
- * the secret off the wire, out of proxy logs and out of anything that records a
- * header. OAuth would not have supplied either property: its tokens are plain
- * bearer, verified against the spec in `#156`.
+ * `#156` is why. Signing the bytes and the moment closes the replay — the
+ * window is ±60 seconds and a signature already seen inside it is refused — and
+ * it also keeps the secret off the wire, out of proxy logs and out of anything
+ * that records a header. OAuth would not have supplied either property: its
+ * tokens are plain bearer, verified against the spec in `#156`.
  *
  * **The path is deliberately NOT signed.** A reverse proxy rewrites it — the
  * public `/api/pe/mcp` arrives here as whatever the proxy forwards — and a
@@ -431,6 +437,17 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/**
+ * Whether this request would change the store. One tool does; everything else
+ * reads. A transport that guessed from the method name rather than the tool
+ * would be guessing, so the list is explicit and short.
+ */
+function isWrite(request: Parameters<typeof handle>[0]): boolean {
+  if (request.method !== "tools/call") return false;
+  const params = request.params as { name?: unknown } | undefined;
+  return params?.name === "append_relay";
+}
+
 /** Either a request to serve, or the refusal that ends the exchange. */
 type Taken = { ok: true; request: Parameters<typeof handle>[0]; body: string } | { ok: false };
 
@@ -479,14 +496,6 @@ export function createHttpServer(tokens: TokenTable): Server {
     void (async () => {
       if (req.method !== "POST") return send(res, 405, rpcError(null, -32600, "POST only"));
 
-      // The Streamable HTTP transport requires a server to validate `Origin`
-      // against DNS rebinding. A browser is not a depositor here, so the
-      // strongest form of that check is also the simplest: a request carrying
-      // an Origin at all is refused.
-      if (req.headers.origin !== undefined) {
-        return send(res, 403, rpcError(null, -32001, "forbidden"));
-      }
-
       // The body is read BEFORE the credential is checked, because the
       // signature covers the body: there is no way to verify a caller without
       // the bytes they signed. An unauthenticated caller can therefore make
@@ -495,8 +504,24 @@ export function createHttpServer(tokens: TokenTable): Server {
       const taken = await take(req, res);
       if (!taken.ok) return;
 
-      const channel = channelFor(tokens, req, taken.body);
-      if (!channel) {
+      // A credential is examined only for a write. A read needs none, and
+      // verifying one anyway would consume its signature in the replay cache —
+      // so a client that retried a read after a dropped connection would be
+      // refused for replaying something that never needed protecting.
+      const write = isWrite(taken.request);
+      const channel = write ? channelFor(tokens, req, taken.body) : undefined;
+
+      // `Origin` is not refused, and that is a decision rather than an
+      // oversight. The Streamable HTTP transport requires the check against DNS
+      // rebinding — a page driving a server the browser can reach but the
+      // attacker cannot. Here the page can drive only the reads, which are
+      // public by design and served unauthenticated over other routes anyway;
+      // the write needs a signature the page cannot produce without the key.
+      // What keeps a rebinding attack from READING anything is the absence of
+      // CORS headers: a cross-origin page may send, and may not see the answer.
+      // Add a permissive `Access-Control-Allow-Origin` and this reasoning is
+      // void.
+      if (write && !channel) {
         // A 401 names its scheme, per RFC 6750's shape, so a client learns HOW
         // to authenticate instead of guessing. The MCP authorization spec would
         // have this header also carry `resource_metadata=` pointing at an RFC
@@ -506,7 +531,7 @@ export function createHttpServer(tokens: TokenTable): Server {
         //
         // Nothing else is said. Absent, malformed, unknown agent, wrong
         // signature, stale timestamp, expired credential and a replayed
-        // signature are one sentence.
+        // signature are one sentence — and so is "you did not sign a write".
         res.setHeader("www-authenticate", 'PE-HMAC realm="p-e relay"');
         return send(res, 401, rpcError(null, -32001, "unauthorized"));
       }
