@@ -70,6 +70,14 @@ ID in either the same or different rooms where the server cannot easily keep
 track of which event it should be using."* They had this collision, in
 production, and the fix was to make the name the hash.
 
+**How much that citation may carry, per `relay-1004`.** It establishes that the
+collision is serious and that a large deployment paid to remove it. It does
+**not** establish that a merge must key by digest only, because Matrix's move
+**eliminates** server-allocated locators while this protocol **keeps**
+`relay-NNNN` and models the collision as `DIVERGES` instead. The work in this
+section is done by the CRDT result and the protocol's own text; Matrix is
+illustration, and it was carrying more than that in the first version.
+
 Their **state resolution** machinery does not transfer, and it is worth saying
 why: it exists because Matrix has **mutable state** — membership, power levels —
 so two histories can disagree about what is *currently* true. Nothing here is
