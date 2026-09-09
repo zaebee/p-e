@@ -404,6 +404,7 @@ function send(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, {
     "content-type": "application/json",
     "content-length": Buffer.byteLength(text),
+    "x-content-type-options": "nosniff",
   });
   res.end(text);
 }
@@ -550,15 +551,10 @@ export function createHttpServer(tokens: TokenTable): Server {
         if (response === null) return void res.writeHead(202).end();
         return send(res, 200, response);
       } catch (error) {
-        send(
-          res,
-          500,
-          rpcError(
-            taken.request.id,
-            -32603,
-            error instanceof Error ? error.message : String(error),
-          ),
-        );
+        // Log the full error internally to stderr for diagnostics, but do not leak
+        // stack traces or filesystem paths to external clients.
+        console.error("mcp-http server error:", error);
+        send(res, 500, rpcError(taken.request.id, -32603, "Internal error"));
       }
     })();
   });
