@@ -8,6 +8,7 @@ import {
   MAX_BODY_BYTES,
   type TokenTable,
   createHttpServer,
+  describeCredential,
   loadTokens,
   parseTokens,
 } from "../src/relay/mcp-http.js";
@@ -62,6 +63,29 @@ describe("parseTokens", () => {
 
   it("refuses a file with no tokens, which would serve an open endpoint", () => {
     expect(() => parseTokens("# nothing here\n")).toThrow(/no tokens/);
+  });
+});
+
+describe("describeCredential", () => {
+  const now = Date.parse("2026-06-01T00:00:00Z");
+
+  it("says nothing about a credential with no end, and says which end otherwise", () => {
+    expect(describeCredential({ channel: "mcp/zcode" }, now)).toBe("mcp/zcode");
+    expect(describeCredential({ channel: "mcp/grok", expiresAt: now + 1000 }, now)).toBe(
+      `mcp/grok(until ${new Date(now + 1000).toISOString()})`,
+    );
+    expect(describeCredential({ channel: "mcp/old", expiresAt: now - 1000 }, now)).toBe(
+      "mcp/old(EXPIRED)",
+    );
+  });
+
+  it("is not passed to .map directly, because map would supply the index as now", () => {
+    // The bug this guards: `.map(describeCredential)` calls it with now = 0, 1,
+    // 2 …, so an expired credential prints `until <a past date>` instead of
+    // EXPIRED. Written after SonarCloud caught the live instance on #157.
+    const expired = { channel: "mcp/old", expiresAt: Date.parse("2020-01-01T00:00:00Z") };
+    expect([expired].map(describeCredential)[0]).not.toBe("mcp/old(EXPIRED)");
+    expect([expired].map((c) => describeCredential(c))[0]).toBe("mcp/old(EXPIRED)");
   });
 });
 

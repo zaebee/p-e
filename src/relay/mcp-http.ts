@@ -292,8 +292,15 @@ export function createHttpServer(tokens: TokenTable): Server {
   });
 }
 
-/** `mcp/zcode`, `mcp/grok(until 2026-12-31T00:00:00.000Z)`, `mcp/old(EXPIRED)`. */
-function describeCredential(credential: Credential, now = Date.now()): string {
+/**
+ * `mcp/zcode`, `mcp/grok(until 2026-12-31T00:00:00.000Z)`, `mcp/old(EXPIRED)`.
+ *
+ * Never pass this to `.map` directly: `map` supplies the index as the second
+ * argument, so `now` would be 0, 1, 2… and every expired credential would print
+ * `until <a date in the past>`. SonarCloud caught exactly that on #157, one
+ * commit after the extraction introduced it.
+ */
+export function describeCredential(credential: Credential, now = Date.now()): string {
   if (credential.expiresAt === undefined) return credential.channel;
   const when =
     credential.expiresAt <= now
@@ -312,7 +319,7 @@ export async function serveHttp(
   // silently lost a line is visible here before anyone's deposit fails — and so
   // is a credential that has already expired, which would otherwise present as
   // an agent mysteriously getting 401 from a file that looks right.
-  const described = [...tokens.byHash.values()].map(describeCredential);
+  const described = [...tokens.byHash.values()].map((c) => describeCredential(c));
   console.error(
     `p-e mcp over http on ${HOST}:${port}, ${tokens.byHash.size} credential(s): ${described.join(" ")}`,
   );
