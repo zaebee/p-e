@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { type AddressInfo, connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { appendRelay } from "../src/relay/deposit.js";
 import {
   MAX_BODY_BYTES,
@@ -16,6 +16,7 @@ import {
   replayed,
   sign,
 } from "../src/relay/mcp-http.js";
+import * as mcp from "../src/relay/mcp.js";
 import { handle } from "../src/relay/mcp.js";
 
 const KEY = "0123456789abcdef0123456789abcdef";
@@ -284,6 +285,7 @@ describe("the HTTP transport", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
     });
     expect(open.status).toBe(200);
+    expect(open.headers.get("x-content-type-options")).toBe("nosniff");
     const json = (await open.json()) as { result: { tools: { name: string }[] } };
     expect(json.result.tools.map((t) => t.name)).toContain("append_relay");
 
@@ -410,6 +412,29 @@ describe("the HTTP transport", () => {
   it("refuses a batch, which this transport does not serve", async () => {
     const res = await post({ body: JSON.stringify([{ jsonrpc: "2.0", id: 1 }]) });
     expect(res.status).toBe(400);
+  });
+
+  it("sanitizes unexpected server errors to prevent internal details from leaking", async () => {
+    const handleSpy = vi
+      .spyOn(mcp, "handle")
+      .mockRejectedValueOnce(new Error("Database connection failed: /var/db/secret.db"));
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const res = await signed({
+        jsonrpc: "2.0",
+        id: 42,
+        method: "tools/call",
+        params: { name: "get_relay", arguments: { id: "relay-0001" } },
+      });
+      expect(res.status).toBe(500);
+      const json = (await res.json()) as { error: { code: number; message: string } };
+      expect(json.error.code).toBe(-32603);
+      expect(json.error.message).toBe("Internal error");
+      expect(consoleSpy).toHaveBeenCalledWith("mcp-http server error:", expect.any(Error));
+    } finally {
+      handleSpy.mockRestore();
+      consoleSpy.mockRestore();
+    }
   });
 
   it("refuses a request carrying two Authorization headers", async () => {
