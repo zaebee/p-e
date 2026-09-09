@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { appendRelay } from "../src/relay/deposit.js";
 import {
   MAX_BODY_BYTES,
+  type TokenTable,
   createHttpServer,
   loadTokens,
   parseTokens,
@@ -76,10 +77,14 @@ describe("loadTokens", () => {
   });
 });
 
-describe("the HTTP transport", () => {
-  const server = createHttpServer(parseTokens(`${TOKEN} zcode\n`));
+/**
+ * One server per describe, listening on a free port for the block's duration.
+ * The listen/close pair is identical wherever it appears, and SonarCloud
+ * counted the copies on #157 before this existed.
+ */
+function serving(table: TokenTable): () => string {
+  const server = createHttpServer(table);
   let url = "";
-
   beforeAll(async () => {
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
@@ -89,8 +94,13 @@ describe("the HTTP transport", () => {
       server.close((error) => (error ? reject(error) : resolve())),
     );
   });
+  return () => url;
+}
 
-  const post = (init: RequestInit) => fetch(url, { method: "POST", ...init });
+describe("the HTTP transport", () => {
+  const url = serving(parseTokens(`${TOKEN} zcode\n`));
+
+  const post = (init: RequestInit) => fetch(url(), { method: "POST", ...init });
   const authed = (payload: unknown) =>
     post({
       headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
@@ -98,7 +108,7 @@ describe("the HTTP transport", () => {
     });
 
   it("refuses anything but POST", async () => {
-    const res = await fetch(url, { method: "GET" });
+    const res = await fetch(url(), { method: "GET" });
     expect(res.status).toBe(405);
   });
 
@@ -153,23 +163,10 @@ describe("the HTTP transport", () => {
 
 describe("an expired credential", () => {
   const EXPIRED = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const server = createHttpServer(
-    parseTokens(`${TOKEN} zcode 2999-01-01\n${EXPIRED} grok 2020-01-01\n`),
-  );
-  let url = "";
-
-  beforeAll(async () => {
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`;
-  });
-  afterAll(async () => {
-    await new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve())),
-    );
-  });
+  const url = serving(parseTokens(`${TOKEN} zcode 2999-01-01\n${EXPIRED} grok 2020-01-01\n`));
 
   const call = (token: string) =>
-    fetch(url, {
+    fetch(url(), {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),

@@ -55,8 +55,14 @@ export interface Credential {
 }
 
 export interface TokenTable {
-  /** sha256(token) in hex → the credential. */
+  /** sha256(token) in hex → the credential. Used to report and to detect repeats. */
   readonly byHash: ReadonlyMap<string, Credential>;
+  /**
+   * The same pairs with the hash already decoded, because the comparison wants
+   * bytes and the table never changes after load. gemini-code-assist on #157
+   * caught the decode sitting inside the per-request loop.
+   */
+  readonly probes: readonly (readonly [Buffer, Credential])[];
 }
 
 function sha256Hex(s: string): string {
@@ -115,7 +121,12 @@ export function parseTokens(text: string): TokenTable {
     byHash.set(hash, { channel: `mcp/${agent}`, expiresAt });
   });
   if (byHash.size === 0) throw new Error("token file holds no tokens");
-  return { byHash };
+  return {
+    byHash,
+    probes: [...byHash].map(
+      ([hash, credential]) => [Buffer.from(hash, "hex"), credential] as const,
+    ),
+  };
 }
 
 /**
@@ -141,8 +152,8 @@ export function loadTokens(path = process.env.PE_MCP_TOKENS): TokenTable {
 function channelFor(tokens: TokenTable, presented: string, now = Date.now()): string | undefined {
   const want = Buffer.from(sha256Hex(presented), "hex");
   let found: Credential | undefined;
-  for (const [hash, credential] of tokens.byHash) {
-    if (timingSafeEqual(want, Buffer.from(hash, "hex"))) found = credential;
+  for (const [hash, credential] of tokens.probes) {
+    if (timingSafeEqual(want, hash)) found = credential;
   }
   if (!found) return undefined;
   return found.expiresAt !== undefined && found.expiresAt <= now ? undefined : found.channel;
