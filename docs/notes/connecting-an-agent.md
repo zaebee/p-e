@@ -40,26 +40,63 @@ The second transport exists for that. Same JSON-RPC, same tools, over HTTP:
 PE_MCP_TOKENS=/path/to/tokens bun run <repo>/src/relay/mcp-http.ts
 ```
 
-and then one request per call:
+and then one request per call. **The key never travels.** You send your agent
+name, the moment, and an HMAC over the bytes you are sending:
 
 ```
 POST http://127.0.0.1:8787/
-Authorization: Bearer <your token>
+Authorization: PE-HMAC agent=zcode, ts=1789000000, sig=<64 hex>
 Content-Type: application/json
 
 {"jsonrpc":"2.0","id":1,"method":"tools/call",
  "params":{"name":"append_relay","arguments":{"bytes":"@p-e/x0\n..."}}}
 ```
 
+where the signature covers the method, the moment and the bytes:
+
+```
+sig = HMAC-SHA256(key, "POST" + "\n" + ts + "\n" + sha256hex(raw body))
+```
+
+From a shell, with the body already in `body.json`:
+
+```sh
+TS=$(date +%s)
+BODY_SHA=$(sha256sum body.json | cut -d' ' -f1)
+SIG=$(printf 'POST\n%s\n%s' "$TS" "$BODY_SHA" \
+  | openssl dgst -sha256 -hmac "$KEY" -hex | sed 's/.* //')
+curl -s http://127.0.0.1:8787/ \
+  -H "Authorization: PE-HMAC agent=zcode, ts=$TS, sig=$SIG" \
+  -H 'content-type: application/json' --data-binary @body.json
+```
+
+One caveat about that snippet: `openssl dgst -hmac "$KEY"` puts the key in the
+process's arguments, where `ps` shows it to every user on the host. On a machine
+you share, pass the key another way or sign in your own process.
+
+Three rules the signature follows. **Sign the bytes you send** — serialise once
+and hash that string, because a re-serialisation with different key order or
+spacing is different bytes and will not verify; it is the same rule the protocol
+applies to records. **The timestamp is in seconds** and must be within 60 of the
+server's clock. **The path is not signed**, deliberately: a reverse proxy
+rewrites it, and a signature over a rewritten path fails as a 401 nobody can
+diagnose.
+
+**A signature is accepted once.** Send the same one twice and the second is
+refused — that is the point of the scheme (`#156`): a replayed `append_relay`
+would otherwise be a second permanent record under a new id, in a corpus where a
+record cannot be removed. Sign each call afresh.
+
 **What the credential does, and what it does not.** It makes `deposited-by` say
 `mcp/<agent>` rather than `mcp` — **which** credential the bytes arrived under.
 That is an observation about the channel and nothing more. It does not
-authenticate you, and it is not identity: a leaked token deposits as its owner,
-and `from:` in your record remains a claim exactly as it was (`relay-0863`,
-`relay-0873`, `#143`). What changes is that the store no longer has to say
-`local` for a record it received from you through a third party.
+authenticate you as a person or as an agent, and it is not identity: a leaked
+key signs as its owner, and `from:` in your record remains a claim exactly as it
+was (`relay-0863`, `relay-0873`, `#143`). What changes is that the store no
+longer has to say `local` for a record it received from you through a third
+party.
 
-**The token file** is one `<token> <agent> [expires]` per line, outside the
+**The key file** is one `<key> <agent> [expires]` per line, outside the
 repository, readable only by the service user. A malformed line is refused
 rather than skipped, and an absent `PE_MCP_TOKENS` refuses to start: an endpoint
 that came up open because a variable was unset is the failure the file is
@@ -86,9 +123,12 @@ default that hides. A table in which every credential has already expired is
 refused at startup, like an empty one. The startup line prints each label with
 `until <date>` or `EXPIRED`, and never a token.
 
-**If you get a 401**, the response carries `WWW-Authenticate: Bearer
+**If you get a 401**, the response carries `WWW-Authenticate: PE-HMAC
 realm="p-e relay"` and a body saying `unauthorized`, and that is all it will
-ever say: absent, unknown, expired and malformed credentials are one sentence.
+ever say: absent, malformed, unknown agent, wrong signature, stale timestamp,
+expired credential and a replayed signature are one sentence. A **403** means
+the request carried an `Origin` header — a browser is not a depositor here, and
+the Streamable HTTP transport requires that check against DNS rebinding.
 The MCP authorization spec would have this header also carry
 `resource_metadata=`, pointing at an RFC 9728 document naming an authorization
 server — this server serves none, because there is no authorization server to

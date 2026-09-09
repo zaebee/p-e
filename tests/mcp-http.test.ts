@@ -2,19 +2,23 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { type AddressInfo, connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { appendRelay } from "../src/relay/deposit.js";
 import {
   MAX_BODY_BYTES,
+  SKEW_MS,
   type TokenTable,
   createHttpServer,
   describeCredential,
+  forgetSignatures,
   loadTokens,
   parseTokens,
+  replayed,
+  sign,
 } from "../src/relay/mcp-http.js";
 import { handle } from "../src/relay/mcp.js";
 
-const TOKEN = "0123456789abcdef0123456789abcdef";
+const KEY = "0123456789abcdef0123456789abcdef";
 const OTHER = "fedcba9876543210fedcba9876543210";
 
 /**
@@ -33,34 +37,31 @@ function empty(): string {
 const body = (id: string) => `@p-e/x0\nid: ${id}\nfrom: probe\nkind: probe\n\nscratch\n`;
 
 describe("parseTokens", () => {
-  it("maps a token to mcp/<agent> and keeps no plaintext", () => {
-    const table = parseTokens(`# a comment\n\n${TOKEN} zcode\n`);
-    expect([...table.byHash.values()]).toEqual([{ channel: "mcp/zcode", expiresAt: undefined }]);
-    expect(JSON.stringify([...table.byHash])).not.toContain(TOKEN);
-  });
-
-  it("takes an optional expiry and refuses a date it cannot read", () => {
-    const dated = parseTokens(`${TOKEN} zcode 2026-12-31T23:59:59Z\n`);
-    expect([...dated.byHash.values()][0]?.expiresAt).toBe(Date.parse("2026-12-31T23:59:59Z"));
-    expect(() => parseTokens(`${TOKEN} zcode soon\n`)).toThrow(/field 3/);
-    expect(() => parseTokens(`${TOKEN} zcode 2026-12-31 extra\n`)).toThrow(/line 1/);
+  it("maps a key to mcp/<agent> and keeps the key, which HMAC needs", () => {
+    const table = parseTokens(`# a comment\n\n${KEY} zcode\n`);
+    expect([...table.byAgent.keys()]).toEqual(["zcode"]);
+    expect(table.byAgent.get("zcode")).toEqual({
+      channel: "mcp/zcode",
+      expiresAt: undefined,
+      key: KEY,
+    });
   });
 
   it("refuses a malformed line rather than skipping it", () => {
     // A file that drops the line it could not read leaves its owner believing
     // an agent can write, and the discovery happens at someone's deposit.
-    expect(() => parseTokens(`${TOKEN}\n`)).toThrow(/line 1/);
-    expect(() => parseTokens(`${TOKEN} zcode 2026-12-31 one-too-many\n`)).toThrow(/line 1/);
+    expect(() => parseTokens(`${KEY}\n`)).toThrow(/line 1/);
+    expect(() => parseTokens(`${KEY} zcode 2026-12-31 one-too-many\n`)).toThrow(/line 1/);
   });
 
-  it("refuses a short token, a bad agent, and a repeat of either", () => {
+  it("refuses a short key, a bad agent, and a repeat of either", () => {
     expect(() => parseTokens("short zcode\n")).toThrow(/at least 32/);
-    expect(() => parseTokens(`${TOKEN} Zcode\n`)).toThrow(/field 2/);
-    expect(() => parseTokens(`${TOKEN} bee..ok\n`)).not.toThrow();
-    expect(() => parseTokens(`${TOKEN} zcode\n${OTHER} zcode\n`)).toThrow(
+    expect(() => parseTokens(`${KEY} Zcode\n`)).toThrow(/field 2/);
+    expect(() => parseTokens(`${KEY} bee..ok\n`)).not.toThrow();
+    expect(() => parseTokens(`${KEY} zcode\n${OTHER} zcode\n`)).toThrow(
       /line 2: field 2 repeats the agent on line 1/,
     );
-    expect(() => parseTokens(`${TOKEN} zcode\n${TOKEN} grok\n`)).toThrow(
+    expect(() => parseTokens(`${KEY} zcode\n${KEY} grok\n`)).toThrow(
       /line 2: field 1 repeats the token on line 1/,
     );
   });
@@ -68,18 +69,17 @@ describe("parseTokens", () => {
   it("refuses a line written in the wrong order instead of swapping the columns", () => {
     // A reviewer's finding on #157, reproduced before fixing: `openssl rand
     // -hex 16` is 32 lowercase hex characters, which the old agent pattern
-    // accepted, so `<agent> <token>` parsed and THE TOKEN BECAME THE CHANNEL
+    // accepted, so `<agent> <key>` parsed and THE SECRET BECAME THE CHANNEL
     // LABEL — stderr at startup, and `deposited-by` in every record it wrote.
     const secret = "4e9fa61a5fe7d6ad1239afe73c3d644d";
     expect(() => parseTokens(`claude-code-agent ${secret}\n`)).toThrow();
-    // The lengths are disjoint, so the swap cannot pass either column.
     expect(secret.length).toBeLessThan(33);
     expect("claude-code-agent".length).toBeLessThan(32);
   });
 
   it("never quotes the field it refuses, because a swapped line puts a secret there", () => {
     const secret = "649bb7fb1234567890abcdef1234567890abcdef1234567890abcdeff313b412";
-    for (const line of [`claude-code-agent ${secret}`, `${TOKEN} zcode ${secret}`]) {
+    for (const line of [`claude-code-agent ${secret}`, `${KEY} zcode ${secret}`]) {
       let message = "";
       try {
         parseTokens(`${line}\n`);
@@ -91,15 +91,21 @@ describe("parseTokens", () => {
     }
   });
 
+  it("takes an optional expiry and refuses one it cannot read", () => {
+    const dated = parseTokens(`${KEY} zcode 2026-12-31T23:59:59Z\n`);
+    expect(dated.byAgent.get("zcode")?.expiresAt).toBe(Date.parse("2026-12-31T23:59:59Z"));
+    expect(() => parseTokens(`${KEY} zcode soon\n`)).toThrow(/field 3/);
+  });
+
   it("takes only a plain date or a full instant with its zone", () => {
     // Date.parse reads a zone-less time in the server's local zone — the same
     // string is 8 hours later in Los Angeles than in UTC — and it answers March
     // 2 for 2026-02-30, 1999 for 99, and January for a bare 2026.
-    expect(() => parseTokens(`${TOKEN} a 2026-12-31\n`)).not.toThrow();
-    expect(() => parseTokens(`${TOKEN} a 2026-12-31T23:59:59Z\n`)).not.toThrow();
-    expect(() => parseTokens(`${TOKEN} a 2026-12-31T23:59:59+02:00\n`)).not.toThrow();
+    expect(() => parseTokens(`${KEY} a 2026-12-31\n`)).not.toThrow();
+    expect(() => parseTokens(`${KEY} a 2026-12-31T23:59:59Z\n`)).not.toThrow();
+    expect(() => parseTokens(`${KEY} a 2026-12-31T23:59:59+02:00\n`)).not.toThrow();
     for (const bad of ["2026-12-31T23:59:59", "12/31/2026", "2026", "99"]) {
-      expect(() => parseTokens(`${TOKEN} a ${bad}\n`)).toThrow();
+      expect(() => parseTokens(`${KEY} a ${bad}\n`)).toThrow();
     }
   });
 
@@ -114,34 +120,33 @@ describe("parseTokens", () => {
       "2027-04-31T00:00:00Z",
       "2027-02-30T23:59:59+02:00",
     ]) {
-      expect(() => parseTokens(`${TOKEN} a ${bad}\n`)).toThrow(/real calendar date/);
+      expect(() => parseTokens(`${KEY} a ${bad}\n`)).toThrow(/real calendar date/);
     }
     // And a real day with an offset still passes, including one whose UTC
     // instant falls on the previous day.
-    expect(() => parseTokens(`${TOKEN} a 2027-01-01T01:00:00+02:00\n`)).not.toThrow();
+    expect(() => parseTokens(`${KEY} a 2027-01-01T01:00:00+02:00\n`)).not.toThrow();
+  });
+
+  it("refuses a file with no credentials, which would serve an open endpoint", () => {
+    expect(() => parseTokens("# nothing here\n")).toThrow(/no tokens/);
   });
 
   it("refuses a table in which every credential has already expired", () => {
-    expect(() => parseTokens(`${TOKEN} zcode 2020-01-01\n`)).toThrow(/has not expired/);
-    expect(() => parseTokens(`${TOKEN} zcode 2020-01-01\n${OTHER} grok\n`)).not.toThrow();
-  });
-
-  it("refuses a file with no tokens, which would serve an open endpoint", () => {
-    expect(() => parseTokens("# nothing here\n")).toThrow(/no tokens/);
+    expect(() => parseTokens(`${KEY} zcode 2020-01-01\n`)).toThrow(/has not expired/);
+    expect(() => parseTokens(`${KEY} zcode 2020-01-01\n${OTHER} grok\n`)).not.toThrow();
   });
 });
 
 describe("describeCredential", () => {
   const now = Date.parse("2026-06-01T00:00:00Z");
+  const credential = (channel: string, expiresAt?: number) => ({ channel, expiresAt, key: KEY });
 
   it("says nothing about a credential with no end, and says which end otherwise", () => {
-    expect(describeCredential({ channel: "mcp/zcode" }, { now })).toBe("mcp/zcode");
-    expect(describeCredential({ channel: "mcp/grok", expiresAt: now + 1000 }, { now })).toBe(
+    expect(describeCredential(credential("mcp/zcode"), { now })).toBe("mcp/zcode");
+    expect(describeCredential(credential("mcp/grok", now + 1000), { now })).toBe(
       `mcp/grok(until ${new Date(now + 1000).toISOString()})`,
     );
-    expect(describeCredential({ channel: "mcp/old", expiresAt: now - 1000 }, { now })).toBe(
-      "mcp/old(EXPIRED)",
-    );
+    expect(describeCredential(credential("mcp/old", now - 1000), { now })).toBe("mcp/old(EXPIRED)");
   });
 
   it("survives being mapped over", () => {
@@ -149,8 +154,8 @@ describe("describeCredential", () => {
     // written any more — it is a type error now, which is the better guard. What
     // is left worth testing is that the correct form still works over a list.
     const credentials = [
-      { channel: "mcp/old", expiresAt: Date.parse("2020-01-01T00:00:00Z") },
-      { channel: "mcp/live" },
+      credential("mcp/old", Date.parse("2020-01-01T00:00:00Z")),
+      credential("mcp/live"),
     ];
     expect(credentials.map((c) => describeCredential(c))).toEqual(["mcp/old(EXPIRED)", "mcp/live"]);
   });
@@ -163,8 +168,50 @@ describe("loadTokens", () => {
 
   it("reads the named file", () => {
     const path = join(mkdtempSync(join(tmpdir(), "p-e-tok-")), "tokens");
-    writeFileSync(path, `${TOKEN} grok\n`);
-    expect([...loadTokens(path).byHash.values()].map((c) => c.channel)).toEqual(["mcp/grok"]);
+    writeFileSync(path, `${KEY} grok\n`);
+    expect([...loadTokens(path).byAgent.values()].map((c) => c.channel)).toEqual(["mcp/grok"]);
+  });
+});
+
+describe("the replay cache", () => {
+  beforeEach(() => forgetSignatures());
+
+  it("holds a signature for at least one window and lets it go after two", () => {
+    const t0 = Date.parse("2026-06-01T00:00:00Z");
+    expect(replayed("aaa", t0)).toBe(false);
+    expect(replayed("aaa", t0)).toBe(true);
+    // Still inside the window a signature is refused: this is the whole point.
+    expect(replayed("aaa", t0 + SKEW_MS - 1)).toBe(true);
+    // One rotation later it has moved to the older bucket and is still refused.
+    expect(replayed("aaa", t0 + SKEW_MS + 1)).toBe(true);
+    // Two rotations later the bucket holding it is gone. A signature that old
+    // is refused by the skew check instead, which is what makes this safe.
+    expect(replayed("aaa", t0 + 2 * SKEW_MS + 2)).toBe(false);
+  });
+
+  it("keeps refusing across a backwards clock jump, and starts rotating again", () => {
+    // NTP, a VM resume, a hand on the system time. Rotation must resume — or
+    // the buckets grow without bound — and the memory must survive, or a
+    // signature captured just before the jump becomes usable again: the skew
+    // check refuses only what is strictly further than SKEW_MS away.
+    const t0 = Date.parse("2026-06-01T12:00:00Z");
+    expect(replayed("bbb", t0)).toBe(false);
+    const jumped = t0 - 10 * SKEW_MS;
+    expect(replayed("bbb", jumped)).toBe(true);
+    // Rotation resumes on the new clock rather than waiting for it to catch up.
+    expect(replayed("ccc", jumped + SKEW_MS + 1)).toBe(false);
+    expect(replayed("ccc", jumped + SKEW_MS + 2)).toBe(true);
+  });
+
+  it("costs the same per request whether it holds ten entries or twenty thousand", () => {
+    // The swept-map version this replaced was quadratic under sustained load:
+    // nothing in it was expired yet, so the sweep deleted nothing and ran again
+    // on the next request. Filling 20,000 entries took 17.6 seconds against 8
+    // milliseconds here, and each request after that cost 2.6 ms against 8.7 µs.
+    const t0 = Date.now();
+    const started = performance.now();
+    for (let i = 0; i < 20_000; i++) replayed(`sig-${i}`, t0);
+    expect(performance.now() - started).toBeLessThan(2000);
   });
 });
 
@@ -189,61 +236,128 @@ function serving(table: TokenTable): () => string {
 }
 
 describe("the HTTP transport", () => {
-  const url = serving(parseTokens(`${TOKEN} zcode\n`));
+  const url = serving(parseTokens(`${KEY} zcode\n`));
+  // The replay cache is process-global, so one test's accepted signature must
+  // not count as another's replay.
+  beforeEach(() => forgetSignatures());
 
   const post = (init: RequestInit) => fetch(url(), { method: "POST", ...init });
-  const authed = (payload: unknown) =>
-    post({
-      headers: { authorization: `Bearer ${TOKEN}`, "content-type": "application/json" },
-      body: JSON.stringify(payload),
+
+  /** What a client does: serialise once, sign those exact bytes, send them. */
+  function signed(payload: unknown, opts: { key?: string; agent?: string; ts?: number } = {}) {
+    const bytes = JSON.stringify(payload);
+    const key = opts.key ?? KEY;
+    const agent = opts.agent ?? "zcode";
+    const ts = opts.ts ?? Math.floor(Date.now() / 1000);
+    return post({
+      headers: {
+        authorization: `PE-HMAC agent=${agent}, ts=${ts}, sig=${sign(key, "POST", ts, bytes)}`,
+        "content-type": "application/json",
+      },
+      body: bytes,
     });
+  }
 
   it("refuses anything but POST", async () => {
     const res = await fetch(url(), { method: "GET" });
     expect(res.status).toBe(405);
   });
 
-  it("refuses an absent, malformed or unknown credential with the same sentence", async () => {
-    const none = await post({ body: "{}" });
-    const wrong = await post({ headers: { authorization: `Bearer ${OTHER}` }, body: "{}" });
-    const malformed = await post({ headers: { authorization: TOKEN }, body: "{}" });
-    expect([none.status, wrong.status, malformed.status]).toEqual([401, 401, 401]);
-    const bodies = await Promise.all([none.json(), wrong.json(), malformed.json()]);
-    for (const b of bodies) expect(b.error.message).toBe("unauthorized");
-    // RFC 6750: the refusal names its scheme, and names nothing else — the same
-    // sentence and the same header whichever half failed.
-    for (const res of [none, wrong, malformed]) {
-      expect(res.headers.get("www-authenticate")).toBe('Bearer realm="p-e relay"');
-    }
-  });
-
-  it("serves tools/list to a credential it knows", async () => {
-    const res = await authed({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+  it("serves tools/list to a request it can verify", async () => {
+    const res = await signed({ jsonrpc: "2.0", id: 1, method: "tools/list" });
     expect(res.status).toBe(200);
     const json = (await res.json()) as { result: { tools: { name: string }[] } };
     expect(json.result.tools.map((t) => t.name)).toContain("append_relay");
   });
 
-  it("answers a notification with 204 and no body", async () => {
-    const res = await authed({ jsonrpc: "2.0", method: "notifications/initialized" });
-    expect(res.status).toBe(204);
+  it("refuses every way of failing with the same sentence and the same header", async () => {
+    const good = { jsonrpc: "2.0", id: 1, method: "tools/list" };
+    const stale = Math.floor((Date.now() - SKEW_MS - 5000) / 1000);
+    const refusals = [
+      await post({ body: JSON.stringify(good) }),
+      await post({ headers: { authorization: `Bearer ${KEY}` }, body: JSON.stringify(good) }),
+      await signed(good, { key: OTHER }),
+      await signed(good, { agent: "nobody" }),
+      await signed(good, { ts: stale }),
+    ];
+    for (const res of refusals) {
+      expect(res.status).toBe(401);
+      expect(res.headers.get("www-authenticate")).toBe('PE-HMAC realm="p-e relay"');
+      expect(((await res.json()) as { error: { message: string } }).error.message).toBe(
+        "unauthorized",
+      );
+    }
+  });
+
+  it("refuses a signature it has already accepted", async () => {
+    // The point of the scheme: a captured request cannot be sent twice, because
+    // a second `append_relay` would be a second permanent record.
+    const bytes = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    const ts = Math.floor(Date.now() / 1000);
+    const sig = sign(KEY, "POST", ts, bytes);
+    const send = () =>
+      post({
+        headers: {
+          authorization: `PE-HMAC agent=zcode, ts=${ts}, sig=${sig}`,
+          "content-type": "application/json",
+        },
+        body: bytes,
+      });
+    expect((await send()).status).toBe(200);
+    expect((await send()).status).toBe(401);
+  });
+
+  it("refuses a signature over different bytes than the ones sent", async () => {
+    const ts = Math.floor(Date.now() / 1000);
+    const sig = sign(KEY, "POST", ts, JSON.stringify({ jsonrpc: "2.0", id: 1, method: "exists" }));
+    const res = await post({
+      headers: {
+        authorization: `PE-HMAC agent=zcode, ts=${ts}, sig=${sig}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("answers a notification with 202 and no body", async () => {
+    const res = await signed({ jsonrpc: "2.0", method: "notifications/initialized" });
+    expect(res.status).toBe(202);
     expect(await res.text()).toBe("");
   });
 
-  it("refuses a body over the cap before parsing it", async () => {
+  it("refuses a request carrying an Origin, whoever signed it", async () => {
+    // The Streamable HTTP transport requires Origin validation against DNS
+    // rebinding. A browser is not a depositor, so the check is total.
+    const bytes = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    const ts = Math.floor(Date.now() / 1000);
     const res = await post({
-      headers: { authorization: `Bearer ${TOKEN}` },
-      body: "x".repeat(MAX_BODY_BYTES + 1),
+      headers: {
+        authorization: `PE-HMAC agent=zcode, ts=${ts}, sig=${sign(KEY, "POST", ts, bytes)}`,
+        "content-type": "application/json",
+        origin: "https://example.org",
+      },
+      body: bytes,
     });
+    expect(res.status).toBe(403);
+  });
+
+  it("refuses a body over the cap before parsing it", async () => {
+    const res = await post({ body: "x".repeat(MAX_BODY_BYTES + 1) });
     expect(res.status).toBe(413);
   });
 
   it("names a parse error without echoing the body", async () => {
-    const res = await post({ headers: { authorization: `Bearer ${TOKEN}` }, body: "{not json" });
+    const res = await post({ body: "{not json" });
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: { code: number; message: string } };
     expect(json.error.code).toBe(-32700);
     expect(json.error.message).toBe("parse error");
+  });
+
+  it("refuses a batch, which this transport does not serve", async () => {
+    const res = await post({ body: JSON.stringify([{ jsonrpc: "2.0", id: 1 }]) });
+    expect(res.status).toBe(400);
   });
 
   it("refuses a request carrying two Authorization headers", async () => {
@@ -251,20 +365,24 @@ describe("the HTTP transport", () => {
     // that adds its own would decide the credential differently depending on
     // what is underneath. Raw socket, because fetch will not send two.
     const { port } = new URL(url());
+    const bytes = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    const ts = Math.floor(Date.now() / 1000);
+    const sig = sign(KEY, "POST", ts, bytes);
     const reply = await new Promise<string>((resolve, reject) => {
       const socket = connect(Number(port), "127.0.0.1", () => {
-        const request = [
-          "POST / HTTP/1.1",
-          "Host: localhost",
-          `Authorization: Bearer ${TOKEN}`,
-          `Authorization: Bearer ${OTHER}`,
-          "Content-Type: application/json",
-          "Content-Length: 2",
-          "Connection: close",
-          "",
-          "{}",
-        ].join("\r\n");
-        socket.write(request);
+        socket.write(
+          [
+            "POST / HTTP/1.1",
+            "Host: localhost",
+            `Authorization: PE-HMAC agent=zcode, ts=${ts}, sig=${sig}`,
+            `Authorization: PE-HMAC agent=zcode, ts=${ts}, sig=${sig}`,
+            "Content-Type: application/json",
+            `Content-Length: ${Buffer.byteLength(bytes)}`,
+            "Connection: close",
+            "",
+            bytes,
+          ].join("\r\n"),
+        );
       });
       let out = "";
       socket.on("data", (chunk) => {
@@ -275,29 +393,31 @@ describe("the HTTP transport", () => {
     });
     expect(reply.split("\r\n")[0]).toContain("401");
   });
-
-  it("refuses a batch, which this transport does not serve", async () => {
-    const res = await authed([{ jsonrpc: "2.0", id: 1, method: "tools/list" }]);
-    expect(res.status).toBe(400);
-  });
 });
 
 describe("an expired credential", () => {
-  const EXPIRED = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const url = serving(parseTokens(`${TOKEN} zcode 2999-01-01\n${EXPIRED} grok 2020-01-01\n`));
+  const EXPIRED_KEY = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const url = serving(parseTokens(`${KEY} zcode 2999-01-01\n${EXPIRED_KEY} grok 2020-01-01\n`));
+  beforeEach(() => forgetSignatures());
 
-  const call = (token: string) =>
-    fetch(url(), {
+  const call = (key: string, agent: string) => {
+    const bytes = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    const ts = Math.floor(Date.now() / 1000);
+    return fetch(url(), {
       method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+      headers: {
+        authorization: `PE-HMAC agent=${agent}, ts=${ts}, sig=${sign(key, "POST", ts, bytes)}`,
+        "content-type": "application/json",
+      },
+      body: bytes,
     });
+  };
 
   it("is refused while a live one is served, and the refusal is the same one", async () => {
     // Expiry is decided per request, not at load: a server that ran through the
     // date and kept serving would make the third column decorative.
-    const live = await call(TOKEN);
-    const dead = await call(EXPIRED);
+    const live = await call(KEY, "zcode");
+    const dead = await call(EXPIRED_KEY, "grok");
     expect(live.status).toBe(200);
     expect(dead.status).toBe(401);
     expect(((await dead.json()) as { error: { message: string } }).error.message).toBe(
