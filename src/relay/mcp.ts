@@ -105,12 +105,31 @@ const TOOLS = [
   },
 ];
 
+/**
+ * The tools that only read. **Membership here is a security decision**, not a
+ * description: the HTTP transport serves a read to anyone and demands a
+ * signature for everything else, so a tool absent from this set is protected by
+ * default. Adding a tool without classifying it fails a test rather than
+ * quietly opening it — gemini-code-assist asked for the fail-closed direction
+ * on #159, and this is where the list belongs, beside the tools themselves.
+ */
+export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
+  "wait_for_relay",
+  "get_relay",
+  "exists",
+  "list_relays",
+  "list_replies",
+]);
+
+/** Every tool this server serves, for the test that keeps the set above honest. */
+export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);
+
 const text = (s: string) => ({ content: [{ type: "text", text: s }] });
 
 async function callTool(
   name: string,
   args: Record<string, unknown>,
-  channel: string,
+  channel: string | undefined,
 ): Promise<unknown> {
   const store = await loadStore();
   const id = typeof args.id === "string" ? args.id : "";
@@ -152,6 +171,11 @@ async function callTool(
       return text(`${r.appeared.length} record(s) after ${r.waitedMs}ms:\n${lines}`);
     }
     case "append_relay": {
+      if (!channel) {
+        throw new Error(
+          "refused: this transport did not establish a channel, so it cannot append. Over HTTP that means the request was not signed; `deposited-by` has to record how the bytes arrived, and there is nothing to record.",
+        );
+      }
       const bytes = typeof args.bytes === "string" ? args.bytes : "";
       if (bytes.trim() === "") return text("refused: bytes is empty");
       const proposed = typeof args.id === "string" ? args.id : undefined;
@@ -180,15 +204,22 @@ interface Request {
 /**
  * `channel` is what the transport observed about the call, and it lands in
  * `deposited-by`. The stdio path has nothing to observe beyond the channel
- * itself, so it stays `mcp`; the HTTP path maps a credential to `mcp/<agent>`.
- * A transport may never derive this from the request body: bytes are a claim.
+ * itself, so it says `mcp`; the HTTP path maps a verified signature to
+ * `mcp/<agent>` and says nothing for an unauthenticated caller. A transport may
+ * never derive this from the request body: bytes are a claim.
+ *
+ * **Absent means no append.** The default used to be `mcp`, so a transport that
+ * said nothing could write as though it were the local one. It refuses instead:
+ * a transport that cannot say how a call arrived has no business adding to an
+ * append-only corpus, and the HTTP path relies on this — its own check for a
+ * write is a list of tool names, and a list can go stale.
  */
 export interface CallContext {
   readonly channel?: string;
 }
 
 export async function handle(request: Request, ctx: CallContext = {}): Promise<object | null> {
-  const channel = ctx.channel ?? "mcp";
+  const channel = ctx.channel;
   const reply = (result: unknown) => ({ jsonrpc: "2.0" as const, id: request.id, result });
 
   switch (request.method) {
@@ -251,7 +282,8 @@ export async function serve(): Promise<void> {
         // any order. A malformed line must not take the loop down with it.
         void (async () => {
           try {
-            const response = await handle(JSON.parse(line) as Request);
+            // stdio observes one thing about a call: that it came over stdio.
+            const response = await handle(JSON.parse(line) as Request, { channel: "mcp" });
             if (response) console.log(JSON.stringify(response));
           } catch (error) {
             console.log(

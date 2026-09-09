@@ -263,22 +263,70 @@ describe("the HTTP transport", () => {
     expect(res.status).toBe(405);
   });
 
-  it("serves tools/list to a request it can verify", async () => {
-    const res = await signed({ jsonrpc: "2.0", id: 1, method: "tools/list" });
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as { result: { tools: { name: string }[] } };
+  /**
+   * A write whose bytes cannot become a record: the deposit refuses them before
+   * touching the store, so the signature is consumed and the corpus is not.
+   * `STORE_ROOT` is the live one — `relay-0734` is the record that proves a
+   * write probe cannot be taken back out.
+   */
+  const writeCall = {
+    jsonrpc: "2.0",
+    id: 1,
+    method: "tools/call",
+    params: { name: "append_relay", arguments: { bytes: "not a record at all" } },
+  };
+
+  it("serves a read to anyone, signed or not", async () => {
+    // Variant C: the corpus is already public over other routes, so a
+    // credential on a read would cost compatibility and protect nothing.
+    const open = await post({
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+    });
+    expect(open.status).toBe(200);
+    const json = (await open.json()) as { result: { tools: { name: string }[] } };
     expect(json.result.tools.map((t) => t.name)).toContain("append_relay");
+
+    const withCredential = await signed({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    expect(withCredential.status).toBe(200);
   });
 
-  it("refuses every way of failing with the same sentence and the same header", async () => {
-    const good = { jsonrpc: "2.0", id: 1, method: "tools/list" };
+  it("treats an unknown tool as a write, because the default has to protect", async () => {
+    // Fail-closed: the transport asks whether the tool is a NAMED READ, not
+    // whether it is the one known writer. A tool added later — or a typo — is
+    // protected rather than served.
+    const res = await post({
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "append_relay_v2", arguments: {} },
+      }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("refuses an unsigned write", async () => {
+    const res = await post({
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(writeCall),
+    });
+    expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toBe('PE-HMAC realm="p-e relay"');
+  });
+
+  it("refuses every way of failing a write with the same sentence and header", async () => {
     const stale = Math.floor((Date.now() - SKEW_MS - 5000) / 1000);
     const refusals = [
-      await post({ body: JSON.stringify(good) }),
-      await post({ headers: { authorization: `Bearer ${KEY}` }, body: JSON.stringify(good) }),
-      await signed(good, { key: OTHER }),
-      await signed(good, { agent: "nobody" }),
-      await signed(good, { ts: stale }),
+      await post({ body: JSON.stringify(writeCall) }),
+      await post({
+        headers: { authorization: `Bearer ${KEY}` },
+        body: JSON.stringify(writeCall),
+      }),
+      await signed(writeCall, { key: OTHER }),
+      await signed(writeCall, { agent: "nobody" }),
+      await signed(writeCall, { ts: stale }),
     ];
     for (const res of refusals) {
       expect(res.status).toBe(401);
@@ -290,9 +338,11 @@ describe("the HTTP transport", () => {
   });
 
   it("refuses a signature it has already accepted", async () => {
-    // The point of the scheme: a captured request cannot be sent twice, because
-    // a second `append_relay` would be a second permanent record.
-    const bytes = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    // The point of the scheme: a captured write cannot be sent twice, because a
+    // second `append_relay` would be a second permanent record. The bytes here
+    // are not a record, so the deposit refuses them and nothing is stored —
+    // what is being tested is the second request, not the first.
+    const bytes = JSON.stringify(writeCall);
     const ts = Math.floor(Date.now() / 1000);
     const sig = sign(KEY, "POST", ts, bytes);
     const send = () =>
@@ -303,19 +353,19 @@ describe("the HTTP transport", () => {
         },
         body: bytes,
       });
-    expect((await send()).status).toBe(200);
-    expect((await send()).status).toBe(401);
+    expect((await send()).status).toBe(200); // served, and the deposit refused the bytes
+    expect((await send()).status).toBe(401); // the signature is spent
   });
 
   it("refuses a signature over different bytes than the ones sent", async () => {
     const ts = Math.floor(Date.now() / 1000);
-    const sig = sign(KEY, "POST", ts, JSON.stringify({ jsonrpc: "2.0", id: 1, method: "exists" }));
+    const sig = sign(KEY, "POST", ts, JSON.stringify({ ...writeCall, id: 99 }));
     const res = await post({
       headers: {
         authorization: `PE-HMAC agent=zcode, ts=${ts}, sig=${sig}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+      body: JSON.stringify(writeCall),
     });
     expect(res.status).toBe(401);
   });
@@ -326,20 +376,22 @@ describe("the HTTP transport", () => {
     expect(await res.text()).toBe("");
   });
 
-  it("refuses a request carrying an Origin, whoever signed it", async () => {
-    // The Streamable HTTP transport requires Origin validation against DNS
-    // rebinding. A browser is not a depositor, so the check is total.
-    const bytes = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
-    const ts = Math.floor(Date.now() / 1000);
-    const res = await post({
-      headers: {
-        authorization: `PE-HMAC agent=zcode, ts=${ts}, sig=${sign(KEY, "POST", ts, bytes)}`,
-        "content-type": "application/json",
-        origin: "https://example.org",
-      },
-      body: bytes,
+  it("serves a read from a browser and still refuses the write it cannot sign", async () => {
+    // Origin is not refused: a cross-origin page can drive the reads, which are
+    // public anyway, and cannot produce a signature for the write. No CORS
+    // header is sent, so such a page may send and may not see the answer.
+    const read = await post({
+      headers: { "content-type": "application/json", origin: "https://example.org" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
     });
-    expect(res.status).toBe(403);
+    expect(read.status).toBe(200);
+    expect(read.headers.get("access-control-allow-origin")).toBeNull();
+
+    const write = await post({
+      headers: { "content-type": "application/json", origin: "https://example.org" },
+      body: JSON.stringify(writeCall),
+    });
+    expect(write.status).toBe(401);
   });
 
   it("refuses a body over the cap before parsing it", async () => {
@@ -365,7 +417,7 @@ describe("the HTTP transport", () => {
     // that adds its own would decide the credential differently depending on
     // what is underneath. Raw socket, because fetch will not send two.
     const { port } = new URL(url());
-    const bytes = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    const bytes = JSON.stringify(writeCall);
     const ts = Math.floor(Date.now() / 1000);
     const sig = sign(KEY, "POST", ts, bytes);
     const reply = await new Promise<string>((resolve, reject) => {
@@ -401,7 +453,12 @@ describe("an expired credential", () => {
   beforeEach(() => forgetSignatures());
 
   const call = (key: string, agent: string) => {
-    const bytes = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+    const bytes = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "append_relay", arguments: { bytes: "not a record at all" } },
+    });
     const ts = Math.floor(Date.now() / 1000);
     return fetch(url(), {
       method: "POST",
@@ -433,6 +490,21 @@ describe("the channel reaches the deposit", () => {
     const stored = readFileSync(join(root, `${id}.txt`), "utf8");
     expect(stored.startsWith("deposited-by: mcp/zcode\n")).toBe(true);
     expect(stored).toContain("provenance: as-received");
+  });
+
+  it("refuses to append when the transport says nothing about the channel", async () => {
+    // The HTTP path decides what a write is from a list of tool names, and a
+    // list can go stale. This is the floor underneath it: a transport that
+    // cannot say how a call arrived cannot add to an append-only corpus. The
+    // refusal happens before any write, so the live store is untouched.
+    const response = (await handle({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "append_relay", arguments: { bytes: body("relay-0001") } },
+    })) as { result: { isError?: boolean; content: { text: string }[] } };
+    expect(response.result.isError).toBe(true);
+    expect(response.result.content[0]?.text).toMatch(/did not establish a channel/);
   });
 
   it("refuses a channel the transport did not derive from a credential", async () => {
