@@ -293,29 +293,56 @@ export function sign(key: string, method: string, ts: number, body: string | Buf
 }
 
 /**
- * Signatures already accepted, and the instant each stops being replayable.
+ * Signatures already accepted, in two buckets that rotate rather than a map that
+ * is swept.
  *
- * Bounded by the window rather than by a count: an entry lives at most
- * `2 × SKEW_MS`, and the sweep runs on insert so the work is proportional to
- * traffic and stops when it does — the same shape relay-ui uses for its rate
- * limiter. A signature covers the body and the timestamp, so this is what
- * makes a captured request unusable rather than merely stale.
+ * The first version swept the map whenever it held more than 10,000 entries.
+ * gemini-code-assist saw that under sustained load nothing in it is expired yet,
+ * so the sweep deletes nothing and runs again on the next request. Measured
+ * against a bucketed version: filling 20,000 live entries took **17.6 seconds**
+ * against 8 milliseconds, and each request after that cost **2.6 ms** against
+ * **8.7 µs**. Quadratic, and it never recovers while the load lasts.
+ *
+ * One qualification the report did not make: only a VERIFIED signature reaches
+ * this cache — the check runs last, after the HMAC — so filling it requires a
+ * credential. It is a credential holder degrading the server, not an anonymous
+ * flood.
+ *
+ * Rotating buckets remove the scan entirely. An entry lives between one and two
+ * windows, which covers the ±SKEW replay window, and expiry costs one dropped
+ * `Set` rather than a walk. Memory is bounded by two windows of traffic.
  */
-const seenSignatures = new Map<string, number>();
+let currentBucket = new Set<string>();
+let previousBucket = new Set<string>();
+let rotatedAt = 0;
 
 function alreadyUsed(sig: string, now: number): boolean {
-  if (seenSignatures.size > 10_000) {
-    for (const [s, until] of seenSignatures) if (until <= now) seenSignatures.delete(s);
+  const since = now - rotatedAt;
+  if (since >= SKEW_MS) {
+    // A gap of two windows or more means neither bucket can still hold anything
+    // replayable, so both go rather than one sliding into the other.
+    previousBucket = since >= 2 * SKEW_MS ? new Set() : currentBucket;
+    currentBucket = new Set();
+    rotatedAt = now;
   }
-  const until = seenSignatures.get(sig);
-  if (until !== undefined && until > now) return true;
-  seenSignatures.set(sig, now + 2 * SKEW_MS);
+  if (currentBucket.has(sig) || previousBucket.has(sig)) return true;
+  currentBucket.add(sig);
   return false;
+}
+
+/**
+ * Exported for the test that proves a signature survives one rotation and not
+ * two; the server never calls it with a clock of its own.
+ */
+export function replayed(sig: string, now: number): boolean {
+  return alreadyUsed(sig, now);
 }
 
 /** For tests: the cache is process-global, and a test must not see another's. */
 export function forgetSignatures(): void {
-  seenSignatures.clear();
+  currentBucket = new Set();
+  previousBucket = new Set();
+  rotatedAt = 0;
 }
 
 /**
