@@ -292,3 +292,103 @@ describe("round-trip stability, over generated values", () => {
     }
   });
 });
+
+describe("the escaping and well-formedness fast paths", () => {
+  /**
+   * Both shortcuts sit in the function whose whole purpose is to give distinct
+   * values distinct bytes, and the suite passed unchanged when they were added.
+   *
+   * The first version of this block sampled a hand-picked alphabet against a
+   * hand-written copy of the loop, and a reviewer killed it twice over. It
+   * carried 0x00, 0x08-0x0a, 0x0c, 0x0d and 0x1f but nothing between, so
+   * `/[\x00-\x0a\x0c-\x1f"\\]/` — VT alone slipping through the fast path —
+   * PASSED ALL 429 TESTS while emitting a raw control byte into canonical
+   * output. So did `/[\x00-\x0f\x1f"\\]/`. Sampling a range is not covering it.
+   * And the reference was the loop rewritten as an if/else chain: independent
+   * of the fast path, but unable to catch a mistake it shared with the loop.
+   *
+   * Both are answered by taking the oracle from outside this file. For a
+   * well-formed string, `JSON.stringify` and JCS agree exactly — measured over
+   * 63,552 code points, zero differences — and it is the engine's serializer
+   * rather than our loop with the names changed. So the sweep below is
+   * exhaustive over the BMP instead of sampled, and deterministic instead of
+   * seeded: every escapable code point is asserted, not drawn.
+   */
+  const oracle = (s: string): string => `{"k":${JSON.stringify(s)}}`;
+
+  it("escapes every code point the way the engine's own serializer does", () => {
+    for (let code = 0; code <= 0xffff; code++) {
+      // The surrogate block is excluded because `canonicalize` refuses it
+      // before any escaping happens; the next test covers that path.
+      if (code >= 0xd800 && code <= 0xdfff) continue;
+      const ch = String.fromCharCode(code);
+      expect(canonicalize({ k: ch })).toBe(oracle(ch));
+      // And embedded, because the fast path is decided per string: a control
+      // character surrounded by ordinary ones must still route to the loop.
+      const embedded = `a${ch}b`;
+      expect(canonicalize({ k: embedded })).toBe(oracle(embedded));
+    }
+  });
+
+  it("escapes astral characters, which arrive as a surrogate pair", () => {
+    for (let plane = 1; plane <= 16; plane++) {
+      for (const offset of [0, 1, 0xfffe, 0xffff]) {
+        const cp = plane * 0x10000 + offset;
+        if (cp > 0x10ffff) continue;
+        const ch = String.fromCodePoint(cp);
+        expect(canonicalize({ k: ch })).toBe(oracle(ch));
+      }
+    }
+  });
+
+  it("agrees with a hand-written surrogate scan about what is well-formed", () => {
+    // The guard trusts `isWellFormed`'s TRUE. Nothing pinned that: every string
+    // in the previous version's lone-surrogate list reports false, so all five
+    // fell through to the loop and asserted what the suite already asserted on
+    // the other side of the guard. What the guard rests on is the agreement
+    // itself, so that is what is checked — over strings built to sit on both
+    // sides of it.
+    const lonely = (v: string): boolean => {
+      for (let i = 0; i < v.length; i++) {
+        const code = v.charCodeAt(i);
+        if (code >= 0xd800 && code <= 0xdbff) {
+          const next = v.charCodeAt(i + 1);
+          if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+          i++;
+        } else if (code >= 0xdc00 && code <= 0xdfff) return true;
+      }
+      return false;
+    };
+    const units = [0xd7ff, 0xd800, 0xdbff, 0xdc00, 0xdfff, 0xe000, 0x41, 0x0a];
+    let seed = 987654321;
+    const rnd = (): number => {
+      seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+      return seed / 0x80000000;
+    };
+    let wellFormed = 0;
+    let ill = 0;
+    for (let i = 0; i < 3000; i++) {
+      let s = "";
+      for (let n = Math.floor(rnd() * 4); n >= 0; n--) {
+        s += String.fromCharCode(units[Math.floor(rnd() * units.length)] as number);
+      }
+      const bad = lonely(s);
+      // Reached through the same cast the implementation uses: this repo's
+      // `lib` predates `isWellFormed`, which is why the guard feature-detects
+      // rather than calling it outright.
+      const engine = (s as unknown as { isWellFormed: () => boolean }).isWellFormed;
+      expect(engine.call(s)).toBe(!bad);
+      if (bad) {
+        ill++;
+        expect(() => canonicalize({ k: s })).toThrow(IJsonViolation);
+        expect(() => canonicalize({ [s]: 1 })).toThrow(IJsonViolation);
+      } else {
+        wellFormed++;
+        expect(canonicalize({ k: s })).toBe(oracle(s));
+      }
+    }
+    // Both sides reached, so neither branch is asserting into an empty set.
+    expect(wellFormed).toBeGreaterThan(100);
+    expect(ill).toBeGreaterThan(100);
+  });
+});
