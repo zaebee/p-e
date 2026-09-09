@@ -161,6 +161,44 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/** Either a request to serve, or the refusal that ends the exchange. */
+type Taken = { ok: true; request: Parameters<typeof handle>[0] } | { ok: false };
+
+/** Read and parse one request, answering every refusal itself. */
+async function take(req: IncomingMessage, res: ServerResponse): Promise<Taken> {
+  let body: string;
+  try {
+    body = await readBody(req);
+  } catch (error) {
+    const tooLarge = error instanceof RangeError;
+    if (tooLarge) {
+      // The rest of the body is never read, so the connection cannot be
+      // reused: say so, answer, and close once the answer is out.
+      res.setHeader("connection", "close");
+      res.on("finish", () => req.destroy());
+    }
+    send(
+      res,
+      tooLarge ? 413 : 400,
+      rpcError(null, -32600, tooLarge ? "body too large" : "read failed"),
+    );
+    return { ok: false };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    send(res, 400, rpcError(null, -32700, "parse error"));
+    return { ok: false };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    send(res, 400, rpcError(null, -32600, "expected one JSON-RPC request object"));
+    return { ok: false };
+  }
+  return { ok: true, request: parsed as Parameters<typeof handle>[0] };
+}
+
 /**
  * One JSON-RPC request per POST. No SSE, no session, no CORS: a browser is not
  * a depositor, and an endpoint that answers preflight is an endpoint someone
@@ -177,45 +215,23 @@ export function createHttpServer(tokens: TokenTable): Server {
       // known, wrong shape" are the same sentence here on purpose.
       if (!channel) return send(res, 401, rpcError(null, -32001, "unauthorized"));
 
-      let body: string;
-      try {
-        body = await readBody(req);
-      } catch (error) {
-        const tooLarge = error instanceof RangeError;
-        if (tooLarge) {
-          // The rest of the body is never read, so the connection cannot be
-          // reused: say so, answer, and close once the answer is out.
-          res.setHeader("connection", "close");
-          res.on("finish", () => req.destroy());
-        }
-        return send(
-          res,
-          tooLarge ? 413 : 400,
-          rpcError(null, -32600, tooLarge ? "body too large" : "read failed"),
-        );
-      }
-
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(body);
-      } catch {
-        return send(res, 400, rpcError(null, -32700, "parse error"));
-      }
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        return send(res, 400, rpcError(null, -32600, "expected one JSON-RPC request object"));
-      }
+      const taken = await take(req, res);
+      if (!taken.ok) return;
 
       try {
-        const response = await handle(parsed as Parameters<typeof handle>[0], { channel });
+        const response = await handle(taken.request, { channel });
         // A notification carries no id and gets no body, per JSON-RPC.
         if (response === null) return void res.writeHead(204).end();
         return send(res, 200, response);
       } catch (error) {
-        const id = (parsed as { id?: unknown }).id;
-        return send(
+        send(
           res,
           500,
-          rpcError(id, -32603, error instanceof Error ? error.message : String(error)),
+          rpcError(
+            taken.request.id,
+            -32603,
+            error instanceof Error ? error.message : String(error),
+          ),
         );
       }
     })();
