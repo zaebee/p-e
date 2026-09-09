@@ -292,3 +292,91 @@ describe("round-trip stability, over generated values", () => {
     }
   });
 });
+
+describe("the escaping and well-formedness fast paths, against a slow reference", () => {
+  /**
+   * `str()` and `assertWellFormed()` each grew a fast path that skips the
+   * character loop — a regex probe for the three escapable classes, and the
+   * engine's own `isWellFormed`. Both are shortcuts through the function whose
+   * entire purpose is to give distinct values distinct bytes, and the suite
+   * passed unchanged when they were added: nothing here distinguished a fast
+   * path from the loop it replaced, so nothing would notice if one day it
+   * stopped agreeing.
+   *
+   * The reference below is written out rather than imported because an
+   * independent implementation is the whole of what a differential test buys.
+   * Widening the escape set in `canonical.ts` without widening it here fails
+   * this test, which is the point.
+   */
+  const escaped = (s: string): string => {
+    let out = '"';
+    for (const ch of s) {
+      const code = ch.codePointAt(0) as number;
+      if (ch === '"') out += '\\"';
+      else if (ch === "\\") out += "\\\\";
+      else if (ch === "\b") out += "\\b";
+      else if (ch === "\f") out += "\\f";
+      else if (ch === "\n") out += "\\n";
+      else if (ch === "\r") out += "\\r";
+      else if (ch === "\t") out += "\\t";
+      else if (code < 0x20) out += `\\u${code.toString(16).padStart(4, "0")}`;
+      else out += ch;
+    }
+    return `${out}"`;
+  };
+
+  /** Lone surrogates, found by hand rather than by asking the engine. */
+  const lonely = (v: string): boolean => {
+    for (let i = 0; i < v.length; i++) {
+      const code = v.charCodeAt(i);
+      if (code >= 0xd800 && code <= 0xdbff) {
+        const next = v.charCodeAt(i + 1);
+        if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+        i++;
+      } else if (code >= 0xdc00 && code <= 0xdfff) return true;
+    }
+    return false;
+  };
+
+  // The boundaries the two fast paths turn on, and the ones just outside them:
+  // 0x1f/0x20 for the C0 cut, the quote and backslash, DEL and U+2028 because
+  // JSON leaves both raw, and each corner of the surrogate blocks.
+  const alphabet = [
+    0x00, 0x08, 0x09, 0x0a, 0x0c, 0x0d, 0x1f, 0x20, 0x22, 0x5c, 0x41, 0x7f, 0x80, 0x2028, 0xd7ff,
+    0xd800, 0xdbff, 0xdc00, 0xdfff, 0xe000, 0xfffd,
+  ];
+
+  it("wraps exactly what the character loop would have written", () => {
+    // Seeded, for the reason the round-trip suite above gives: a failure that
+    // cannot be re-run is a rumour.
+    let seed = 987654321;
+    const rnd = (): number => {
+      seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+      return seed / 0x80000000;
+    };
+    for (let i = 0; i < 4000; i++) {
+      let s = "";
+      for (let n = Math.floor(rnd() * 6); n >= 0; n--) {
+        s += String.fromCharCode(alphabet[Math.floor(rnd() * alphabet.length)] as number);
+      }
+      // `canonicalize` refuses an ill-formed string before it is ever escaped,
+      // so the escaping claim is made where it is reachable.
+      if (lonely(s)) {
+        expect(() => canonicalize({ k: s })).toThrow(IJsonViolation);
+        continue;
+      }
+      expect(canonicalize({ k: s })).toBe(`{"k":${escaped(s)}}`);
+    }
+  });
+
+  it("refuses a lone surrogate the engine's check would have waved through", () => {
+    // `isWellFormed` returning true must mean the same thing the loop meant.
+    // A high surrogate followed by a low one is a pair and passes; the same
+    // high surrogate followed by anything else is not.
+    expect(canonicalize({ k: "😀" })).toBe('{"k":"😀"}');
+    for (const bad of ["\ud800", "\udfff", "\ud800a", "a\udc00", "\ud800\ud800"]) {
+      expect(() => canonicalize({ k: bad })).toThrow(IJsonViolation);
+      expect(() => canonicalize({ [bad]: 1 })).toThrow(IJsonViolation);
+    }
+  });
+});
