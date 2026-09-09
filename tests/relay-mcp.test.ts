@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { READ_ONLY_TOOLS, TOOL_NAMES, handle } from "../src/relay/mcp.js";
+import { READ_ONLY_TOOLS, TOOL_NAMES, handle, loadStoreOrRefuse } from "../src/relay/mcp.js";
 
 /** Drives the server the way a client would, over the JSON-RPC shapes. */
 const call = (method: string, params?: Record<string, unknown>) =>
@@ -115,6 +115,38 @@ describe("the append_relay description", () => {
     // And the reason the write is signed at all, which is the part a reader
     // skips at their peril.
     expect(description).toMatch(/replayed deposit is a second permanent record/);
+  });
+});
+
+describe("a store that cannot be read", () => {
+  it("says so without saying where it is", async () => {
+    // Reproduced against a real store before this existed: chmod 000 on the
+    // directory, and a public unauthenticated read came back 200 with
+    // "relay store not readable at /…/relay: EACCES: permission denied,
+    // scandir '/…/relay'". A 200 carrying isError, so #165's sanitising of the
+    // 500 branch never saw it — handle() turns a tool's throw into a result.
+    const errors: unknown[] = [];
+    const spy = console.error;
+    console.error = (...args: unknown[]) => {
+      errors.push(args);
+    };
+    try {
+      await expect(
+        loadStoreOrRefuse(() => {
+          throw new Error("relay store not readable at /srv/p-e/relay: EACCES: permission denied");
+        }),
+      ).rejects.toThrow("the relay store is not readable from this process");
+    } finally {
+      console.error = spy;
+    }
+    // The detail is not lost — it goes where an operator looks and a caller
+    // does not. Read the captured Error rather than stringifying it: an Error
+    // JSON-serialises to `{}`, so the first version of this assertion was
+    // checking an empty object for the substring and would have passed on a
+    // change that dropped the logging entirely.
+    const logged = errors.map((args) => (args as unknown[]).map(String).join(" ")).join("\n");
+    expect(logged).toContain("EACCES");
+    expect(logged).toContain("/srv/p-e/relay");
   });
 });
 

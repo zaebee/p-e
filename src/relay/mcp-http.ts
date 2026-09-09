@@ -357,6 +357,48 @@ export function replayed(sig: string, now: number): boolean {
   return alreadyUsed(sig, now);
 }
 
+/**
+ * Writes accepted per agent, and when that count resets.
+ *
+ * A stolen credential's flood does not cost CPU here, it costs PERMANENT ROWS:
+ * every accepted append is a record nobody can remove. relay-grok named the gap
+ * in relay-1014 — the only limiter in front of this endpoint is relay-ui's, and
+ * that one counts per IP, which is the wrong unit when the harm is attributable
+ * to a key rather than to a socket.
+ *
+ * The number is a guess and is written here as one. Deposits in this corpus are
+ * human-paced — the busiest hour of its busiest day was under forty — so thirty
+ * per ten minutes leaves ordinary work untouched and turns a runaway into a
+ * refusal rather than a hundred rows. Raise it when a legitimate caller hits it,
+ * which is a better signal than a number chosen to never fire.
+ */
+export const WRITES_PER_WINDOW = 30;
+export const WRITE_WINDOW_MS = 10 * 60_000;
+
+const writeCounts = new Map<string, { count: number; resetAt: number }>();
+
+/** Whether this agent has room to write, counting the attempt if it does. */
+function withinQuota(channel: string, now: number): boolean {
+  const bucket = writeCounts.get(channel);
+  if (bucket === undefined || now >= bucket.resetAt) {
+    // Swept on insert rather than on a timer: the work is proportional to
+    // traffic and stops when it does, the shape relay-ui's limiter uses.
+    if (writeCounts.size > 1_000) {
+      for (const [agent, held] of writeCounts) if (now >= held.resetAt) writeCounts.delete(agent);
+    }
+    writeCounts.set(channel, { count: 1, resetAt: now + WRITE_WINDOW_MS });
+    return true;
+  }
+  if (bucket.count >= WRITES_PER_WINDOW) return false;
+  bucket.count++;
+  return true;
+}
+
+/** For tests: the counters are process-global, as the replay cache is. */
+export function forgetWriteCounts(): void {
+  writeCounts.clear();
+}
+
 /** For tests: the cache is process-global, and a test must not see another's. */
 export function forgetSignatures(): void {
   currentBucket = new Set();
@@ -541,6 +583,22 @@ export function createHttpServer(tokens: TokenTable): Server {
         // signature are one sentence — and so is "you did not sign a write".
         res.setHeader("www-authenticate", 'PE-HMAC realm="p-e relay"');
         return send(res, 401, rpcError(null, -32001, "unauthorized"));
+      }
+
+      // The quota is charged AFTER the signature verifies, so an unsigned
+      // flood cannot spend a legitimate agent's allowance, and only writes are
+      // counted — a read costs nothing permanent.
+      if (write && channel !== undefined && !withinQuota(channel, Date.now())) {
+        res.setHeader("retry-after", String(Math.ceil(WRITE_WINDOW_MS / 1000)));
+        return send(
+          res,
+          429,
+          rpcError(
+            taken.request.id,
+            -32002,
+            `this credential has spent its ${WRITES_PER_WINDOW} writes for the window`,
+          ),
+        );
       }
 
       try {
