@@ -9,6 +9,7 @@ import {
   SKEW_MS,
   type TokenTable,
   WRITES_PER_WINDOW,
+  WRITE_WINDOW_MS,
   createHttpServer,
   describeCredential,
   forgetSignatures,
@@ -455,7 +456,12 @@ describe("the HTTP transport", () => {
     }
     const refused = await signed({ ...writeCall, id: 999 });
     expect(refused.status).toBe(429);
-    expect(refused.headers.get("retry-after")).toBe("600");
+    // Retry-After is the time actually left in the window, so it is a range and
+    // not a constant: a flat 600 would tell a caller with three seconds left to
+    // sleep for ten minutes.
+    const retryAfter = Number(refused.headers.get("retry-after"));
+    expect(retryAfter).toBeGreaterThan(WRITE_WINDOW_MS / 1000 - 30);
+    expect(retryAfter).toBeLessThanOrEqual(WRITE_WINDOW_MS / 1000);
 
     // Reads are not counted, so a throttled agent can still read — and the
     // corpus is public anyway, so counting them would cost compatibility and

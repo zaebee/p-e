@@ -377,8 +377,16 @@ export const WRITE_WINDOW_MS = 10 * 60_000;
 
 const writeCounts = new Map<string, { count: number; resetAt: number }>();
 
-/** Whether this agent has room to write, counting the attempt if it does. */
-function withinQuota(channel: string, now: number): boolean {
+/**
+ * How long this agent must wait before writing — zero when it may write now,
+ * and the attempt is counted in that case.
+ *
+ * Milliseconds rather than a boolean so `Retry-After` can say what is true.
+ * A flat "wait ten minutes" told a caller with three seconds left to sleep for
+ * six hundred, which is the kind of answer that teaches clients to ignore the
+ * header — gemini-code-assist on #169.
+ */
+function quotaDelayMs(channel: string, now: number): number {
   const bucket = writeCounts.get(channel);
   if (bucket === undefined || now >= bucket.resetAt) {
     // Swept on insert rather than on a timer: the work is proportional to
@@ -387,11 +395,11 @@ function withinQuota(channel: string, now: number): boolean {
       for (const [agent, held] of writeCounts) if (now >= held.resetAt) writeCounts.delete(agent);
     }
     writeCounts.set(channel, { count: 1, resetAt: now + WRITE_WINDOW_MS });
-    return true;
+    return 0;
   }
-  if (bucket.count >= WRITES_PER_WINDOW) return false;
+  if (bucket.count >= WRITES_PER_WINDOW) return bucket.resetAt - now;
   bucket.count++;
-  return true;
+  return 0;
 }
 
 /** For tests: the counters are process-global, as the replay cache is. */
@@ -588,8 +596,9 @@ export function createHttpServer(tokens: TokenTable): Server {
       // The quota is charged AFTER the signature verifies, so an unsigned
       // flood cannot spend a legitimate agent's allowance, and only writes are
       // counted — a read costs nothing permanent.
-      if (write && channel !== undefined && !withinQuota(channel, Date.now())) {
-        res.setHeader("retry-after", String(Math.ceil(WRITE_WINDOW_MS / 1000)));
+      const wait = write && channel !== undefined ? quotaDelayMs(channel, Date.now()) : 0;
+      if (wait > 0) {
+        res.setHeader("retry-after", String(Math.ceil(wait / 1000)));
         return send(
           res,
           429,
