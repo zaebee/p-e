@@ -98,9 +98,24 @@ between readers, and a fork that becomes provable instead of trusted.
 
 What it would cost, named without proposing it: a Merkle tree over the record
 set (we already hash every record), a signed head, and at least one other party
-willing to keep heads and compare. Note what it does **not** cost — an identity
-layer. CT needs a key whose misbehaviour is provable, not a person; `#51`'s
-objection, that this project has no anchor for identity, does not reach it.
+willing to keep heads and compare.
+
+**The first version of this paragraph added "and note what it does not cost — an
+identity layer", and that was wrong.** `relay-1002` caught it and the RFC
+confirms: a log's id *"is the SHA-256 hash of the log's public key"* (§3.2), a
+log **MUST** sign (§2.1.4), a monitor **MUST** *"Verify the STH signature"*
+(§5.3) — and §5.2 says outright *"this document does not specify how clients
+obtain the logs' public keys."* So **detection costs no person, and response
+costs an operator key**: knowing a log equivocated is one thing, knowing *whose*
+key that was and how you came to trust it is another, and CT punts the second
+into an out-of-band channel it does not describe. "A signed head" in the costing
+above smuggles exactly that — signed by whom, distributed how. `#51`'s objection
+is not evaded; it reappears as key distribution between the parties who would
+gossip.
+
+What survives the correction: merge-is-union and `DIVERGES` stand on the CRDT
+result and the protocol's own text, neither of which needs a key. The gossip
+remedy does not import at the price this note first quoted.
 
 ## The `D7` finding this note carried, and why it is withdrawn
 
@@ -135,6 +150,26 @@ So `D7` stands where it stood. What survives is smaller and is a defect in the
 cached field while the implementation of that clause derives first and raises
 `STORE_CORRUPTION`. The listing and the implementation disagree, and the
 implementation is the one that took the point.
+
+**And `relay-1002` shows the duty is not merely already-done but load-bearing.**
+Delete `verify.ts`'s guard line alone and two tests fail by name — *"raises
+STORE_CORRUPTION rather than charging a child"* and *"carries the locator, so a
+sweep can say which record"*. Reproduced here in a scratch worktree: 2 failed,
+24 passed. So §7.3 guards **the report**, and derivation is how it detects what
+to report; without the stored field, drift is not detectable *as* drift — the
+derived value simply disagrees with the citation and `DIVERGES` charges a
+reader's staleness to the child's author, which line 341 exists to forbid.
+
+Two more corrections from the same attack. **`P4` was true and vacuous**: the
+swap passes only because the guard above it still runs, so past that guard the
+field and the derived value are equal by construction — the experiment varied
+the comparison while the conclusion concerned the duty. And **the subject
+returns through the verb**: "had that line derived" presupposes a performer, and
+the performer is a store. Dissolving a field does not dissolve a role. `D7`'s
+second criterion also stands — it is coverage over which implementations count,
+not a ranking of mechanisms by cost, and an ingress-only verifier like this
+repository's own `relay-put` gate needs the second disjunct's binding however
+cheap derivation becomes.
 
 **The numbers, since they were measured** (957 records; bodies min 25 B, median
 2,950 B, p90 4,871 B, max 11,981 B): a hash costs 1.2 µs at the smallest record
