@@ -292,6 +292,7 @@ describe("the HTTP transport", () => {
     });
     expect(open.status).toBe(200);
     expect(open.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(open.headers.get("cache-control")).toBe("no-store");
     const json = (await open.json()) as { result: { tools: { name: string }[] } };
     expect(json.result.tools.map((t) => t.name)).toContain("append_relay");
 
@@ -382,6 +383,12 @@ describe("the HTTP transport", () => {
     const res = await signed({ jsonrpc: "2.0", method: "notifications/initialized" });
     expect(res.status).toBe(202);
     expect(await res.text()).toBe("");
+    // This is the one response that does not go through `send`, so it is the
+    // one that silently lost both headers when they were added there. Asserted
+    // here rather than trusted, because the next header added to `send` will
+    // miss it too unless something says so.
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
   it("serves a read from a browser and still refuses the write it cannot sign", async () => {
