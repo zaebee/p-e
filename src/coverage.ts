@@ -82,16 +82,38 @@ export function coverageOf(
     classes.set(cls, (classes.get(cls) ?? 0) + 1);
   }
 
+  // Pre-index byInvariant by class in a single O(I * P) pass over byInvariant entries.
+  // Avoids recalculating classOf(path) repeatedly in an O(Classes * Invariants * Paths)
+  // nested loop and avoids intermediate array/Set allocations per class.
+  const classToFilesRead = new Map<string, Set<string>>();
+  const classToInvariants = new Map<string, Set<string>>();
+
+  for (const [id, paths] of byInvariant.entries()) {
+    for (const path of paths) {
+      const cls = classOf(path);
+
+      let filesSet = classToFilesRead.get(cls);
+      if (!filesSet) {
+        filesSet = new Set<string>();
+        classToFilesRead.set(cls, filesSet);
+      }
+      filesSet.add(path);
+
+      let invSet = classToInvariants.get(cls);
+      if (!invSet) {
+        invSet = new Set<string>();
+        classToInvariants.set(cls, invSet);
+      }
+      invSet.add(id);
+    }
+  }
+
   return [...classes.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([cls, files]) => {
-      const filesRead = new Set(
-        [...byInvariant.values()].flatMap((paths) => [...paths].filter((p) => classOf(p) === cls)),
-      ).size;
-      const invariants = [...byInvariant.entries()]
-        .filter(([, paths]) => [...paths].some((p) => classOf(p) === cls))
-        .map(([id]) => id)
-        .sort();
+      const filesRead = classToFilesRead.get(cls)?.size ?? 0;
+      const invSet = classToInvariants.get(cls);
+      const invariants = invSet ? [...invSet].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)) : [];
       const reason = EXCLUSIONS[cls] ?? "";
       return {
         cls,
