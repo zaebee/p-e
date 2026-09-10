@@ -616,7 +616,16 @@ export function createHttpServer(tokens: TokenTable): Server {
         // A notification carries no id and gets no body. 202 rather than 204:
         // the Streamable HTTP transport says a server accepting a notification
         // MUST answer 202 Accepted with no body.
-        if (response === null) return void res.writeHead(202).end();
+        if (response === null) {
+          // The one response that does not go through `send`, and it was the
+          // one missing both headers it adds. An empty body cannot be sniffed
+          // into anything, so this is consistency rather than a hole — but a
+          // reader checking "does every response say no-store" should not have
+          // to find the exception.
+          return void res
+            .writeHead(202, { "x-content-type-options": "nosniff", "cache-control": "no-store" })
+            .end();
+        }
         return send(res, 200, response);
       } catch (error) {
         // Log the full error internally to stderr for diagnostics, but do not leak

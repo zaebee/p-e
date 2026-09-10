@@ -172,13 +172,21 @@ async function callTool(
   args: Record<string, unknown>,
   channel: string | undefined,
 ): Promise<unknown> {
-  const store = await loadStoreOrRefuse();
+  // Loaded on demand rather than up front. `append_relay` never touches this
+  // map — `appendRelay` loads the store itself, twice — so an eager load parsed
+  // every record on disk for nothing on the one call that is already the most
+  // expensive. Measured at 998 records: it is most of a refused deposit.
+  let loaded: Awaited<ReturnType<typeof loadStore>> | undefined;
+  const held = async (): Promise<Awaited<ReturnType<typeof loadStore>>> => {
+    loaded ??= await loadStoreOrRefuse();
+    return loaded;
+  };
   const id = typeof args.id === "string" ? args.id : "";
 
   switch (name) {
     case "get_relay": {
-      const record = getRelay(store, id);
-      if (!record) return text(`${id}: ${exists(store, id)} — not reconstructed`);
+      const record = getRelay(await held(), id);
+      if (!record) return text(`${id}: ${exists(await held(), id)} — not reconstructed`);
       // Provenance travels with the bytes. A reader that does not know how they
       // arrived cannot weigh them, and this store never claims fidelity.
       return text(
@@ -186,10 +194,10 @@ async function callTool(
       );
     }
     case "exists":
-      return text(`${id}: ${exists(store, id)}`);
+      return text(`${id}: ${exists(await held(), id)}`);
     case "list_relays": {
       const after = typeof args.after === "string" ? args.after : undefined;
-      const { present, missing } = listRelays(store, after);
+      const { present, missing } = listRelays(await held(), after);
       return text(
         `present (${present.length}): ${present.join(" ") || "—"}\nknown missing (${missing.length}): ${missing.join(" ") || "—"}`,
       );
@@ -226,7 +234,7 @@ async function callTool(
       );
     }
     case "list_replies": {
-      const replies = listReplies(store, id);
+      const replies = listReplies(await held(), id);
       if (replies.length === 0) return text(`no held record names ${id} as parent or ref`);
       return text(replies.map((r) => `${r.id}  ${r.kind}  ${r.from}>${r.to}`).join("\n"));
     }

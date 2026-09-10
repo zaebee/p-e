@@ -383,6 +383,12 @@ describe("the HTTP transport", () => {
     const res = await signed({ jsonrpc: "2.0", method: "notifications/initialized" });
     expect(res.status).toBe(202);
     expect(await res.text()).toBe("");
+    // This is the one response that does not go through `send`, so it is the
+    // one that silently lost both headers when they were added there. Asserted
+    // here rather than trusted, because the next header added to `send` will
+    // miss it too unless something says so.
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
   });
 
   it("serves a read from a browser and still refuses the write it cannot sign", async () => {
@@ -472,7 +478,7 @@ describe("the HTTP transport", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
     });
     expect(read.status).toBe(200);
-  }, 15_000);
+  });
 
   it("refuses a request carrying two Authorization headers", async () => {
     // Node keeps the first and Bun's compat layer keeps the last, so a proxy
