@@ -455,6 +455,7 @@ function send(res: ServerResponse, status: number, body: unknown): void {
     "content-type": "application/json",
     "content-length": Buffer.byteLength(text),
     "x-content-type-options": "nosniff",
+    "cache-control": "no-store",
   });
   res.end(text);
 }

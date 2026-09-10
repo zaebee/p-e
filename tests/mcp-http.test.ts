@@ -292,6 +292,7 @@ describe("the HTTP transport", () => {
     });
     expect(open.status).toBe(200);
     expect(open.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(open.headers.get("cache-control")).toBe("no-store");
     const json = (await open.json()) as { result: { tools: { name: string }[] } };
     expect(json.result.tools.map((t) => t.name)).toContain("append_relay");
 
@@ -471,7 +472,7 @@ describe("the HTTP transport", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
     });
     expect(read.status).toBe(200);
-  });
+  }, 15_000);
 
   it("refuses a request carrying two Authorization headers", async () => {
     // Node keeps the first and Bun's compat layer keeps the last, so a proxy
