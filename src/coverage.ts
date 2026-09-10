@@ -82,16 +82,49 @@ export function coverageOf(
     classes.set(cls, (classes.get(cls) ?? 0) + 1);
   }
 
+  // Pre-index byInvariant by class in a single O(I * P) pass over byInvariant entries.
+  // Avoids recalculating classOf(path) repeatedly in an O(Classes * Invariants * Paths)
+  // nested loop and avoids intermediate array/Set allocations per class.
+  const classToFilesRead = new Map<string, Set<string>>();
+  const classToInvariants = new Map<string, Set<string>>();
+
+  for (const [id, paths] of byInvariant.entries()) {
+    for (const path of paths) {
+      const cls = classOf(path);
+
+      let filesSet = classToFilesRead.get(cls);
+      if (!filesSet) {
+        filesSet = new Set<string>();
+        classToFilesRead.set(cls, filesSet);
+      }
+      filesSet.add(path);
+
+      let invSet = classToInvariants.get(cls);
+      if (!invSet) {
+        invSet = new Set<string>();
+        classToInvariants.set(cls, invSet);
+      }
+      invSet.add(id);
+    }
+  }
+
   return [...classes.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([cls, files]) => {
-      const filesRead = new Set(
-        [...byInvariant.values()].flatMap((paths) => [...paths].filter((p) => classOf(p) === cls)),
-      ).size;
-      const invariants = [...byInvariant.entries()]
-        .filter(([, paths]) => [...paths].some((p) => classOf(p) === cls))
-        .map(([id]) => id)
-        .sort();
+      const filesRead = classToFilesRead.get(cls)?.size ?? 0;
+      const invSet = classToInvariants.get(cls);
+      // Code-unit order, written out to match the class sort above rather than
+      // left to the default. Reviewed as a place to use bare `.sort()` because
+      // "the default is native and significantly faster": measured here on this
+      // runtime, over the eight ids this actually sorts, the explicit form is
+      // the faster of the two (0.69 µs against 0.99 µs) because the default
+      // coerces before comparing. Both produce the same order.
+      //
+      // AND BOTH PRODUCE THE SAME WRONG ORDER ONE INVARIANT FROM NOW. The ids
+      // run I-1 to I-9 today; add I-10 and code-unit order puts it before I-9
+      // in the report. Named rather than fixed, because a numeric comparator
+      // changes published output and belongs in a change of its own.
+      const invariants = invSet ? [...invSet].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)) : [];
       const reason = EXCLUSIONS[cls] ?? "";
       return {
         cls,

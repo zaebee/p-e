@@ -323,20 +323,22 @@ export function renderReport(findings: readonly Finding[], meta: ReportMeta): st
 
   const coverageSection = (() => {
     if (!meta.coverage) return "_Not measured: this run was made without coverage recording._";
-    const rows = coverageOf(meta.coverage.manifest, new Set(), meta.coverage.byInvariant).map(
-      (c) => {
-        // Says how much of a class was opened. EXAMINED used to mean some
-        // check touched one file of it, so reading one log entry marked all
-        // four examined.
-        const scope = c.filesRead === c.files ? "" : ` (${c.filesRead} of ${c.files} opened)`;
-        const disposition =
-          c.disposition === "EXAMINED"
-            ? `examined by ${c.invariants.join(", ")}${scope}`
-            : "**EXCLUDED_WITH_REASON**";
-        return `| \`${c.cls}\` | ${c.files} | ${disposition} |`;
-      },
-    );
-    const reasons = coverageOf(meta.coverage.manifest, new Set(), meta.coverage.byInvariant)
+    // Computed once. It was called twice with identical arguments — the table
+    // and the reasons below it are two views of one answer — which cost more
+    // than every loop inside `coverageOf` put together.
+    const coverage = coverageOf(meta.coverage.manifest, new Set(), meta.coverage.byInvariant);
+    const rows = coverage.map((c) => {
+      // Says how much of a class was opened. EXAMINED used to mean some
+      // check touched one file of it, so reading one log entry marked all
+      // four examined.
+      const scope = c.filesRead === c.files ? "" : ` (${c.filesRead} of ${c.files} opened)`;
+      const disposition =
+        c.disposition === "EXAMINED"
+          ? `examined by ${c.invariants.join(", ")}${scope}`
+          : "**EXCLUDED_WITH_REASON**";
+      return `| \`${c.cls}\` | ${c.files} | ${disposition} |`;
+    });
+    const reasons = coverage
       .filter((c) => c.disposition === "EXCLUDED_WITH_REASON")
       .map((c) => `- **\`${c.cls}\`** — ${c.reason || "**no reason stated. this is a defect.**"}`)
       .join("\n");
