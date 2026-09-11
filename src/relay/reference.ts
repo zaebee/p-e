@@ -177,14 +177,9 @@ export function checkReferences(
     // it is safe here and `exec` is not.
     const matches = prose(r.bytes).match(ID_IN_TEXT);
     if (matches) {
-      // Fast path for single match avoids `Set` allocation.
-      if (matches.length === 1) {
-        const hit = matches[0];
+      const hits = matches.length > 1 ? new Set(matches) : matches;
+      for (const hit of hits) {
         if (hit !== r.id) add(mentionedBy, hit, r.id);
-      } else {
-        for (const hit of new Set(matches)) {
-          if (hit !== r.id) add(mentionedBy, hit, r.id);
-        }
       }
     }
   }

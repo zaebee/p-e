@@ -1,5 +1,5 @@
 import { watch } from "node:fs";
-import { type RelayRecord, STORE_ROOT, loadStore } from "./store.js";
+import { type RelayRecord, STORE_ROOT, byRecordId, loadStore } from "./store.js";
 
 /**
  * Block until a record appears, or until the deadline.
@@ -72,7 +72,7 @@ export async function waitForRelay(
   const already = baseline ? [...baseline.values()].filter(qualifies) : [];
   if (already.length > 0) {
     return {
-      appeared: already.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
+      appeared: already.sort(byRecordId),
       timedOut: false,
       waitedMs: 0,
     };
@@ -98,11 +98,7 @@ export async function waitForRelay(
           const now = await readable(root);
           if (!now) return;
           const fresh = [...now.values()].filter(qualifies);
-          if (fresh.length > 0)
-            done(
-              fresh.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
-              false,
-            );
+          if (fresh.length > 0) done(fresh.sort(byRecordId), false);
         })();
       }, POLL_MS);
     });
