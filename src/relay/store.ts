@@ -382,7 +382,7 @@ export function exists(store: Map<string, RelayRecord>, id: string): Presence {
 export function listReplies(store: Map<string, RelayRecord>, id: string): RelayRecord[] {
   return [...store.values()]
     .filter((r) => r.parent === id || r.ref === id)
-    .sort((a, b) => (a.id < b.id ? -1 : 1));
+    .sort((a, b) => bySeq(a.id, b.id));
 }
 
 /**

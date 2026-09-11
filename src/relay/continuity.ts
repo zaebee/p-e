@@ -114,7 +114,7 @@ export function checkContinuity(
   authority: string,
 ): ContinuityFinding[] {
   return [...store.values()]
-    .sort((a, b) => (a.id < b.id ? -1 : 1))
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     .map((r) => {
       // Resolved within this authority alone. The map holds one store, so a
       // locator that names another authority's record does not resolve here and

@@ -72,7 +72,7 @@ export async function waitForRelay(
   const already = baseline ? [...baseline.values()].filter(qualifies) : [];
   if (already.length > 0) {
     return {
-      appeared: already.sort((a, b) => (a.id < b.id ? -1 : 1)),
+      appeared: already.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
       timedOut: false,
       waitedMs: 0,
     };
@@ -100,7 +100,7 @@ export async function waitForRelay(
           const fresh = [...now.values()].filter(qualifies);
           if (fresh.length > 0)
             done(
-              fresh.sort((a, b) => (a.id < b.id ? -1 : 1)),
+              fresh.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
               false,
             );
         })();

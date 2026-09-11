@@ -153,7 +153,7 @@ export function checkReferences(
   store: ReadonlyMap<string, RelayRecord>,
   bound: BoundIds,
 ): ReferenceFinding[] {
-  const ids = [...store.keys()].sort();
+  const ids = [...store.keys()].sort(bySeq);
   const referencedBy = new Map<string, string[]>();
   const mentionedBy = new Map<string, string[]>();
 
@@ -163,25 +163,28 @@ export function checkReferences(
     else into.set(key, [value]);
   };
 
-  for (const r of [...store.values()].sort((a, b) => (a.id < b.id ? -1 : 1))) {
-    for (const target of [r.parent, r.ref]) {
-      if (target) add(referencedBy, target, r.id);
-    }
+  // Iterating pre-sorted `ids` directly avoids allocating and sorting `[...store.values()]` O(N log N).
+  for (const id of ids) {
+    const r = store.get(id);
+    if (!r) continue;
+    if (r.parent) add(referencedBy, r.parent, r.id);
+    if (r.ref) add(referencedBy, r.ref, r.id);
     // `match`, and **not** `exec`. Sonar asks for `exec` here and it would be
     // wrong: `ID_IN_TEXT` is a module constant carrying `g`, so `exec` advances
     // its `lastIndex` and the next record starts scanning from wherever the last
     // one stopped. Measured — two `exec` calls on one string return different
     // hits. `match` on a global regex sets `lastIndex` to 0 itself, which is why
     // it is safe here and `exec` is not.
-    //
-    // It replaced `[...matchAll(…)].map((m) => m[0])`, which is equally safe and
-    // allocates a `RegExpMatchArray` per hit. Measured over this store's 948
-    // records: 489ms → 336ms per 100 passes, about 31% off the extraction and
-    // roughly 1.5ms of `check-references`' ~78ms — real, and small.
     const matches = prose(r.bytes).match(ID_IN_TEXT);
     if (matches) {
-      for (const hit of new Set(matches)) {
+      // Fast path for single match avoids `Set` allocation.
+      if (matches.length === 1) {
+        const hit = matches[0];
         if (hit !== r.id) add(mentionedBy, hit, r.id);
+      } else {
+        for (const hit of new Set(matches)) {
+          if (hit !== r.id) add(mentionedBy, hit, r.id);
+        }
       }
     }
   }
