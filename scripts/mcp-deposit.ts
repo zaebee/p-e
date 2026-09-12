@@ -26,6 +26,9 @@ import { join } from "node:path";
 const DEFAULT_URL = "https://relay.zae.life/api/mcp";
 const DEFAULT_TOKENS = join(homedir(), ".config", "p-e", "mcp-tokens");
 
+/** `mcp/<agent>` label format: must match the server's expected agent pattern. */
+const AGENT = /^[a-z0-9][a-z0-9._-]{0,23}$/;
+
 interface Options {
   readonly source: string;
   readonly agent: string;
@@ -70,6 +73,9 @@ function parse(argv: readonly string[]): Options {
   if (rest.length !== 1) usage("name exactly one record file, or - for stdin");
   const agent = flags.get("--as") ?? "";
   if (agent === "") usage("--as is required: it is the name the key is filed under");
+  if (!AGENT.test(agent)) {
+    usage("--as must match [a-z0-9][a-z0-9._-]{0,23} — no whitespace or control characters");
+  }
   return {
     source: rest[0] as string,
     agent,
