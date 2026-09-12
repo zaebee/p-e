@@ -1,4 +1,4 @@
-import type { RelayRecord } from "./store.js";
+import { type RelayRecord, byRecordId } from "./store.js";
 
 /**
  * Check what each record claims about its parent's bytes, and change nothing.
@@ -113,23 +113,21 @@ export function checkContinuity(
   store: ReadonlyMap<string, RelayRecord>,
   authority: string,
 ): ContinuityFinding[] {
-  return [...store.values()]
-    .sort((a, b) => (a.id < b.id ? -1 : 1))
-    .map((r) => {
-      // Resolved within this authority alone. The map holds one store, so a
-      // locator that names another authority's record does not resolve here and
-      // reports UNCHECKABLE — "a fact about this store's access" — which is the
-      // honest answer and the one ADR-2 leaves available.
-      const actual = r.parent === null ? null : (store.get(r.parent)?.sha256 ?? null);
-      return {
-        authority,
-        id: r.id,
-        parent: r.parent,
-        declared: r.parentSha256,
-        actual,
-        state: stateOf(r.parent, r.parentSha256, actual),
-      };
-    });
+  return [...store.values()].sort(byRecordId).map((r) => {
+    // Resolved within this authority alone. The map holds one store, so a
+    // locator that names another authority's record does not resolve here and
+    // reports UNCHECKABLE — "a fact about this store's access" — which is the
+    // honest answer and the one ADR-2 leaves available.
+    const actual = r.parent === null ? null : (store.get(r.parent)?.sha256 ?? null);
+    return {
+      authority,
+      id: r.id,
+      parent: r.parent,
+      declared: r.parentSha256,
+      actual,
+      state: stateOf(r.parent, r.parentSha256, actual),
+    };
+  });
 }
 
 /**

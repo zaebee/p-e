@@ -190,10 +190,14 @@ export function markerDir(root = STORE_ROOT): string {
  * defect here: collation is locale-dependent, and these are identifiers rather
  * than text.
  */
-function bySeq(a: string, b: string): number {
+export function bySeq(a: string, b: string): number {
   if (a < b) return -1;
   if (a > b) return 1;
   return 0;
+}
+
+export function byRecordId(a: RelayRecord, b: RelayRecord): number {
+  return bySeq(a.id, b.id);
 }
 
 /**
@@ -380,9 +384,7 @@ export function exists(store: Map<string, RelayRecord>, id: string): Presence {
 
 /** Records whose parent or ref is `id`. The reply graph is not a line. */
 export function listReplies(store: Map<string, RelayRecord>, id: string): RelayRecord[] {
-  return [...store.values()]
-    .filter((r) => r.parent === id || r.ref === id)
-    .sort((a, b) => (a.id < b.id ? -1 : 1));
+  return [...store.values()].filter((r) => r.parent === id || r.ref === id).sort(byRecordId);
 }
 
 /**
