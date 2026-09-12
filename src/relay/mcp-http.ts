@@ -591,7 +591,7 @@ export function createHttpServer(tokens: TokenTable): Server {
         // signature, stale timestamp, expired credential and a replayed
         // signature are one sentence — and so is "you did not sign a write".
         res.setHeader("www-authenticate", 'PE-HMAC realm="p-e relay"');
-        return send(res, 401, rpcError(null, -32001, "unauthorized"));
+        return send(res, 401, rpcError(taken.request.id, -32001, "unauthorized"));
       }
 
       // The quota is charged AFTER the signature verifies, so an unsigned

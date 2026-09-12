@@ -323,6 +323,8 @@ describe("the HTTP transport", () => {
     });
     expect(res.status).toBe(401);
     expect(res.headers.get("www-authenticate")).toBe('PE-HMAC realm="p-e relay"');
+    const json = (await res.json()) as { id: unknown; error: { message: string } };
+    expect(json.id).toBe(writeCall.id);
   });
 
   it("refuses every way of failing a write with the same sentence and header", async () => {
