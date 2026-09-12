@@ -1,4 +1,4 @@
-import type { RelayRecord } from "./store.js";
+import { type RelayRecord, byRecordId } from "./store.js";
 
 /**
  * Headers that fell into the prose, and the reason a checker exists for them.
@@ -49,19 +49,23 @@ const BLANK_LINE = "\n\n";
 /** Records whose headers fell below the blank line. Reads, changes nothing. */
 export function strandedHeaders(store: ReadonlyMap<string, RelayRecord>): StrandedHeader[] {
   const out: StrandedHeader[] = [];
-  for (const r of [...store.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))) {
+  for (const r of [...store.values()].sort(byRecordId)) {
     const at = r.bytes.indexOf(BLANK_LINE);
     if (at === -1) continue;
-    const block = r.bytes.slice(0, at);
+    // Both halves are compared the same way, by line prefix rather than by a
+    // regex built per name per record. `parent-sha256` would need escaping in a
+    // pattern and needs none here, and six constructed regexes across a
+    // thousand records buy nothing over a string comparison.
+    const block = r.bytes.slice(0, at).split("\n");
     const below = r.bytes
       .slice(at + BLANK_LINE.length)
       .split("\n")
       .slice(0, STRAND_WINDOW);
-    const stranded = READ_FROM_BLOCK.filter((name) => {
-      const inBlock = new RegExp(String.raw`^${name}:`, "m").test(block);
-      if (inBlock) return false;
-      return below.some((line) => line.startsWith(`${name}:`));
-    });
+    const startsHeader = (lines: string[], name: string): boolean =>
+      lines.some((line) => line.startsWith(`${name}:`));
+    const stranded = READ_FROM_BLOCK.filter(
+      (name) => !startsHeader(block, name) && startsHeader(below, name),
+    );
     if (stranded.length > 0) out.push({ id: r.id, stranded });
   }
   return out;
