@@ -98,7 +98,12 @@ export async function waitForRelay(
           const now = await readable(root);
           if (!now) return;
           const fresh = [...now.values()].filter(qualifies);
-          if (fresh.length > 0) done(fresh.sort(byRecordId), false);
+          if (fresh.length === 0) return;
+          // Sorted in its own statement rather than inside the call: `sort`
+          // mutates, and a mutation buried in an argument list reads as if it
+          // did not. Sonar S4043 on PR #215.
+          fresh.sort(byRecordId);
+          done(fresh, false);
         })();
       }, POLL_MS);
     });

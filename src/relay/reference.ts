@@ -149,6 +149,41 @@ function bySeq(a: string, b: string): number {
  * empty set and says so. The same shape was removed from `markerAgreement` one
  * review earlier and kept here by inattention.
  */
+/**
+ * Every id this record's prose names. The caller drops the record's own,
+ * which keeps the array copy out of the per-record path.
+ *
+ * Lifted out of `checkReferences` because Sonar measured that function at
+ * cognitive complexity 19 against a limit of 15 after PR #215 added branches to
+ * it. The scan is the branchy half and it is a separate question — what a
+ * record mentions — so it reads better with a name.
+ *
+ * `match`, and **not** `exec`. Sonar asks for `exec` here and it would be
+ * wrong: `ID_IN_TEXT` is a module constant carrying `g`, so `exec` advances its
+ * `lastIndex` and the next record starts scanning from wherever the last one
+ * stopped. Measured — two `exec` calls on one string return different hits.
+ * `match` on a global regex sets `lastIndex` to 0 itself, which is why it is
+ * safe here and `exec` is not.
+ *
+ * It replaced `[...matchAll(…)].map((m) => m[0])`, which is equally safe and
+ * allocates a `RegExpMatchArray` per hit. Measured over this store's 948
+ * records: 489ms → 336ms per 100 passes, about 31% off the extraction and
+ * roughly 1.5ms of `check-references`' ~78ms — real, and small.
+ */
+function idsInProse(r: RelayRecord): Iterable<string> {
+  const matches = prose(r.bytes).match(ID_IN_TEXT);
+  if (!matches) return [];
+  // One id needs no de-duplication, so the `Set` is skipped for it. Worth
+  // measuring rather than assuming: 109 of 1,110 records have exactly one id in
+  // their prose, 588 have several and 413 have none — so this path is taken
+  // under a tenth of the time and is not where the gain is.
+  // Returned as-is rather than copied. `[...hits].filter(...)` reads better and
+  // allocates an array per record, which is the allocation PR #215 removed:
+  // measured at 4.8ms with this shape and 5.8ms with the copy, so the caller
+  // does the one comparison instead.
+  return matches.length > 1 ? new Set(matches) : matches;
+}
+
 export function checkReferences(
   store: ReadonlyMap<string, RelayRecord>,
   bound: BoundIds,
@@ -163,33 +198,16 @@ export function checkReferences(
     else into.set(key, [value]);
   };
 
-  // Iterating pre-sorted `ids` directly avoids allocating and sorting `[...store.values()]` O(N log N).
+  // Iterating pre-sorted `ids` directly avoids allocating and sorting
+  // `[...store.values()]` — measured on 1,110 records at about 15% of this
+  // function, PR #215.
   for (const id of ids) {
     const r = store.get(id);
     if (!r) continue;
     if (r.parent) add(referencedBy, r.parent, r.id);
     if (r.ref) add(referencedBy, r.ref, r.id);
-    // `match`, and **not** `exec`. Sonar asks for `exec` here and it would be
-    // wrong: `ID_IN_TEXT` is a module constant carrying `g`, so `exec` advances
-    // its `lastIndex` and the next record starts scanning from wherever the last
-    // one stopped. Measured — two `exec` calls on one string return different
-    // hits. `match` on a global regex sets `lastIndex` to 0 itself, which is why
-    // it is safe here and `exec` is not.
-    //
-    // It replaced `[...matchAll(…)].map((m) => m[0])`, which is equally safe and
-    // allocates a `RegExpMatchArray` per hit. Measured over this store's 948
-    // records: 489ms → 336ms per 100 passes, about 31% off the extraction and
-    // roughly 1.5ms of `check-references`' ~78ms — real, and small.
-    const matches = prose(r.bytes).match(ID_IN_TEXT);
-    if (matches) {
-      // One id needs no de-duplication, so the `Set` is skipped for it. Worth
-      // measuring rather than assuming: 109 of 1,110 records have exactly one
-      // id in their prose, 588 have several and 413 have none — so this path
-      // is taken under a tenth of the time and is not where the gain is.
-      const hits = matches.length > 1 ? new Set(matches) : matches;
-      for (const hit of hits) {
-        if (hit !== r.id) add(mentionedBy, hit, r.id);
-      }
+    for (const hit of idsInProse(r)) {
+      if (hit !== r.id) add(mentionedBy, hit, r.id);
     }
   }
 
