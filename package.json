@@ -14,6 +14,7 @@
     "relay-mcp-http": "bun run src/relay/mcp-http.ts",
     "relay-put": "bun run scripts/put-relay.ts",
     "check-continuity": "bun run scripts/check-continuity.ts",
+    "check-headers": "bun run scripts/check-headers.ts",
     "check-references": "bun run scripts/check-references.ts",
     "relay-digest": "bun run scripts/relay-digest.ts",
     "conform:relay-lite": "bun run scripts/relay-lite-conformance.ts",
