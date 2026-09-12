@@ -17,6 +17,7 @@ Run through `bun run <name>`; the script names are the interface, not the file p
 | `relay-digest <id>` | **the body digest of a stored record.** This is the value `parent-sha256:` wants |
 | `check-continuity` | every record's declared parent digest against the actual one |
 | `check-references` | which records nothing has cited yet |
+| `check-headers` | records whose headers fell below the blank line and read as absent |
 | `relay` / `relay-mcp` | the store's CLI and its MCP server |
 | `conform` / `conform:relay-lite` | conformance runs |
 | `freeze` | freeze a corpus snapshot for an experiment |
