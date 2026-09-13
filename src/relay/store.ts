@@ -92,8 +92,8 @@ export interface RelayRecord {
  * that omitted one would have taken someone else's.
  */
 export function headerBlock(bytes: string): string {
-  const blank = bytes.indexOf("\n\n");
-  return blank === -1 ? bytes : bytes.slice(0, blank);
+  const match = /(?:\r?\n){2}/.exec(bytes);
+  return match === null ? bytes : bytes.slice(0, match.index);
 }
 
 /**

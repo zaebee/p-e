@@ -102,13 +102,10 @@ export interface ReferenceFinding {
  */
 const ID_IN_TEXT = new RegExp(String.raw`${ID_PREFIX}\d{${ID_DIGITS}}`, "g");
 
-/** What ends the header block. */
-const BLANK_LINE = "\n\n";
-
 /** Everything below the header block — the part a sender wrote as prose. */
 function prose(bytes: string): string {
-  const at = bytes.indexOf(BLANK_LINE);
-  return at === -1 ? "" : bytes.slice(at + BLANK_LINE.length);
+  const match = /(?:\r?\n){2}/.exec(bytes);
+  return match === null ? "" : bytes.slice(match.index + match[0].length);
 }
 
 /**
