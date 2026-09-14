@@ -46,26 +46,49 @@ export interface StrandedHeader {
 /** What divides a record's own header block from its prose. */
 const BLANK_LINE = "\n\n";
 
+/**
+ * Pre-computed line prefixes for each header name (e.g. "kind:", "\nkind:").
+ * Avoids dynamically creating prefix strings during header scanning.
+ */
+const HEADER_PREFIXES = READ_FROM_BLOCK.map((name) => [name, `${name}:`, `\n${name}:`] as const);
+
+/**
+ * Finds the end index of the first `maxLines` lines in `text` starting from `start`.
+ * Avoids `.split("\n").slice(0, maxLines)` string array allocations per record.
+ */
+function getStrandWindowEnd(text: string, start: number, maxLines: number): number {
+  let pos = start;
+  let lines = 0;
+  while (lines < maxLines && pos < text.length) {
+    const next = text.indexOf("\n", pos);
+    if (next === -1) return text.length;
+    pos = next + 1;
+    lines++;
+  }
+  return pos;
+}
+
 /** Records whose headers fell below the blank line. Reads, changes nothing. */
 export function strandedHeaders(store: ReadonlyMap<string, RelayRecord>): StrandedHeader[] {
   const out: StrandedHeader[] = [];
   for (const r of [...store.values()].sort(byRecordId)) {
     const at = r.bytes.indexOf(BLANK_LINE);
     if (at === -1) continue;
-    // Both halves are compared the same way, by line prefix rather than by a
-    // regex built per name per record. `parent-sha256` would need escaping in a
-    // pattern and needs none here, and six constructed regexes across a
-    // thousand records buy nothing over a string comparison.
-    const block = r.bytes.slice(0, at).split("\n");
-    const below = r.bytes
-      .slice(at + BLANK_LINE.length)
-      .split("\n")
-      .slice(0, STRAND_WINDOW);
-    const startsHeader = (lines: string[], name: string): boolean =>
-      lines.some((line) => line.startsWith(`${name}:`));
-    const stranded = READ_FROM_BLOCK.filter(
-      (name) => !startsHeader(block, name) && startsHeader(below, name),
-    );
+
+    const block = r.bytes.slice(0, at);
+    const belowEnd = getStrandWindowEnd(r.bytes, at + BLANK_LINE.length, STRAND_WINDOW);
+    const below = r.bytes.slice(at + BLANK_LINE.length, belowEnd);
+
+    const stranded: string[] = [];
+    for (const [name, prefix, nlPrefix] of HEADER_PREFIXES) {
+      // Both halves are compared by line prefix matching using startsWith/includes.
+      // A line starts with `${name}:` iff the section starts with `name:` or contains `\nname:`.
+      const inBlock = block.startsWith(prefix) || block.includes(nlPrefix);
+      if (!inBlock) {
+        const inBelow = below.startsWith(prefix) || below.includes(nlPrefix);
+        if (inBelow) stranded.push(name);
+      }
+    }
     if (stranded.length > 0) out.push({ id: r.id, stranded });
   }
   return out;
