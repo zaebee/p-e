@@ -102,6 +102,17 @@ describe("where the header block ends", () => {
   it("ends at the first blank line, not the widest", () => {
     expect(headerBlock(`${head}\n\n\r\n\r\nbody\n`)).toBe(head);
   });
+
+  it("reads fields by the same rule, so a bare CR does not start one", async () => {
+    // `header()` was `^field:(.*)$` under `m`, where a lone `\r` or U+2028 also
+    // breaks a line. The value now runs to the real line ending, and a value
+    // carrying a CR is refused as unparseable like any other whitespace in it.
+    const root = scratch({
+      "relay-0001":
+        "deposited-by: tester\nprovenance: authored\n---\n@p-e/x0\nfrom: alice\rkind: decision\n\ntext\n",
+    });
+    await expect(loadStore(root)).rejects.toThrow(/`from:` is present and unparseable/);
+  });
 });
 
 describe("relay store", () => {

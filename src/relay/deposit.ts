@@ -6,6 +6,7 @@ import {
   ID_DIGITS,
   ID_PREFIX,
   STORE_ROOT,
+  fieldValue,
   headerBlock,
   loadStore,
   markerDir,
@@ -337,6 +338,25 @@ async function deposit(
 }
 
 /** The part of a deposit that runs once the id is settled and its marker held. */
+/**
+ * The header block of what this deposit will store.
+ *
+ * The store keeps `trimStart()` of the bytes it is given, and every check here
+ * used to read the untrimmed input. A leading blank line put the blank at offset
+ * 0, so each check saw an empty block while the stored record carried the headers
+ * none of them had read: a declared `id:` the store would not assign, a
+ * `PLACEHOLDER` digest, a wrong digest reported as `NO_CLAIM`. Open for `\n\n`
+ * before PR #225, widened by its CRLF repair, found by attacking that repair.
+ */
+function storedHead(bytes: string): string {
+  return headerBlock(bytes.trimStart());
+}
+
+/** A field that is one token, or undefined when it is absent or is not one. */
+function token(raw: string | undefined): string | undefined {
+  return raw === undefined ? undefined : /^\s*(\S+)\s*$/.exec(raw)?.[1];
+}
+
 async function write(
   bytes: string,
   depositedBy: string,
@@ -351,7 +371,7 @@ async function write(
   // this path had not: a body quoting `id: relay-0007` was refused as though the record
   // declared it, and a body quoting `from:` fabricated an `authored` provenance for a
   // record whose header names no sender. Audit-03 F4, reproduced before fixing.
-  const declared = /^id:\s*(\S+)\s*$/m.exec(headerBlock(bytes))?.[1];
+  const declared = token(fieldValue(storedHead(bytes), "id"));
   if (declared !== undefined && declared !== id) {
     throw new Error(`the record declares id: ${declared} and would be stored as ${id}`);
   }
@@ -476,12 +496,12 @@ async function commit(root: string, path: string, text: string): Promise<void> {
  * function does.
  */
 function checkParent(bytes: string, held: ReadonlyMap<string, { readonly sha256: string }>) {
-  const head = headerBlock(bytes);
-  const raw = /^parent:(.*)$/m.exec(head)?.[1]?.trim();
+  const head = storedHead(bytes);
+  const raw = fieldValue(head, "parent")?.trim();
   // `none` is the reserved word for the absence of a link — `store.ts:124` reads
   // it as null, and so must this.
   const parent = raw === undefined || raw === "none" ? null : raw;
-  const declared = /^parent-sha256:(.*)$/m.exec(head)?.[1]?.trim() ?? null;
+  const declared = fieldValue(head, "parent-sha256")?.trim() ?? null;
   return stateOf(parent, declared, parent === null ? null : (held.get(parent)?.sha256 ?? null));
 }
 
@@ -518,7 +538,7 @@ const DIGEST = /^[0-9a-f]{64}$/;
  * is a claim; omission is not.
  */
 function refuseNonDigest(bytes: string): void {
-  const declared = /^parent-sha256:(.*)$/m.exec(headerBlock(bytes))?.[1]?.trim();
+  const declared = fieldValue(storedHead(bytes), "parent-sha256")?.trim();
   if (declared === undefined || DIGEST.test(declared)) return;
   // One template rather than a concatenation, so the sentence a depositor reads
   // is one string in the source too. The second half is the load-bearing half:
@@ -564,7 +584,7 @@ export async function depositLocal(
   proposedId?: string,
   root = STORE_ROOT,
 ): Promise<DepositResult> {
-  const from = /^from:\s*(\S+)\s*$/m.exec(headerBlock(bytes))?.[1];
+  const from = token(fieldValue(storedHead(bytes), "from"));
   return deposit(
     bytes,
     depositor,

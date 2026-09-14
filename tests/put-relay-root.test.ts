@@ -100,6 +100,27 @@ describe("relay-put --root", () => {
     }
   });
 
+  it("does not check a parent digest quoted in the body", () => {
+    // `checkParentDigest` read `/^parent:…$/m` over the whole record, so a body
+    // quoting another record's parent headers refused a deposit that names no
+    // parent. Audit-03 F4's class, left in this script; found by attacking PR #225's
+    // repair.
+    const root = mkdtempSync(join(tmpdir(), "pr-root-"));
+    const src = mkdtempSync(join(tmpdir(), "pr-src-"));
+    try {
+      const quoting = `@p-e/x0\nfrom: bob\nkind: note\n\nquoting another record:\nparent: relay-0001\nparent-sha256: ${"0".repeat(64)}\n`;
+      const input = join(src, "in.txt");
+      writeFileSync(input, quoting);
+
+      const out = put([input, "--root", root]);
+      expect(out.stderr).not.toContain("parent-sha256 does not match");
+      expect(out.status).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a flag with no value rather than taking the next argument", () => {
     const out = put(["--root"]);
     expect(out.status).toBe(1);

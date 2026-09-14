@@ -291,6 +291,66 @@ describe("header-like lines quoted in a body", () => {
     expect(stored?.provenance).toBe("authored");
     expect(stored?.kind).toBe("note");
   });
+
+  // Found by attacking the CRLF repair. A line that is neither LF nor CRLF was a
+  // line break to every `/^field:…$/m` here, so a record with no blank line under
+  // the store's rule still had its quoted `from:` read as a field.
+  it.each([
+    ["bare CR", "\r"],
+    ["U+2028", "\u2028"],
+  ])("does not fabricate `authored` from a record broken with %s", async (_, sep) => {
+    const root = scratch();
+    const r = await depositLocal(
+      quoting("from: claude", "to: b\nkind: note").replaceAll("\n", sep),
+      "claude",
+      undefined,
+      root,
+    );
+    const stored = (await loadStore(root)).get(r.id);
+    expect(stored?.provenance).toBe("as-received");
+    expect(stored?.from).toBeNull();
+  });
+});
+
+describe("a blank line before @p-e/x0", () => {
+  // The store keeps `trimStart()` of what it is given, and the checks read the
+  // untrimmed input — so a leading blank line put the blank at offset 0, every
+  // check saw an empty header block, and the stored record carried the headers
+  // none of them had read. Open for `\n\n` before PR #225; the CRLF repair
+  // widened it to `\r\n\r\n` and `\n\r\n`. Found by attacking that repair.
+  const leads = [
+    ["LF", "\n\n"],
+    ["CRLF", "\r\n\r\n"],
+    ["LF then CRLF", "\n\r\n"],
+  ];
+
+  it.each(leads)("still refuses a declared id the store will not assign (%s)", async (_, lead) => {
+    const root = scratch();
+    await expect(appendRelay(`${lead}${body("relay-0009")}`, undefined, root)).rejects.toThrow(
+      /declares id: relay-0009/,
+    );
+  });
+
+  it.each(leads)("still refuses a parent-sha256 that is not a digest (%s)", async (_, lead) => {
+    const root = scratch();
+    const placeholder =
+      "@p-e/x0\nfrom: a\nparent: relay-0001\nparent-sha256: PLACEHOLDER\n\nbody\n";
+    await expect(appendRelay(`${lead}${placeholder}`, undefined, root)).rejects.toThrow(
+      /must be 64 lowercase hex/,
+    );
+  });
+
+  it.each(leads)("still reports a wrong parent digest as DIVERGES (%s)", async (_, lead) => {
+    const root = scratch();
+    const wrong = `@p-e/x0\nfrom: a\nparent: relay-0001\nparent-sha256: ${"0".repeat(64)}\n\nbody\n`;
+    expect((await appendRelay(`${lead}${wrong}`, undefined, root)).parentCheck).toBe("DIVERGES");
+  });
+
+  it.each(leads)("still reads the depositor's own from: as authored (%s)", async (_, lead) => {
+    const root = scratch();
+    const r = await depositLocal(`${lead}${body("relay-0002")}`, "chatgpt", undefined, root);
+    expect((await loadStore(root)).get(r.id)?.provenance).toBe("authored");
+  });
 });
 
 // F1, audit-03: the title promises G2a — the binding survives a crash — and no MUST

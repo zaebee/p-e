@@ -124,6 +124,25 @@ export function firstBlankLine(
 }
 
 /**
+ * What follows `name:` on the first header-block line that starts with it, or
+ * undefined when no line does. Lines end where `firstBlankLine` says they do.
+ *
+ * Every field used to be read with `/^name:…$/m`, and under `m` a JavaScript
+ * `^`/`$` also breaks at a bare CR and at U+2028/U+2029. So a record with no
+ * blank line by the store's rule — its whole body header block — still had a
+ * quoted `from:` read as a field, and a CR-only record could deposit as
+ * `authored`. Found by attacking the CRLF repair; both are ADR-4's.
+ */
+export function fieldValue(head: string, name: string): string | undefined {
+  const prefix = `${name}:`;
+  for (const line of head.split("\n")) {
+    const text = line.endsWith("\r") ? line.slice(0, -1) : line;
+    if (text.startsWith(prefix)) return text.slice(prefix.length);
+  }
+  return undefined;
+}
+
+/**
  * One header, or null when the line is absent.
  *
  * A malformed line **throws** rather than reading as absent. The old regex
@@ -141,9 +160,9 @@ export function firstBlankLine(
  * not distinguished, and nothing currently depends on distinguishing them.
  */
 function header(head: string, field: string): string | null {
-  const line = new RegExp(`^${field}:(.*)$`, "m").exec(head);
-  if (!line) return null;
-  const value = (line[1] ?? "").trim();
+  const raw = fieldValue(head, field);
+  if (raw === undefined) return null;
+  const value = raw.trim();
   if (value === "") throw new Error(`header \`${field}:\` is present and empty`);
   if (/\s/.test(value)) {
     throw new Error(`header \`${field}:\` is present and unparseable: ${JSON.stringify(value)}`);
