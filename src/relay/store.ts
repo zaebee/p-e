@@ -113,8 +113,22 @@ export function headerBlock(bytes: string): string {
  * no reference, which this returns as null alongside an absent line. The two are
  * not distinguished, and nothing currently depends on distinguishing them.
  */
+/** Cache for header line RegExp instances to avoid re-compiling per record header check. */
+const HEADER_REGEX_CACHE = new Map<string, RegExp>();
+
+function getHeaderRegex(field: string): RegExp {
+  let re = HEADER_REGEX_CACHE.get(field);
+  if (!re) {
+    re = new RegExp(`^${field}:(.*)$`, "m");
+    HEADER_REGEX_CACHE.set(field, re);
+  }
+  return re;
+}
+
 function header(head: string, field: string): string | null {
-  const line = new RegExp(`^${field}:(.*)$`, "m").exec(head);
+  // Reusing pre-compiled RegExp instances per field avoids ~6,660 dynamic RegExp allocations
+  // and pattern compilations per loadStore execution over 1,110+ store records.
+  const line = getHeaderRegex(field).exec(head);
   if (!line) return null;
   const value = (line[1] ?? "").trim();
   if (value === "") throw new Error(`header \`${field}:\` is present and empty`);
