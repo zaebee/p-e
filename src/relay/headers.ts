@@ -43,23 +43,21 @@ export interface StrandedHeader {
   readonly stranded: readonly string[];
 }
 
-/** What divides a record's own header block from its prose. */
-const BLANK_LINE = "\n\n";
-
 /** Records whose headers fell below the blank line. Reads, changes nothing. */
 export function strandedHeaders(store: ReadonlyMap<string, RelayRecord>): StrandedHeader[] {
   const out: StrandedHeader[] = [];
   for (const r of [...store.values()].sort(byRecordId)) {
-    const at = r.bytes.indexOf(BLANK_LINE);
-    if (at === -1) continue;
+    const match = /(?:\r?\n){2}/.exec(r.bytes);
+    if (!match) continue;
+    const at = match.index;
     // Both halves are compared the same way, by line prefix rather than by a
     // regex built per name per record. `parent-sha256` would need escaping in a
     // pattern and needs none here, and six constructed regexes across a
     // thousand records buy nothing over a string comparison.
-    const block = r.bytes.slice(0, at).split("\n");
+    const block = r.bytes.slice(0, at).split(/\r?\n/);
     const below = r.bytes
-      .slice(at + BLANK_LINE.length)
-      .split("\n")
+      .slice(at + match[0].length)
+      .split(/\r?\n/)
       .slice(0, STRAND_WINDOW);
     const startsHeader = (lines: string[], name: string): boolean =>
       lines.some((line) => line.startsWith(`${name}:`));

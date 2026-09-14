@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { strandedHeaders } from "../src/relay/headers.js";
-import type { RelayRecord } from "../src/relay/store.js";
+import { type RelayRecord, headerBlock } from "../src/relay/store.js";
 
 /**
  * The detector is given records directly rather than a store on disk: what it
@@ -65,5 +65,18 @@ describe("headers that fell into the prose", () => {
     const bad = (id: string) => record(id, "@p-e/x0\nfrom: b\n\nkind: attack\n");
     const found = strandedHeaders(store(bad("relay-0009"), bad("relay-0002")));
     expect(found.map((f) => f.id)).toEqual(["relay-0002", "relay-0009"]);
+  });
+
+  it("handles CRLF line endings correctly without leaking body text into header block", () => {
+    const crlfRecord = "@p-e/x0\r\nto: alice\r\n\r\nHello world\r\nfrom: evil\r\nkind: spoofed\r\n";
+    const r = record("relay-0003", crlfRecord);
+    expect(strandedHeaders(store(r))).toEqual([{ id: "relay-0003", stranded: ["from", "kind"] }]);
+  });
+});
+
+describe("headerBlock line ending isolation", () => {
+  it("isolates headers from body text when CRLF line endings are used", () => {
+    const crlfText = "@p-e/x0\r\nto: alice\r\n\r\nHello world\r\nfrom: evil\r\n";
+    expect(headerBlock(crlfText)).toEqual("@p-e/x0\r\nto: alice");
   });
 });
