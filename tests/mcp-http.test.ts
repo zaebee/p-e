@@ -21,6 +21,7 @@ import {
 } from "../src/relay/mcp-http.js";
 import * as mcp from "../src/relay/mcp.js";
 import { handle } from "../src/relay/mcp.js";
+import { runScript } from "./spawn-script.js";
 
 const KEY = "0123456789abcdef0123456789abcdef";
 const OTHER = "fedcba9876543210fedcba9876543210";
@@ -39,6 +40,18 @@ function empty(): string {
 }
 
 const body = (id: string) => `@p-e/x0\nid: ${id}\nfrom: probe\nkind: probe\n\nscratch\n`;
+
+describe("mcp-deposit script agent validation", () => {
+  it("refuses an agent name containing control characters, newlines, or bad format", () => {
+    for (const badAgent of ["bad\r\nagent", "bad agent", "../evil", "AGENT", "a".repeat(25)]) {
+      const res = runScript("mcp-deposit.ts", {
+        args: ["record.txt", "--as", badAgent],
+      });
+      expect(res.status).toBe(2);
+      expect(res.stderr).toContain("--as must match [a-z0-9][a-z0-9._-]{0,23}");
+    }
+  });
+});
 
 describe("parseTokens", () => {
   it("maps a key to mcp/<agent> and keeps the key, which HMAC needs", () => {

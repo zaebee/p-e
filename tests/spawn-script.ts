@@ -103,15 +103,23 @@ export interface RunOptions {
    * and returned 0. The distinction these tests are about, in their own harness.
    */
   readonly identity?: string | null;
+  /** Additional positional or flag arguments to pass to the script. */
+  readonly args?: readonly string[];
 }
 
 /** The identity a case uses when it is not the subject of the case. */
 export const TEST_AUTHORITY = "p-e/relay-under-test";
 
 export function runScript(name: string, options: RunOptions = {}) {
-  const { root, identity = TEST_AUTHORITY } = options;
+  const { root, identity = TEST_AUTHORITY, args: extraArgs = [] } = options;
   const script = join(import.meta.dirname, "..", "scripts", name);
-  const args = ["--no-env-file", "run", script, ...(root === undefined ? [] : ["--root", root])];
+  const args = [
+    "--no-env-file",
+    "run",
+    script,
+    ...(root === undefined ? [] : ["--root", root]),
+    ...extraArgs,
+  ];
   const env: NodeJS.ProcessEnv = Object.fromEntries(
     Object.entries(process.env).filter(([key]) => key !== "P_E_STORE_IDENTITY"),
   );
