@@ -122,6 +122,21 @@ describe("checkReferences", () => {
     expect(f?.mentionedBy).toEqual([]);
   });
 
+  it("finds the prose of a CRLF record, and only its prose", async () => {
+    // `prose()` looked for `\n\n` alone and returned nothing for a CRLF record,
+    // so every id cited in its body went uncounted.
+    const crlf = (text: string) => text.replaceAll("\n", "\r\n");
+    const root = store({
+      "relay-0001": plain("relay-0001"),
+      "relay-0002": plain("relay-0002"),
+      "relay-0003": crlf(plain("relay-0003", "parent: relay-0002\n", "as relay-0001 showed")),
+      "relay-0004": plain("relay-0004"),
+    });
+    const found = await refs(root);
+    expect(found.find((x) => x.id === "relay-0001")?.mentionedBy).toEqual(["relay-0003"]);
+    expect(found.find((x) => x.id === "relay-0002")?.mentionedBy).toEqual([]);
+  });
+
   it("counts successors so a reader can judge how much silence means", async () => {
     const root = store({
       "relay-0001": plain("relay-0001"),

@@ -1,4 +1,4 @@
-import { type RelayRecord, byRecordId } from "./store.js";
+import { type RelayRecord, byRecordId, firstBlankLine } from "./store.js";
 
 /**
  * Headers that fell into the prose, and the reason a checker exists for them.
@@ -43,9 +43,6 @@ export interface StrandedHeader {
   readonly stranded: readonly string[];
 }
 
-/** What divides a record's own header block from its prose. */
-const BLANK_LINE = "\n\n";
-
 /**
  * Pre-computed line prefixes for each header name (e.g. "kind:", "\nkind:").
  * Avoids dynamically creating prefix strings during header scanning.
@@ -72,12 +69,13 @@ function getStrandWindowEnd(text: string, start: number, maxLines: number): numb
 export function strandedHeaders(store: ReadonlyMap<string, RelayRecord>): StrandedHeader[] {
   const out: StrandedHeader[] = [];
   for (const r of [...store.values()].sort(byRecordId)) {
-    const at = r.bytes.indexOf(BLANK_LINE);
-    if (at === -1) continue;
+    const blank = firstBlankLine(r.bytes);
+    if (blank === null) continue;
 
-    const block = r.bytes.slice(0, at);
-    const belowEnd = getStrandWindowEnd(r.bytes, at + BLANK_LINE.length, STRAND_WINDOW);
-    const below = r.bytes.slice(at + BLANK_LINE.length, belowEnd);
+    // Line prefixes still work on CRLF: every line after the first follows an LF.
+    const block = r.bytes.slice(0, blank.start);
+    const belowEnd = getStrandWindowEnd(r.bytes, blank.end, STRAND_WINDOW);
+    const below = r.bytes.slice(blank.end, belowEnd);
 
     const stranded: string[] = [];
     for (const [name, prefix, nlPrefix] of HEADER_PREFIXES) {

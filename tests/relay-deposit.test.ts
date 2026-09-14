@@ -261,6 +261,36 @@ describe("header-like lines quoted in a body", () => {
     expect(stored?.provenance).toBe("as-received");
     expect(stored?.from).toBeNull();
   });
+
+  // Both defects again, through CRLF. `headerBlock` found no `\n\n` in a CRLF
+  // record, so the whole body was scanned — and `\s*$` swallows the `\r`, so the
+  // quoted values matched exactly. Reproduced before the fix (PR #225).
+  const crlf = (text: string) => text.replaceAll("\n", "\r\n");
+
+  it("does not read a quoted id: as the declaration in a CRLF record", async () => {
+    const root = scratch();
+    const r = await appendRelay(crlf(quoting("id: relay-0007")), undefined, root);
+    expect(r.id).toBe("relay-0002");
+  });
+
+  it("does not fabricate `authored` from a quoted from: in a CRLF record", async () => {
+    const root = scratch();
+    const r = await depositLocal(
+      crlf(quoting("from: claude", "to: b\nkind: note\ndate: 2026-08-29")),
+      "claude",
+      undefined,
+      root,
+    );
+    expect((await loadStore(root)).get(r.id)?.provenance).toBe("as-received");
+  });
+
+  it("still reads a CRLF record's own from: as authored", async () => {
+    const root = scratch();
+    const r = await depositLocal(crlf(quoting("nothing header-like")), "a", undefined, root);
+    const stored = (await loadStore(root)).get(r.id);
+    expect(stored?.provenance).toBe("authored");
+    expect(stored?.kind).toBe("note");
+  });
 });
 
 // F1, audit-03: the title promises G2a — the binding survives a crash — and no MUST

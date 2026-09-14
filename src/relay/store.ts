@@ -92,8 +92,35 @@ export interface RelayRecord {
  * that omitted one would have taken someone else's.
  */
 export function headerBlock(bytes: string): string {
-  const blank = bytes.indexOf("\n\n");
-  return blank === -1 ? bytes : bytes.slice(0, blank);
+  const blank = firstBlankLine(bytes);
+  return blank === null ? bytes : bytes.slice(0, blank.start);
+}
+
+/**
+ * A line ends at LF, and a CR immediately before that LF belongs to the ending
+ * rather than to the line. So `\n\n`, `\r\n\r\n` and both mixed forms are a line
+ * with nothing in it; a line carrying anything else — a space, a tab, a bare CR —
+ * is not blank.
+ *
+ * This was `indexOf("\n\n")` in three files, which gave a CRLF record no blank
+ * line at all: its whole body was header block, while `header()`'s `$` already
+ * stopped before the `\r` and read quoted values back clean. A quoted `from:`
+ * made a CRLF deposit `authored` — Audit-03 F4 again, by another route (Jules,
+ * PR #225). The reading is a choice the amendment leaves open, and ADR-4 says
+ * which one it sets aside.
+ */
+const BLANK_LINE = /\r?\n\r?\n/;
+
+/**
+ * The first blank line: `start` is where the header block ends, `end` where the
+ * prose begins. Null when there is none. The one place the boundary is decided —
+ * `headers.ts` and `reference.ts` ask here rather than each keeping a copy.
+ */
+export function firstBlankLine(
+  bytes: string,
+): { readonly start: number; readonly end: number } | null {
+  const match = BLANK_LINE.exec(bytes);
+  return match === null ? null : { start: match.index, end: match.index + match[0].length };
 }
 
 /**

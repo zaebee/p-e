@@ -61,6 +61,16 @@ describe("headers that fell into the prose", () => {
     expect(strandedHeaders(store(r))[0]?.stranded).toEqual(["to", "parent", "kind"]);
   });
 
+  it("reads a CRLF record's blank line as a blank line", () => {
+    // Before PR #225 a CRLF record had no `\n\n`, was skipped, and could not be
+    // reported however its headers fell.
+    const r = record(
+      "relay-0003",
+      "@p-e/x0\r\nto: a\r\nfrom: b\r\n\r\nkind: attack\r\n\r\nbody\r\n",
+    );
+    expect(strandedHeaders(store(r))).toEqual([{ id: "relay-0003", stranded: ["kind"] }]);
+  });
+
   it("sorts by id, so two runs over one store read the same", () => {
     const bad = (id: string) => record(id, "@p-e/x0\nfrom: b\n\nkind: attack\n");
     const found = strandedHeaders(store(bad("relay-0009"), bad("relay-0002")));
