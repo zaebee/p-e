@@ -351,6 +351,8 @@ describe("the HTTP transport", () => {
       await signed(writeCall, { key: OTHER }),
       await signed(writeCall, { agent: "nobody" }),
       await signed(writeCall, { ts: stale }),
+      await signed(writeCall, { ts: 999999999999999 }),
+      await signed(writeCall, { ts: -10 }),
     ];
     for (const res of refusals) {
       expect(res.status).toBe(401);

@@ -284,7 +284,9 @@ function presented(req: IncomingMessage): Presented | undefined {
   if (typeof header !== "string") return undefined;
   const m = AUTHORIZATION.exec(header.trim());
   if (!m) return undefined;
-  return { agent: m[1] as string, ts: Number(m[2]), sig: m[3] as string };
+  const ts = Number(m[2]);
+  if (!Number.isSafeInteger(ts) || ts <= 0) return undefined;
+  return { agent: m[1] as string, ts, sig: m[3] as string };
 }
 
 /** What the client signed: the method, the moment, and the bytes. */
