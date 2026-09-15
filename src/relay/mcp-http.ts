@@ -438,7 +438,9 @@ function channelFor(
   const credential = tokens.byAgent.get(claim.agent);
   const key = credential?.key ?? "no such agent, and this string is not one";
   const want = sign(key, req.method ?? "", claim.ts, body);
-  const ok = timingSafeEqual(Buffer.from(want, "hex"), Buffer.from(claim.sig, "hex"));
+  const wantBuf = Buffer.from(want, "hex");
+  const gotBuf = Buffer.from(claim.sig, "hex");
+  const ok = wantBuf.length === gotBuf.length && timingSafeEqual(wantBuf, gotBuf);
   if (!ok || !credential) return undefined;
 
   if (Math.abs(now - claim.ts * 1000) > SKEW_MS) return undefined;
