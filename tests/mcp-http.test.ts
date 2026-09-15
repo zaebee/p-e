@@ -329,6 +329,19 @@ describe("the HTTP transport", () => {
     expect(res.status).toBe(401);
   });
 
+  it("handles signatures of invalid length or malformed hex timing-safely without throwing", async () => {
+    const ts = Math.floor(Date.now() / 1000);
+    const shortSig = "1234567890abcdef";
+    const res = await post({
+      headers: {
+        authorization: `PE-HMAC agent=zcode, ts=${ts}, sig=${shortSig}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(writeCall),
+    });
+    expect(res.status).toBe(401);
+  });
+
   it("refuses an unsigned write", async () => {
     const res = await post({
       headers: { "content-type": "application/json" },
