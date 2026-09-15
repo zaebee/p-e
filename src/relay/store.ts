@@ -97,6 +97,22 @@ export function headerBlock(bytes: string): string {
 }
 
 /**
+ * Cached header regular expressions by field name.
+ * Avoids re-compiling dynamic `new RegExp("^" + field + ":(.*)$", "m")` instances
+ * on every record field lookup (6+ calls per record across ~1,100 store files).
+ */
+const HEADER_REGEXES = new Map<string, RegExp>();
+
+function getHeaderRegex(field: string): RegExp {
+  let re = HEADER_REGEXES.get(field);
+  if (!re) {
+    re = new RegExp(`^${field}:(.*)$`, "m");
+    HEADER_REGEXES.set(field, re);
+  }
+  return re;
+}
+
+/**
  * One header, or null when the line is absent.
  *
  * A malformed line **throws** rather than reading as absent. The old regex
@@ -114,7 +130,7 @@ export function headerBlock(bytes: string): string {
  * not distinguished, and nothing currently depends on distinguishing them.
  */
 function header(head: string, field: string): string | null {
-  const line = new RegExp(`^${field}:(.*)$`, "m").exec(head);
+  const line = getHeaderRegex(field).exec(head);
   if (!line) return null;
   const value = (line[1] ?? "").trim();
   if (value === "") throw new Error(`header \`${field}:\` is present and empty`);
@@ -270,6 +286,11 @@ export async function markerAgreement(
 /** What divides the store's own deposit header from the record as it arrived. */
 const DEPOSIT_SEPARATOR = "\n---\n";
 
+/** Static deposit header regexes hoisted out of parse() to avoid re-instantiation per record. */
+const PROVENANCE_RE = /^provenance:\s*(\S+)\s*$/m;
+const DEPOSITED_BY_RE = /^deposited-by:\s*(\S+)/m;
+const ASSIGNED_ID_RE = /^assigned-id:\s*(\S+)\s*$/m;
+
 function parse(id: string, raw: string): RelayRecord {
   // The first line is a deposit header this store writes; the rest is the
   // record as it was given, byte for byte.
@@ -281,20 +302,20 @@ function parse(id: string, raw: string): RelayRecord {
   // used to parse as `as-received` — turning "the depositor did not say" into
   // "these bytes came through a transport and may differ from what the sender
   // emitted", a specific fidelity claim invented out of silence.
-  const declared = /^provenance:\s*(\S+)\s*$/m.exec(meta)?.[1];
+  const declared = PROVENANCE_RE.exec(meta)?.[1];
   if (declared !== "authored" && declared !== "as-received") {
     throw new Error(
       `${id}: deposit header must declare provenance as authored or as-received, got ${JSON.stringify(declared)}`,
     );
   }
   const provenance = declared;
-  const depositedBy = /^deposited-by:\s*(\S+)/m.exec(meta)?.[1] ?? "unknown";
+  const depositedBy = DEPOSITED_BY_RE.exec(meta)?.[1] ?? "unknown";
   // The id lives in the filename and, since relay-0141, in the deposit header
   // too. Where both exist they must agree: a file renamed after deposit would
   // otherwise silently change which record these bytes are. Absent on the ~90
   // records deposited before the header existed, which is why disagreement is
   // an error and absence is not.
-  const assigned = /^assigned-id:\s*(\S+)\s*$/m.exec(meta)?.[1];
+  const assigned = ASSIGNED_ID_RE.exec(meta)?.[1];
   if (assigned !== undefined && assigned !== id) {
     throw new Error(
       `${id}: the deposit header says this record is ${assigned}. One of the two is a rename.`,
