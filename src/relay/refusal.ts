@@ -36,14 +36,24 @@ export const REFUSED_UNREADABLE = 2;
 export const REFUSED_UNIDENTIFIED = 3;
 
 /**
- * A store was named where a mirror belongs, or a mirror where the store does.
+ * The directories a command needs were not named as it needs them: a store where
+ * the git copy belongs or the copy where the store does, a `PE_STORE_ROOT` that is
+ * missing or malformed, a flag without its value.
  *
- * `relay-sync` writes into a git mirror and reads the live store. Run the other
- * way round it would write into a store from outside it, or compare a copy with
- * itself and report agreement. Neither is a finding about a record, and neither
- * is an unreadable store: the directories read fine and are the wrong ones.
+ * `relay-sync` writes into the git copy and reads the live store. Run the other
+ * way round it would write into a store from outside it, or read a copy as the
+ * store. None of this is a finding about a record, and none is an unreadable
+ * store: nothing was read, because what to read was not settled.
  */
 export const REFUSED_WRONG_ROLE = 4;
+
+/**
+ * A sync started copying and stopped: a copy failed partway. Everything copied
+ * before the failure stays, and the command lists it and names the file that
+ * failed. Not `1`, which says the store and its copy disagree — this says nothing
+ * about either, only that the work is unfinished and a rerun will continue it.
+ */
+export const REFUSED_INCOMPLETE = 5;
 
 /**
  * Print a refusal and leave, without ever looking like a finding.
