@@ -662,12 +662,14 @@ export function describeCredential(credential: Credential, options: { now?: numb
 export async function serveHttp(
   port = Number(process.env.PE_MCP_HTTP_PORT ?? DEFAULT_PORT),
 ): Promise<Server> {
-  // The root every tool call will use, checked before the credentials so a
-  // service pointed at a git working tree says that and not something about
-  // tokens. Every deposit would refuse anyway; this refuses once, at start.
+  // The root every tool call will use. A store inside a git working tree is
+  // warned about and still served: deposits into it refuse on their own, and
+  // refusing to start would take reads down too — including after an unattended
+  // restart (`Restart=on-failure`, a reboot) that loads newer code than the
+  // deployment was prepared for.
   const root = storeRoot();
   const problem = writeProblem(root);
-  if (problem !== null) throw new Error(`refusing to serve: ${problem}`);
+  if (problem !== null) console.error(`WARNING, serving read-only in effect: ${problem}`);
   const tokens = loadTokens();
   const server = createHttpServer(tokens);
   await new Promise<void>((resolve) => server.listen(port, HOST, resolve));

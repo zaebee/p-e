@@ -362,12 +362,9 @@ export async function serve(): Promise<void> {
 }
 
 if (import.meta.main) {
-  // The stdio server writes too. Refuse a store inside a git working tree here as
-  // the HTTP service does, rather than start and then refuse every deposit.
+  // Warned about as the HTTP service does, not refused: a tunnel launches this
+  // server from the repository, and reads must survive a store it may not write.
   const problem = writeProblem(storeRoot());
-  if (problem !== null) {
-    console.error(`refusing to serve: ${problem}`);
-    process.exit(1);
-  }
+  if (problem !== null) console.error(`WARNING, serving read-only in effect: ${problem}`);
   await serve();
 }

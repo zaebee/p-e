@@ -4,12 +4,13 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { appendRelay, depositLocal } from "../src/relay/deposit.js";
 import { gitWorkTreeOf, storeRootFrom, writeProblem } from "../src/relay/store.js";
 
@@ -28,11 +29,22 @@ import { gitWorkTreeOf, storeRootFrom, writeProblem } from "../src/relay/store.j
  */
 
 const src = join(import.meta.dirname, "..", "src", "relay");
+
+/** Every scratch directory made here, removed at the end so a run leaves none behind. */
+const made: string[] = [];
+function temp(prefix: string): string {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  made.push(dir);
+  return dir;
+}
+afterAll(() => {
+  for (const dir of made) rmSync(dir, { recursive: true, force: true });
+});
 const body = "@p-e/x0\nfrom: a\nkind: note\n\nbody\n";
 
 /** A scratch store, optionally inside a scratch git working tree of either kind. */
 function scratch(git: "none" | "clone" | "worktree" = "none"): string {
-  const top = mkdtempSync(join(tmpdir(), "p-e-root-"));
+  const top = temp("p-e-root-");
   if (git === "clone") mkdirSync(join(top, ".git"));
   if (git === "worktree") writeFileSync(join(top, ".git"), "gitdir: /elsewhere/.git/worktrees/x\n");
   const root = join(top, "relay");
@@ -46,7 +58,7 @@ function child(code: string, storeRoot: string | undefined, extraEnv: NodeJS.Pro
   );
   if (storeRoot !== undefined) env.PE_STORE_ROOT = storeRoot;
   return spawnSync("bun", ["--no-env-file", "-e", code], {
-    cwd: mkdtempSync(join(tmpdir(), "p-e-cwd-")),
+    cwd: temp("p-e-cwd-"),
     env: { ...env, ...extraEnv },
     encoding: "utf8",
   });
@@ -95,7 +107,7 @@ describe("PE_STORE_ROOT", () => {
   it("does not stop a script given --root when the variable is bad", () => {
     const script = join(import.meta.dirname, "..", "scripts", "check-headers.ts");
     const out = spawnSync("bun", ["--no-env-file", "run", script, "--root", scratch()], {
-      cwd: mkdtempSync(join(tmpdir(), "p-e-cwd-")),
+      cwd: temp("p-e-cwd-"),
       env: { ...process.env, PE_STORE_ROOT: "relay" },
       encoding: "utf8",
     });
@@ -109,7 +121,7 @@ describe("a store inside a git working tree", () => {
     expect(gitWorkTreeOf(scratch("none"))).toBeNull();
     expect(gitWorkTreeOf(scratch("clone"))).not.toBeNull();
     expect(gitWorkTreeOf(scratch("worktree"))).not.toBeNull();
-    const link = join(mkdtempSync(join(tmpdir(), "p-e-link-")), "relay");
+    const link = join(temp("p-e-link-"), "relay");
     symlinkSync(scratch("clone"), link);
     expect(gitWorkTreeOf(link)).not.toBeNull();
   });
@@ -140,26 +152,36 @@ describe("a store inside a git working tree", () => {
     });
   });
 
-  it("stops the HTTP service on the store it would actually serve, before credentials", () => {
+  it("warns when the HTTP service starts on a store inside git, and carries on", () => {
     const serve = `const { serveHttp } = await import(${JSON.stringify(join(src, "mcp-http.ts"))}); await serveHttp(0);`;
+    // No credential table is given, so the first thing to fail after the check is
+    // `loadTokens` — which proves the check did not stop the start.
     const inGit = child(serve, scratch("clone"));
-    expect(inGit.status).not.toBe(0);
-    expect(inGit.stderr).toMatch(/refusing to serve: .*inside the git working tree/);
+    expect(inGit.stderr).toMatch(
+      /WARNING, serving read-only in effect: .*inside the git working tree/,
+    );
+    expect(inGit.stderr).toContain("PE_MCP_TOKENS is required");
 
-    // Outside git the check passes, and the next thing to fail is the missing table.
     const outside = child(serve, scratch());
-    expect(outside.status).not.toBe(0);
+    expect(outside.stderr).not.toContain("WARNING");
     expect(outside.stderr).toContain("PE_MCP_TOKENS is required");
   });
 
-  it("stops the stdio server too", () => {
-    const out = spawnSync("bun", ["--no-env-file", "run", join(src, "mcp.ts")], {
-      cwd: mkdtempSync(join(tmpdir(), "p-e-cwd-")),
-      env: { ...process.env, PE_STORE_ROOT: scratch("clone") },
-      input: "",
-      encoding: "utf8",
-    });
-    expect(out.status).toBe(1);
-    expect(out.stderr).toMatch(/refusing to serve: .*inside the git working tree/);
+  it("warns when the stdio server starts on one, and still answers a read", () => {
+    const call = `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "list_relays", arguments: {} } })}\n`;
+    const run = (root: string) =>
+      spawnSync("bun", ["--no-env-file", "run", join(src, "mcp.ts")], {
+        cwd: temp("p-e-cwd-"),
+        env: { ...process.env, PE_STORE_ROOT: root },
+        input: call,
+        encoding: "utf8",
+      });
+    const inGit = run(scratch("clone"));
+    expect(inGit.status).toBe(0);
+    expect(inGit.stderr).toMatch(
+      /WARNING, serving read-only in effect: .*inside the git working tree/,
+    );
+    expect(inGit.stdout).toContain("present (0)");
+    expect(run(scratch()).stderr).not.toContain("WARNING");
   });
 });

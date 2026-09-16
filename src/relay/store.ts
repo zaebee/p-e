@@ -64,6 +64,14 @@ export function storeRoot(): string {
  * A working tree is recognised by a `.git` entry in the directory or an ancestor
  * — a directory for a clone, a file for a `git worktree`. Found by walking up the
  * real path, so a symlink into a repository counts as the repository.
+ *
+ * A heuristic, and its edges are known. It does not see a working tree whose git
+ * directory lives elsewhere — `git --git-dir=X --work-tree=Y`, `GIT_WORK_TREE`,
+ * `core.worktree`, a dotfiles repository kept bare — and an attack reproduced a
+ * double bind through exactly that. It does see an empty `.git` that git itself
+ * would not call a repository, which refuses a write that was safe. The store's
+ * deployment avoids both; asking git on every deposit was the alternative, at a
+ * process spawn per write and a dependency on git being installed.
  */
 export function gitWorkTreeOf(path: string): string | null {
   let dir = existsSync(path) ? realpathSync(path) : resolve(path);
