@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -12,15 +13,51 @@ import { fileURLToPath } from "node:url";
  */
 
 /**
- * Resolved against this module, never against the process working directory.
+ * `PE_STORE_ROOT` when it is set, and otherwise resolved against this module —
+ * never against the process working directory.
  *
  * A relative path was wrong for the one deployment that matters: a tunnel
  * launches the MCP server from a directory of its choosing, and the store then
  * found nothing and reported an empty exchange. An absence of access rendered as
  * a fact about the world — which is the defect this whole project is about,
- * appearing in its own code.
+ * appearing in its own code. So a configured root must be absolute, and a
+ * relative one is refused at import rather than resolved against wherever the
+ * process happened to start.
+ *
+ * The variable exists because the default put the live store inside a git
+ * working tree. On 2026-09-16 a checkout there deleted `relay-1157` and its
+ * marker while the HTTP service was running, and the store bound the id a second
+ * time (`relay-1159`). The service now names a directory git does not manage.
+ * The name is the one `relay-ui` already reads for the same directory.
  */
-export const STORE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "relay");
+export function storeRootFrom(configured: string | undefined): string {
+  if (configured === undefined || configured === "") {
+    return join(dirname(fileURLToPath(import.meta.url)), "..", "..", "relay");
+  }
+  if (!isAbsolute(configured)) {
+    throw new Error(
+      `PE_STORE_ROOT must be an absolute path, got ${JSON.stringify(configured)}. A relative root resolves against the working directory, which a service does not choose.`,
+    );
+  }
+  return configured;
+}
+
+export const STORE_ROOT = storeRootFrom(process.env.PE_STORE_ROOT);
+
+/**
+ * The file that marks a directory as a git mirror of a store rather than a store.
+ *
+ * Once the live store moved out of the repository, `relay/` in a checkout became
+ * a copy that reaches git through pull requests. A deposit into it would bind an
+ * id the live store knows nothing about and will allocate again — the collision
+ * `relay-1159` records, by a different road. So writes refuse a root holding this
+ * file, and the HTTP service refuses to start on one.
+ */
+export const MIRROR_MARKER = "MIRROR";
+
+export function isMirror(root: string): boolean {
+  return existsSync(join(root, MIRROR_MARKER));
+}
 
 /**
  * Three states, and the third is not a variant of the second.

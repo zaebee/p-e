@@ -8,6 +8,7 @@ import {
   STORE_ROOT,
   fieldValue,
   headerBlock,
+  isMirror,
   loadStore,
   markerDir,
   oneToken,
@@ -254,6 +255,12 @@ async function deposit(
   proposedId: string | undefined,
   root: string,
 ): Promise<DepositResult> {
+  if (isMirror(root)) {
+    throw new Error(
+      `${root} is a git mirror of the relay store, not the store. Deposit into the live store: set PE_STORE_ROOT, or deposit over mcp-deposit.`,
+    );
+  }
+
   // Two different risks, one guard. Whitespace and newlines would inject a line
   // into the store's deposit metadata block above `---`. Control characters
   // cannot inject a header — `\s` already catches the ones that end a line — but

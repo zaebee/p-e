@@ -183,6 +183,39 @@ describe("relay-put --root", () => {
     }
   });
 
+  it("checks the parent digest against PE_STORE_ROOT, not a relay/ under the working directory", () => {
+    // The default was the literal "relay", resolved against wherever the script
+    // was started. The record carries a wrong digest on purpose: every outcome of
+    // this test stops before `depositLocal`, so nothing is written even if the
+    // variable were ignored.
+    const root = mkdtempSync(join(tmpdir(), "pr-root-"));
+    const src = mkdtempSync(join(tmpdir(), "pr-src-"));
+    const elsewhere = mkdtempSync(join(tmpdir(), "pr-cwd-"));
+    try {
+      const seed = join(src, "seed.txt");
+      writeFileSync(seed, "@p-e/x0\nfrom: alice\n\nfirst\n");
+      expect(put([seed, "--root", root]).status).toBe(0);
+
+      const input = join(src, "in.txt");
+      writeFileSync(
+        input,
+        `@p-e/x0\nfrom: b\nparent: relay-0001\nparent-sha256: ${"0".repeat(64)}\n\nbody\n`,
+      );
+      const env = { ...process.env, PE_STORE_ROOT: root };
+      const out = spawnSync("bun", ["--no-env-file", "run", script, input], {
+        cwd: elsewhere,
+        env,
+        encoding: "utf8",
+      });
+      expect(out.stderr).toContain("parent-sha256 does not match relay-0001");
+      expect(out.status).toBe(1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+      rmSync(elsewhere, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a flag with no value rather than taking the next argument", () => {
     const out = put(["--root"]);
     expect(out.status).toBe(1);

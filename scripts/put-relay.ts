@@ -43,7 +43,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { depositLocal } from "../src/relay/deposit.js";
-import { ID, fieldValue, headerBlock, oneToken } from "../src/relay/store.js";
+import { ID, STORE_ROOT, fieldValue, headerBlock, oneToken } from "../src/relay/store.js";
 
 /**
  * The digest a record's `parent-sha256` must carry is over the parent's BODY —
@@ -140,7 +140,10 @@ if (!source) {
 }
 
 const bytes = source === "-" ? await Bun.stdin.text() : await readFile(source, "utf8");
-await checkParentDigest(bytes, root ?? "relay");
+// `STORE_ROOT`, not `"relay"`: the literal resolved against the working directory,
+// so from anywhere but the repository root the parent was looked up in the wrong
+// place — and once `PE_STORE_ROOT` names the live store, in the mirror.
+await checkParentDigest(bytes, root ?? STORE_ROOT);
 
 try {
   const r = await depositLocal(bytes, depositor, id, root);

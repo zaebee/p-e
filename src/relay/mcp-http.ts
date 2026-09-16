@@ -57,6 +57,7 @@ import { readFileSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { MAX_RECORD_BYTES } from "./deposit.js";
 import { READ_ONLY_TOOLS, handle } from "./mcp.js";
+import { STORE_ROOT, isMirror } from "./store.js";
 
 /** Loopback only. Not configurable — see the file comment. */
 const HOST = "127.0.0.1";
@@ -660,7 +661,16 @@ export function describeCredential(credential: Credential, options: { now?: numb
 
 export async function serveHttp(
   port = Number(process.env.PE_MCP_HTTP_PORT ?? DEFAULT_PORT),
+  storeRoot = STORE_ROOT,
 ): Promise<Server> {
+  // Before the credentials, so a service pointed at a mirror says that and not
+  // something about tokens. Every deposit would refuse anyway; this refuses once,
+  // at start, instead of once per agent.
+  if (isMirror(storeRoot)) {
+    throw new Error(
+      `refusing to serve ${storeRoot}: it is a git mirror of the relay store. Set PE_STORE_ROOT to the live store.`,
+    );
+  }
   const tokens = loadTokens();
   const server = createHttpServer(tokens);
   await new Promise<void>((resolve) => server.listen(port, HOST, resolve));
@@ -670,7 +680,7 @@ export async function serveHttp(
   // an agent mysteriously getting 401 from a file that looks right.
   const described = [...tokens.byAgent.values()].map((c) => describeCredential(c));
   console.error(
-    `p-e mcp over http on ${HOST}:${port}, ${tokens.byAgent.size} credential(s): ${described.join(" ")}`,
+    `p-e mcp over http on ${HOST}:${port}, store ${storeRoot}, ${tokens.byAgent.size} credential(s): ${described.join(" ")}`,
   );
   return server;
 }
