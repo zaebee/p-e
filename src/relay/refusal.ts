@@ -36,6 +36,16 @@ export const REFUSED_UNREADABLE = 2;
 export const REFUSED_UNIDENTIFIED = 3;
 
 /**
+ * A store was named where a mirror belongs, or a mirror where the store does.
+ *
+ * `relay-sync` writes into a git mirror and reads the live store. Run the other
+ * way round it would write into a store from outside it, or compare a copy with
+ * itself and report agreement. Neither is a finding about a record, and neither
+ * is an unreadable store: the directories read fine and are the wrong ones.
+ */
+export const REFUSED_WRONG_ROLE = 4;
+
+/**
  * Print a refusal and leave, without ever looking like a finding.
  *
  * `closing` is the caller's because the scripts differ in what they were about
