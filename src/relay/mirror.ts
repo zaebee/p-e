@@ -39,6 +39,17 @@ export interface SyncPlan {
   readonly waiting: readonly string[];
 }
 
+/**
+ * Code-unit order, written out. The default `sort()` gives the same order and
+ * Sonar asks for a comparator; `localeCompare`, which it suggests, would make the
+ * order of a report depend on the machine's locale.
+ */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 /** Records and markers under a root, by relative path. A missing `history/` holds none. */
 async function held(root: string): Promise<Set<string>> {
   const out = new Set<string>();
@@ -59,7 +70,7 @@ export async function planSync(store: string, mirror: string): Promise<SyncPlan>
   const copy: string[] = [];
   const differ: string[] = [];
   const waiting: string[] = [];
-  for (const path of [...inStore].sort()) {
+  for (const path of [...inStore].sort(byCodeUnit)) {
     if (!inMirror.has(path)) {
       const record = path.startsWith("history/") ? `${path.slice("history/".length)}.txt` : null;
       if (record !== null && !inStore.has(record) && !inMirror.has(record)) waiting.push(path);
@@ -69,7 +80,7 @@ export async function planSync(store: string, mirror: string): Promise<SyncPlan>
     const [a, b] = await Promise.all([readFile(join(store, path)), readFile(join(mirror, path))]);
     if (!a.equals(b)) differ.push(path);
   }
-  const onlyInMirror = [...inMirror].filter((path) => !inStore.has(path)).sort();
+  const onlyInMirror = [...inMirror].filter((path) => !inStore.has(path)).sort(byCodeUnit);
   return { copy, differ, onlyInMirror, waiting };
 }
 
