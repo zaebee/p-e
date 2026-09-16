@@ -121,6 +121,27 @@ describe("relay-put --root", () => {
     }
   });
 
+  it("does not treat `parent: none` as a parent to look up", () => {
+    // `none` is the reserved word for no link: `header()` reads it as null, and
+    // `stateOf` calls a digest with no parent `UNANCHORED`. The gate took `none` for
+    // an id and refused. Open on main; gemini-code-assist on PR #231.
+    const root = mkdtempSync(join(tmpdir(), "pr-root-"));
+    const src = mkdtempSync(join(tmpdir(), "pr-src-"));
+    try {
+      const input = join(src, "in.txt");
+      writeFileSync(
+        input,
+        `@p-e/x0\nfrom: b\nparent: none\nparent-sha256: ${"a".repeat(64)}\n\nbody\n`,
+      );
+      const out = put([input, "--root", root]);
+      expect(out.stderr).not.toContain("is not a valid relay ID");
+      expect(out.status).toBe(0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+    }
+  });
+
   // A regression the second attack on PR #225's repair found: reading values to
   // the real line ending left `[ \t]*` unable to see past U+2028 or a second CR,
   // so these wrong digests were stored. Refused on main, and refused again here.

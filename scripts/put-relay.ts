@@ -77,7 +77,9 @@ async function checkParentDigest(record: string, relayRoot: string): Promise<voi
   const declared = oneToken(fieldValue(head, "parent-sha256"));
   // No parent, no declaration, or the deliberate `unknown` placeholder: nothing
   // to compare. Absence is a separate question and not this check's business.
-  if (!parent || !declared || declared === "unknown") return;
+  // `none` is the reserved word for no link, read as null by `header()` — a
+  // digest beside it is `UNANCHORED`, not a parent to fetch.
+  if (!parent || parent === "none" || !declared || declared === "unknown") return;
 
   // Validate parent ID format to prevent path traversal vulnerabilities.
   if (!ID.test(parent)) {
