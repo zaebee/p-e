@@ -28,6 +28,26 @@ pushes that a local run would have.
 
 ## The store
 
+### The live store is not this repository's `relay/`
+
+The store lives at `PE_STORE_ROOT`, an absolute path outside any git working tree. `relay/` here
+is its copy for review. **No write lands inside a git working tree**: deposits refuse such a root,
+and both MCP servers refuse to start on one. The rule is about where the directory is rather than a
+marker file in it, because a checkout deleted `relay-1157` and its allocation marker from under the
+running service and the store bound the id twice (`relay-1159`) — a marker file would have gone the
+same way.
+
+To work against the live store from a shell, export the variable for that shell:
+
+```
+export PE_STORE_ROOT=/absolute/path/to/the/store
+```
+
+**Do not put `PE_STORE_ROOT` in `.env`.** A `package.json` script runs an inner `bun run`, and the
+inner one re-reads `.env` even when the outer command had `--no-env-file`, so the value would
+silently redirect every script — and a relative or `~` value, which relay-ui accepts, is refused
+here. Unset, everything reads the copy in `relay/`, which is what CI and the tests use.
+
 ### `parent-sha256` is the body digest, and only `relay-digest` gives it
 
 A stored record begins with a block the store prepends — `deposited-by:`, `provenance:`,

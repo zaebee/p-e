@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -15,11 +23,14 @@ import { describe, expect, it } from "vitest";
  * elsewhere lands elsewhere, and that the live store is untouched by it.
  */
 const script = join(import.meta.dirname, "..", "scripts", "put-relay.ts");
-const liveStore = join(import.meta.dirname, "..", "relay");
+/** The repository's own `relay/` — once the live store, now its git copy. Only counted. */
+const repoRelay = join(import.meta.dirname, "..", "relay");
 const record = "@p-e/x0\nfrom: probe\nkind: probe\n\nscratch\n";
 
 function put(args: readonly string[]) {
-  return spawnSync("bun", ["run", script, ...args], { encoding: "utf8" });
+  // `--no-env-file`: a `PE_STORE_ROOT` in this repository's `.env` would otherwise
+  // redirect every case here.
+  return spawnSync("bun", ["--no-env-file", "run", script, ...args], { encoding: "utf8" });
 }
 
 describe("relay-put --root", () => {
@@ -34,7 +45,7 @@ describe("relay-put --root", () => {
     // store directory as a record, so an input placed there is parsed as one.
     const root = mkdtempSync(join(tmpdir(), "pr-root-"));
     const src = mkdtempSync(join(tmpdir(), "pr-src-"));
-    const before = readdirSync(liveStore).length;
+    const before = readdirSync(repoRelay).length;
     try {
       const input = join(src, "in.txt");
       writeFileSync(input, record);
@@ -49,7 +60,7 @@ describe("relay-put --root", () => {
         "assigned-id: relay-0001",
       );
 
-      expect(readdirSync(liveStore)).toHaveLength(before);
+      expect(readdirSync(repoRelay)).toHaveLength(before);
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(src, { recursive: true, force: true });
@@ -185,9 +196,10 @@ describe("relay-put --root", () => {
 
   it("checks the parent digest against PE_STORE_ROOT, not a relay/ under the working directory", () => {
     // The default was the literal "relay", resolved against wherever the script
-    // was started. The record carries a wrong digest on purpose: every outcome of
-    // this test stops before `depositLocal`, so nothing is written even if the
-    // variable were ignored.
+    // was started. The record carries a wrong digest, so a working gate stops it
+    // before `depositLocal`. If the variable were ignored the target would be this
+    // repository's `relay/`, which is inside a git working tree and refused by
+    // `writeProblem` — so a regression in both still writes nothing there.
     const root = mkdtempSync(join(tmpdir(), "pr-root-"));
     const src = mkdtempSync(join(tmpdir(), "pr-src-"));
     const elsewhere = mkdtempSync(join(tmpdir(), "pr-cwd-"));
@@ -216,6 +228,31 @@ describe("relay-put --root", () => {
     }
   });
 
+  it("refuses a root inside a git working tree before looking for the parent", () => {
+    // Otherwise a deposit aimed at the repository's copy of the store is told its
+    // parent is missing — true of the copy, and not the reason it must not land.
+    const top = mkdtempSync(join(tmpdir(), "pr-git-"));
+    const src = mkdtempSync(join(tmpdir(), "pr-src-"));
+    try {
+      mkdirSync(join(top, ".git"));
+      const root = join(top, "relay");
+      mkdirSync(root);
+      const input = join(src, "in.txt");
+      writeFileSync(
+        input,
+        `@p-e/x0\nfrom: b\nparent: relay-0001\nparent-sha256: ${"0".repeat(64)}\n\nbody\n`,
+      );
+      const out = put([input, "--root", root]);
+      expect(out.stderr).toContain("inside the git working tree");
+      expect(out.stderr).not.toContain("is not in");
+      expect(out.status).toBe(1);
+      expect(readdirSync(root)).toEqual([]);
+    } finally {
+      rmSync(top, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a flag with no value rather than taking the next argument", () => {
     const out = put(["--root"]);
     expect(out.status).toBe(1);
@@ -225,7 +262,7 @@ describe("relay-put --root", () => {
   it("takes both flags at once without either eating the other's argument", () => {
     const root = mkdtempSync(join(tmpdir(), "pr-root-"));
     const src = mkdtempSync(join(tmpdir(), "pr-src-"));
-    const before = readdirSync(liveStore).length;
+    const before = readdirSync(repoRelay).length;
     try {
       const input = join(src, "in.txt");
       writeFileSync(input, record);
@@ -235,7 +272,7 @@ describe("relay-put --root", () => {
       expect(readFileSync(join(root, "relay-0001.txt"), "utf8")).toContain(
         "deposited-by: probe-agent",
       );
-      expect(readdirSync(liveStore)).toHaveLength(before);
+      expect(readdirSync(repoRelay)).toHaveLength(before);
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(src, { recursive: true, force: true });
