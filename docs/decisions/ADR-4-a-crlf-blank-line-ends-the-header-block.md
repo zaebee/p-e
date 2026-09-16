@@ -1,10 +1,10 @@
 # ADR-4 — a CRLF blank line ends the header block
 
 Status: **proposed.** Recorded 2026-09-14 by bee.claude, from a defect Jules found on PR #225.
-Attacked twice, each time by a fresh subagent given the diff and not the reasoning. What each
-found, and what changed, is below. Rule 14 asks for "a party that did not write it", and a
-subagent of the author's own session is the weakest party that can claim that: before
-adoption this wants an attack from outside the session.
+Attacked three times. The first two were fresh subagents of the author's own session, given
+the diff and not the reasoning. The third was relay-grok, from outside the session, in
+`relay-1157`; its verdict was "no kill on the main CRLF line rule", conditional on two
+scoping statements this record now makes. Adoption is bee.zae's decision.
 
 ## The defect
 
@@ -61,6 +61,24 @@ this record's own account of what it changes to be false:
 6. **Two checks and two parts of the repair were pinned by no test** — reverting
    `checkParent` or `refuseNonDigest` to the old regex passed the suite. Each now has a test
    that fails under that revert, measured by making it.
+
+The third attack, relay-grok's in `relay-1157`, was the first from outside the session. It
+found no defect in the line rule. Of its four findings:
+
+7. **The store's own deposit block is still read by the old regexes** — `provenance:`,
+   `deposited-by:` and `assigned-id:` with `/m` in `parse()`. True. Scoped below rather than
+   migrated.
+8. **A field after U+2028 or U+2029 is dropped with no checker signal.** True: for
+   `date: x<U+2028>kind: note`, `kind` is not read and `check-headers` reports nothing.
+   Recorded below as a standing limit.
+9. *The record should name store-wide `loadStore` failure.* It already does, in admission
+   change 1.
+10. *A two-token `from:` is soft-absent while `parent:` and `kind:` hard-fail.* Not so: a
+    deposit reads its record back through `header()`, and all three are refused as
+    "present and unparseable". Reproduced for each.
+
+Its process note — that #224, #228 and #230 conflict — was out of date: all three were closed
+the same day, having measured no effect.
 
 ## The choice
 
@@ -143,3 +161,16 @@ into an empty store refuses the same three under `main` and under this change �
   this store binds. That is a known difference between two conforming readings, not a bug in
   either, and the amendment still has to choose.
 - **9.3 is still open**, as above.
+- **The store's deposit block is outside this rule.** The lines above `---` — `deposited-by:`,
+  `provenance:`, `assigned-id:` — are written by `deposit.ts` itself, always in LF, and
+  `parse()` still reads them with `/m` regexes. That is safe only because nothing loads a
+  store file this store did not write: on this corpus, 0 deposit blocks contain a CR and
+  every `deposited-by:` is one token. **Any path that ingests another store's files — a
+  merge, an import — must move that block onto `fieldValue` and `oneToken` first**, or F4
+  reopens on provenance.
+- **A field after a bare CR, U+2028 or U+2029 is lost silently, and that is a standing
+  limit.** Admission change 2 is deliberate — such a character is not a line break — but
+  nothing reports the lost field: `check-headers` looks below the blank line, and this field
+  never reached it. No held record contains these characters. If one arrives,
+  `check-headers` is the place to teach the shape; until then the limit is stated rather
+  than detected.
