@@ -11,7 +11,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { applySync, planSync, roleProblem } from "../src/relay/mirror.js";
-import { MIRROR_MARKER } from "../src/relay/store.js";
 
 /**
  * The sync that carries the live store into git, and what makes it stop.
@@ -25,11 +24,13 @@ const script = join(import.meta.dirname, "..", "scripts", "relay-sync.ts");
 const rec = (id: string, text = "body") =>
   `deposited-by: t\nprovenance: authored\nassigned-id: ${id}\n---\n@p-e/x0\nfrom: a\n\n${text}\n`;
 
+/** A scratch store, or with `mirror` a scratch copy inside a scratch git working tree. */
 function dir(files: Record<string, string>, mirror = false): string {
-  const root = join(mkdtempSync(join(tmpdir(), "p-e-sync-")), "relay");
+  const top = mkdtempSync(join(tmpdir(), "p-e-sync-"));
+  if (mirror) mkdirSync(join(top, ".git"));
+  const root = join(top, "relay");
   mkdirSync(join(root, "history"), { recursive: true });
   for (const [path, text] of Object.entries(files)) writeFileSync(join(root, path), text);
-  if (mirror) writeFileSync(join(root, MIRROR_MARKER), "a git mirror\n");
   return root;
 }
 
@@ -92,16 +93,16 @@ describe("planSync", () => {
 });
 
 describe("roleProblem", () => {
-  it("refuses a mirror without its marker, a store with one, and one directory twice", () => {
+  it("refuses a mirror outside git, a store inside it, and one directory twice", () => {
     const store = dir(both);
     const mirror = dir(both, true);
     expect(roleProblem(store, mirror)).toBeNull();
-    expect(roleProblem(store, dir(both))).toMatch(/not marked MIRROR/);
-    expect(roleProblem(mirror, dir(both, true))).toMatch(/marked MIRROR, so it is a copy/);
+    expect(roleProblem(store, dir(both))).toMatch(/not inside a git working tree/);
+    expect(roleProblem(mirror, dir(both, true))).toMatch(/so it is a copy and not the store/);
     expect(roleProblem(mirror, `${mirror}/`)).toMatch(/same directory/);
     const link = join(mkdtempSync(join(tmpdir(), "p-e-link-")), "relay");
     symlinkSync(mirror, link);
-    expect(roleProblem(link, mirror)).toMatch(/same directory|marked MIRROR/);
+    expect(roleProblem(link, mirror)).toMatch(/same directory|a copy and not the store/);
   });
 });
 
@@ -148,7 +149,7 @@ describe("relay-sync", () => {
     expect(readdirSync(mirror)).not.toContain("relay-0002.txt");
   });
 
-  it("exits 4 when the mirror is not marked, and writes nothing into it", () => {
+  it("exits 4 when the mirror is not under git, and writes nothing into it", () => {
     const store = dir({ ...both, "relay-0002.txt": rec("relay-0002") });
     const notMirror = dir(both);
     const out = sync(store, notMirror);

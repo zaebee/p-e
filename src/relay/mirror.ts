@@ -1,7 +1,7 @@
 import { constants, existsSync, realpathSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { isMirror } from "./store.js";
+import { gitWorkTreeOf } from "./store.js";
 
 /**
  * Bring a git mirror of the store up to date with the store, by adding only.
@@ -76,18 +76,23 @@ export async function planSync(store: string, mirror: string): Promise<SyncPlan>
 /**
  * Why a sync will not run, or null when it may. Names are the caller's to print.
  *
- * Both directions matter. Syncing into a directory without `MIRROR` could be
- * syncing into a store; syncing out of one with it is syncing a copy onto
- * itself, which would report every record as agreeing and prove nothing.
+ * The roles follow the rule `writeProblem` enforces: a store is outside every
+ * git working tree, and its copy for review is inside one. Both directions
+ * matter. Syncing into a directory outside git could be syncing into a store
+ * from outside it; syncing out of one inside git is reading a copy, and a copy
+ * synced onto another copy reports agreement and proves nothing.
  */
 export function roleProblem(store: string, mirror: string): string | null {
   // By real path, so a trailing slash or a symlink cannot make one directory two.
   if (existsSync(store) && existsSync(mirror) && realpathSync(store) === realpathSync(mirror)) {
     return `the store and the mirror are the same directory, ${realpathSync(store)}`;
   }
-  if (isMirror(store)) return `${store} is marked MIRROR, so it is a copy and not the store`;
-  if (!isMirror(mirror)) {
-    return `${mirror} is not marked MIRROR. A sync writes only into a mirror, so that a store is never written from outside itself`;
+  const storeTree = gitWorkTreeOf(store);
+  if (storeTree !== null) {
+    return `${store} is inside the git working tree ${storeTree}, so it is a copy and not the store`;
+  }
+  if (gitWorkTreeOf(mirror) === null) {
+    return `${mirror} is not inside a git working tree, so it is not the store's copy for review. A sync writes only into a copy under git, so that a store is never written from outside itself`;
   }
   return null;
 }

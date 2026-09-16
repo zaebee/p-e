@@ -6,7 +6,7 @@
  * The store is `PE_STORE_ROOT` and nothing else: without it, the only default
  * available is the `relay/` beside this source, which is the mirror, and a sync
  * from a directory onto itself proves nothing. The mirror defaults to that same
- * `relay/`, and must carry `MIRROR`.
+ * `relay/`, and must be inside a git working tree; the store must not be.
  *
  * Run it in a `git worktree`, not in a checkout anyone switches — the failure
  * this exists after (`relay-1159`) was a checkout deleting files under a store —
