@@ -261,6 +261,131 @@ describe("header-like lines quoted in a body", () => {
     expect(stored?.provenance).toBe("as-received");
     expect(stored?.from).toBeNull();
   });
+
+  // Both defects again, through CRLF. `headerBlock` found no `\n\n` in a CRLF
+  // record, so the whole body was scanned — and `\s*$` swallows the `\r`, so the
+  // quoted values matched exactly. Reproduced before the fix (PR #225).
+  const crlf = (text: string) => text.replaceAll("\n", "\r\n");
+
+  it("does not read a quoted id: as the declaration in a CRLF record", async () => {
+    const root = scratch();
+    const r = await appendRelay(crlf(quoting("id: relay-0007")), undefined, root);
+    expect(r.id).toBe("relay-0002");
+  });
+
+  it("does not fabricate `authored` from a quoted from: in a CRLF record", async () => {
+    const root = scratch();
+    const r = await depositLocal(
+      crlf(quoting("from: claude", "to: b\nkind: note\ndate: 2026-08-29")),
+      "claude",
+      undefined,
+      root,
+    );
+    expect((await loadStore(root)).get(r.id)?.provenance).toBe("as-received");
+  });
+
+  // A guard, not a regression test: it passes on main too. It is here so that a
+  // repair of the quoted case cannot quietly cost a CRLF record its own fields.
+  it("still reads a CRLF record's own from: as authored", async () => {
+    const root = scratch();
+    const r = await depositLocal(crlf(quoting("nothing header-like")), "a", undefined, root);
+    const stored = (await loadStore(root)).get(r.id);
+    expect(stored?.provenance).toBe("authored");
+    expect(stored?.kind).toBe("note");
+  });
+
+  // Found by attacking the CRLF repair. A line that is neither LF nor CRLF was a
+  // line break to every `/^field:…$/m` here, so a record with no blank line under
+  // the store's rule still had its quoted `from:` read as a field.
+  it.each([
+    ["bare CR", "\r"],
+    ["U+2028", "\u2028"],
+  ])("does not fabricate `authored` from a record broken with %s", async (_, sep) => {
+    const root = scratch();
+    const r = await depositLocal(
+      quoting("from: claude", "to: b\nkind: note").replaceAll("\n", sep),
+      "claude",
+      undefined,
+      root,
+    );
+    const stored = (await loadStore(root)).get(r.id);
+    expect(stored?.provenance).toBe("as-received");
+    expect(stored?.from).toBeNull();
+  });
+});
+
+describe("deposit checks read the fields the store reads", () => {
+  // Pinned after the second attack on PR #225's repair, which reverted each check
+  // to its old `/^field:…$/m` in turn and found two that no test noticed. U+2028
+  // is the input that tells the two readings apart: under `m` it starts a line,
+  // under the store's rule it does not.
+  const hidden = (line: string) =>
+    `@p-e/x0\nfrom: a\nparent: relay-0001\nnote: x\u2028${line}\n\nbody\n`;
+
+  it("does not refuse a digest line the store does not read as a field", async () => {
+    const root = scratch();
+    const r = await appendRelay(hidden("parent-sha256: PLACEHOLDER"), undefined, root);
+    expect((await loadStore(root)).get(r.id)?.parentSha256).toBeNull();
+  });
+
+  it("does not check a parent digest the store does not read as a field", async () => {
+    const root = scratch();
+    const r = await appendRelay(hidden(`parent-sha256: ${"0".repeat(64)}`), undefined, root);
+    expect(r.parentCheck).toBe("LABEL_ONLY");
+  });
+
+  it.each([
+    ["empty", "id:\nrelay-0009"],
+    ["two tokens", "id: relay-0002 relay-0009"],
+  ])("refuses an id: that is present and not one id (%s)", async (_, line) => {
+    // The empty case was refused on main only because `\s*` crossed the newline
+    // and read `relay-0009` as the id; the two-token case was accepted silently.
+    const root = scratch();
+    await expect(
+      appendRelay(`@p-e/x0\n${line}\nfrom: a\n\nbody\n`, undefined, root),
+    ).rejects.toThrow(/`id:` is present and not a single id/);
+  });
+});
+
+describe("a blank line before @p-e/x0", () => {
+  // The store keeps `trimStart()` of what it is given, and the checks read the
+  // untrimmed input — so a leading blank line put the blank at offset 0, every
+  // check saw an empty header block, and the stored record carried the headers
+  // none of them had read. Open for `\n\n` before PR #225; the CRLF repair
+  // widened it to `\r\n\r\n` and `\n\r\n`. Found by attacking that repair.
+  const leads = [
+    ["LF", "\n\n"],
+    ["CRLF", "\r\n\r\n"],
+    ["LF then CRLF", "\n\r\n"],
+  ];
+
+  it.each(leads)("still refuses a declared id the store will not assign (%s)", async (_, lead) => {
+    const root = scratch();
+    await expect(appendRelay(`${lead}${body("relay-0009")}`, undefined, root)).rejects.toThrow(
+      /declares id: relay-0009/,
+    );
+  });
+
+  it.each(leads)("still refuses a parent-sha256 that is not a digest (%s)", async (_, lead) => {
+    const root = scratch();
+    const placeholder =
+      "@p-e/x0\nfrom: a\nparent: relay-0001\nparent-sha256: PLACEHOLDER\n\nbody\n";
+    await expect(appendRelay(`${lead}${placeholder}`, undefined, root)).rejects.toThrow(
+      /must be 64 lowercase hex/,
+    );
+  });
+
+  it.each(leads)("still reports a wrong parent digest as DIVERGES (%s)", async (_, lead) => {
+    const root = scratch();
+    const wrong = `@p-e/x0\nfrom: a\nparent: relay-0001\nparent-sha256: ${"0".repeat(64)}\n\nbody\n`;
+    expect((await appendRelay(`${lead}${wrong}`, undefined, root)).parentCheck).toBe("DIVERGES");
+  });
+
+  it.each(leads)("still reads the depositor's own from: as authored (%s)", async (_, lead) => {
+    const root = scratch();
+    const r = await depositLocal(`${lead}${body("relay-0002")}`, "chatgpt", undefined, root);
+    expect((await loadStore(root)).get(r.id)?.provenance).toBe("authored");
+  });
 });
 
 // F1, audit-03: the title promises G2a — the binding survives a crash — and no MUST

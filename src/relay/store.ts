@@ -92,8 +92,74 @@ export interface RelayRecord {
  * that omitted one would have taken someone else's.
  */
 export function headerBlock(bytes: string): string {
-  const blank = bytes.indexOf("\n\n");
-  return blank === -1 ? bytes : bytes.slice(0, blank);
+  const blank = firstBlankLine(bytes);
+  return blank === null ? bytes : bytes.slice(0, blank.start);
+}
+
+/**
+ * A line ends at LF, and a CR immediately before that LF belongs to the ending
+ * rather than to the line. So `\n\n`, `\r\n\r\n` and both mixed forms are a line
+ * with nothing in it; a line carrying anything else — a space, a tab, a bare CR —
+ * is not blank.
+ *
+ * This was `indexOf("\n\n")` in three files, which gave a CRLF record no blank
+ * line at all: its whole body was header block, while `header()`'s `$` already
+ * stopped before the `\r` and read quoted values back clean. A quoted `from:`
+ * made a CRLF deposit `authored` — Audit-03 F4 again, by another route (Jules,
+ * PR #225). The reading is a choice the amendment leaves open, and ADR-4 says
+ * which one it sets aside.
+ */
+const BLANK_LINE = /\r?\n\r?\n/;
+
+/**
+ * The first blank line: `start` is where the header block ends, `end` where the
+ * prose begins. Null when there is none. The one place the boundary is decided —
+ * `headers.ts` and `reference.ts` ask here rather than each keeping a copy.
+ */
+export function firstBlankLine(
+  bytes: string,
+): { readonly start: number; readonly end: number } | null {
+  const match = BLANK_LINE.exec(bytes);
+  return match === null ? null : { start: match.index, end: match.index + match[0].length };
+}
+
+/**
+ * What follows `name:` on the first header-block line that starts with it, or
+ * undefined when no line does. Lines end where `firstBlankLine` says they do.
+ *
+ * Every field used to be read with `/^name:…$/m`, and under `m` a JavaScript
+ * `^`/`$` also breaks at a bare CR and at U+2028/U+2029. So a record with no
+ * blank line by the store's rule — its whole body header block — still had a
+ * quoted `from:` read as a field, and a CR-only record could deposit as
+ * `authored`. Found by attacking the CRLF repair; both are ADR-4's.
+ */
+export function fieldValue(head: string, name: string): string | undefined {
+  // By index rather than `split("\n")`: `parse` asks six times per record, and a
+  // split per ask cost ~7ms of a ~19ms `loadStore` over 1,113 records, measured.
+  const prefix = `${name}:`;
+  let at = 0;
+  if (!head.startsWith(prefix)) {
+    const lf = head.indexOf(`\n${prefix}`);
+    if (lf === -1) return undefined;
+    at = lf + 1;
+  }
+  const next = head.indexOf("\n", at);
+  let end = next === -1 ? head.length : next;
+  if (end > at && head[end - 1] === "\r") end -= 1;
+  return head.slice(at + prefix.length, end);
+}
+
+/**
+ * A field value that is one token, or undefined when it is absent or is not one.
+ *
+ * `\s` rather than `[ \t]`, so what counts as whitespace around the token is what
+ * `header()`'s `trim()` strips. `relay-put`'s digest gate used `[ \t]` and, once
+ * values ran to the real line ending, a digest followed by U+2028 or a second CR
+ * read as no digest there while the store read it clean — a wrong digest stored.
+ * Found by the second attack on PR #225's repair.
+ */
+export function oneToken(raw: string | undefined): string | undefined {
+  return raw === undefined ? undefined : /^\s*(\S+)\s*$/.exec(raw)?.[1];
 }
 
 /**
@@ -114,9 +180,9 @@ export function headerBlock(bytes: string): string {
  * not distinguished, and nothing currently depends on distinguishing them.
  */
 function header(head: string, field: string): string | null {
-  const line = new RegExp(`^${field}:(.*)$`, "m").exec(head);
-  if (!line) return null;
-  const value = (line[1] ?? "").trim();
+  const raw = fieldValue(head, field);
+  if (raw === undefined) return null;
+  const value = raw.trim();
   if (value === "") throw new Error(`header \`${field}:\` is present and empty`);
   if (/\s/.test(value)) {
     throw new Error(`header \`${field}:\` is present and unparseable: ${JSON.stringify(value)}`);

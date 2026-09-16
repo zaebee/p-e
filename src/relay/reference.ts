@@ -1,4 +1,4 @@
-import { ID_DIGITS, ID_PREFIX, type RelayRecord } from "./store.js";
+import { ID_DIGITS, ID_PREFIX, type RelayRecord, firstBlankLine } from "./store.js";
 
 /**
  * Which records nothing ever referred to. Reads, changes nothing.
@@ -102,13 +102,10 @@ export interface ReferenceFinding {
  */
 const ID_IN_TEXT = new RegExp(String.raw`${ID_PREFIX}\d{${ID_DIGITS}}`, "g");
 
-/** What ends the header block. */
-const BLANK_LINE = "\n\n";
-
 /** Everything below the header block — the part a sender wrote as prose. */
 function prose(bytes: string): string {
-  const at = bytes.indexOf(BLANK_LINE);
-  return at === -1 ? "" : bytes.slice(at + BLANK_LINE.length);
+  const blank = firstBlankLine(bytes);
+  return blank === null ? "" : bytes.slice(blank.end);
 }
 
 /**

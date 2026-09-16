@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   exists,
+  fieldValue,
   getRelay,
+  headerBlock,
   knownMissing,
   listRelays,
   listReplies,
@@ -55,6 +57,77 @@ describe("the three ways this store could lose its own distinction", () => {
     const held = await loadStore(root);
     expect(held.get("relay-0001")?.kind).toBeNull();
     expect(held.get("relay-0001")?.parent).toBeNull();
+  });
+
+  it("does not let a CRLF record adopt one either", async () => {
+    // The same defect by another route, found by Jules on PR #225. `headerBlock`
+    // looked for `\n\n` alone, so a CRLF record had no blank line and its whole
+    // body was header block — while `header()`'s `$` already stopped before the
+    // `\r`, which made the quoted values read back clean.
+    const root = scratch({
+      "relay-0001":
+        "deposited-by: tester\nprovenance: authored\n---\n@p-e/x0\r\nid: relay-0001\r\nfrom: alice\r\n\r\nquoting another record:\r\nkind: decision\r\nparent: relay-0000\r\n",
+    });
+    const held = await loadStore(root);
+    expect(held.get("relay-0001")?.from).toBe("alice");
+    expect(held.get("relay-0001")?.kind).toBeNull();
+    expect(held.get("relay-0001")?.parent).toBeNull();
+  });
+});
+
+describe("where the header block ends", () => {
+  // A line ends at LF, and a CR immediately before that LF is part of the ending
+  // rather than of the line. A blank line is one with nothing else in it.
+  // docs/decisions/ADR-4 records why, and which reading this sets aside.
+  const head = "@p-e/x0\nfrom: a";
+
+  it.each([
+    ["LF", "\n\n"],
+    ["CRLF", "\r\n\r\n"],
+    ["an LF line then a CRLF blank", "\n\r\n"],
+    ["a CRLF line then an LF blank", "\r\n\n"],
+  ])("ends at a blank line written as %s", (_, blank) => {
+    expect(headerBlock(`${head}${blank}kind: quoted\n`)).toBe(head);
+  });
+
+  it.each([
+    ["a space", "\n \n"],
+    ["a tab", "\n\t\n"],
+    ["a bare CR", "\n\r\r\n"],
+    ["CRs with no LF", "\r\r"],
+  ])("does not end at a line carrying %s", (_, notBlank) => {
+    const bytes = `${head}${notBlank}kind: header\n`;
+    expect(headerBlock(bytes)).toBe(bytes);
+  });
+
+  it("ends at the first blank line, not the widest", () => {
+    expect(headerBlock(`${head}\n\n\r\n\r\nbody\n`)).toBe(head);
+  });
+
+  it("reads fields by the same rule, so a bare CR does not start one", async () => {
+    // `header()` was `^field:(.*)$` under `m`, where a lone `\r` or U+2028 also
+    // breaks a line. The value now runs to the real line ending, and a value
+    // carrying a CR is refused as unparseable like any other whitespace in it.
+    const root = scratch({
+      "relay-0001":
+        "deposited-by: tester\nprovenance: authored\n---\n@p-e/x0\nfrom: alice\rkind: decision\n\ntext\n",
+    });
+    await expect(loadStore(root)).rejects.toThrow(/`from:` is present and unparseable/);
+  });
+
+  it("refuses a value carrying U+2028 the same way, which main read as a line break", async () => {
+    // Disclosed in ADR-4: main read `from: alice<U+2028>kind: note` as two fields.
+    const root = scratch({
+      "relay-0001":
+        "deposited-by: tester\nprovenance: authored\n---\n@p-e/x0\nfrom: alice\u2028kind: note\n\ntext\n",
+    });
+    await expect(loadStore(root)).rejects.toThrow(/`from:` is present and unparseable/);
+  });
+
+  it("takes the CR before an LF off a value, and only that one", () => {
+    expect(fieldValue("@p-e/x0\r\nkind: a\r\nfrom: b", "kind")).toBe(" a");
+    expect(fieldValue("@p-e/x0\nkind: a\r\r\nfrom: b", "kind")).toBe(" a\r");
+    expect(fieldValue("@p-e/x0\nnote: x\u2028kind: a", "kind")).toBeUndefined();
   });
 });
 
