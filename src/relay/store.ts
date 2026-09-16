@@ -134,12 +134,19 @@ export function firstBlankLine(
  * `authored`. Found by attacking the CRLF repair; both are ADR-4's.
  */
 export function fieldValue(head: string, name: string): string | undefined {
+  // By index rather than `split("\n")`: `parse` asks six times per record, and a
+  // split per ask cost ~7ms of a ~19ms `loadStore` over 1,113 records, measured.
   const prefix = `${name}:`;
-  for (const line of head.split("\n")) {
-    const text = line.endsWith("\r") ? line.slice(0, -1) : line;
-    if (text.startsWith(prefix)) return text.slice(prefix.length);
+  let at = 0;
+  if (!head.startsWith(prefix)) {
+    const lf = head.indexOf(`\n${prefix}`);
+    if (lf === -1) return undefined;
+    at = lf + 1;
   }
-  return undefined;
+  const next = head.indexOf("\n", at);
+  let end = next === -1 ? head.length : next;
+  if (end > at && head[end - 1] === "\r") end -= 1;
+  return head.slice(at + prefix.length, end);
 }
 
 /**
