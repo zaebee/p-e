@@ -43,7 +43,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { depositLocal } from "../src/relay/deposit.js";
-import { ID, fieldValue, headerBlock } from "../src/relay/store.js";
+import { ID, fieldValue, headerBlock, oneToken } from "../src/relay/store.js";
 
 /**
  * The digest a record's `parent-sha256` must carry is over the parent's BODY —
@@ -73,9 +73,8 @@ async function checkParentDigest(record: string, relayRoot: string): Promise<voi
   // `parent-sha256:` refused a deposit that names no parent — found by attacking
   // PR #225's repair.
   const head = headerBlock(record.trimStart());
-  const one = (name: string) => /^[ \t]*(\S+)[ \t]*$/.exec(fieldValue(head, name) ?? "")?.[1];
-  const parent = one("parent");
-  const declared = one("parent-sha256");
+  const parent = oneToken(fieldValue(head, "parent"));
+  const declared = oneToken(fieldValue(head, "parent-sha256"));
   // No parent, no declaration, or the deliberate `unknown` placeholder: nothing
   // to compare. Absence is a separate question and not this check's business.
   if (!parent || !declared || declared === "unknown") return;

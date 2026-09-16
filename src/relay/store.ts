@@ -143,6 +143,19 @@ export function fieldValue(head: string, name: string): string | undefined {
 }
 
 /**
+ * A field value that is one token, or undefined when it is absent or is not one.
+ *
+ * `\s` rather than `[ \t]`, so what counts as whitespace around the token is what
+ * `header()`'s `trim()` strips. `relay-put`'s digest gate used `[ \t]` and, once
+ * values ran to the real line ending, a digest followed by U+2028 or a second CR
+ * read as no digest there while the store read it clean — a wrong digest stored.
+ * Found by the second attack on PR #225's repair.
+ */
+export function oneToken(raw: string | undefined): string | undefined {
+  return raw === undefined ? undefined : /^\s*(\S+)\s*$/.exec(raw)?.[1];
+}
+
+/**
  * One header, or null when the line is absent.
  *
  * A malformed line **throws** rather than reading as absent. The old regex

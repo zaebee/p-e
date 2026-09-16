@@ -1,9 +1,10 @@
 # ADR-4 — a CRLF blank line ends the header block
 
 Status: **proposed.** Recorded 2026-09-14 by bee.claude, from a defect Jules found on PR #225.
-Attacked once, by a subagent given the diff and not the reasoning; the second section below
-is what that attack found and what changed. Not adopted until a party that did not write it
-has attacked the revised form (methodology rule 14).
+Attacked twice, each time by a fresh subagent given the diff and not the reasoning. What each
+found, and what changed, is below. Rule 14 asks for "a party that did not write it", and a
+subagent of the author's own session is the weakest party that can claim that: before
+adoption this wants an attack from outside the session.
 
 ## The defect
 
@@ -48,6 +49,19 @@ three further holes, all in the same class:
    `scripts/put-relay.ts` scanned the whole record, so a record naming no parent was refused
    for quoting another's `parent:` and `parent-sha256:`. Open on `main`.
 
+The second attack, on the form that closed those three, reproduced a regression and showed
+this record's own account of what it changes to be false:
+
+4. **`relay-put` let wrong digests through that `main` refused.** Once values ran to the real
+   line ending, its `[ \t]*` could not see past a trailing U+2028 or a second CR, so
+   `parent-sha256: <wrong><U+2028>` read as no digest there while the store read it clean and
+   stored it. Values are now reduced to one token by `oneToken`, whose `\s` is what
+   `header()`'s `trim()` strips — which also closes a trailing NBSP, open on `main`.
+5. **This record said "one narrow case" of changed admission.** There are five, listed below.
+6. **Two checks and two parts of the repair were pinned by no test** — reverting
+   `checkParent` or `refuseNonDigest` to the old regex passed the suite. Each now has a test
+   that fails under that revert, measured by making it.
+
 ## The choice
 
 A line ends at LF, and **a CR immediately before that LF belongs to the ending rather than to
@@ -56,9 +70,10 @@ the line.** A blank line is a line with nothing else in it. So `\n\n`, `\r\n\r\n
 before its LF does not. **The same rule decides where a field's value ends**, so a bare CR or
 U+2028 is part of the line it sits in and cannot start a field.
 
-Implemented once in `store.ts`: `firstBlankLine` for the boundary, `fieldValue` for a field.
-`headerBlock`, `header()`, `prose`, `strandedHeaders`, the four checks in `deposit.ts` and
-`checkParentDigest` in `put-relay.ts` all go through them, and the deposit checks read the
+Implemented once in `store.ts`: `firstBlankLine` for the boundary, `fieldValue` for a field,
+`oneToken` for a value that must be one token. `headerBlock`, `header()`, `prose`,
+`strandedHeaders`, the four checks in `deposit.ts` and `checkParentDigest` in `put-relay.ts`
+all go through them, and the deposit checks read the
 header block of the bytes the store will keep — `trimStart()` of the input — rather than of
 the input itself.
 
@@ -94,11 +109,33 @@ Why this one, for this store:
 
 ## What this changes for admission
 
-One narrow case. A header line carrying a bare CR inside its value — `from: alice\rkind: x`
-— used to read as two fields, `from: alice` and `kind: x`. It now reads as one `from:` whose
-value contains whitespace, which `header()` refuses as unparseable, so such a record is
-refused at deposit and would fail `loadStore` if placed on disk. No held record has this
-shape.
+Five changes. Items 1, 2 and 4 need a CR, U+2028, U+2029 or leading whitespace to occur at all;
+items 3 and 5 can change the outcome for an ordinary LF record.
+
+1. **A header value carrying a bare CR, U+2028 or U+2029 is unparseable.** `from: alice\rkind:
+   x` and `from: alice<U+2028>kind: note` used to read as two fields; each is now one `from:`
+   whose value holds whitespace, which `header()` refuses. Such a record is refused at deposit,
+   and one placed on disk makes `loadStore` throw for the whole store, as any unparseable
+   header already does.
+2. **A bare CR, U+2028 or U+2029 cannot start a field.** Where the line before it is not a read
+   field — `date: x<U+2028>from: alice` — nothing throws, and the field after it is simply not
+   read: that example goes from `authored` to `as-received`. `check-headers` does not report
+   this shape, because nothing fell below the blank line.
+3. **An `id:` that is present and not one id is refused.** `id: a b` was accepted as though no
+   id were declared. An empty `id:` was refused only by accident: `\s*` crossed the newline and
+   read the next line as the id.
+4. **Leading whitespace before `@p-e/x0` no longer switches the deposit checks off.** A declared
+   `id:` the store would not assign and a non-digest `parent-sha256:` are refused, a wrong
+   digest reports `DIVERGES` instead of `NO_CLAIM`, and a matching `from:` is `authored`.
+5. **`relay-put`'s digest gate reads the header block's fields, one token each.** A digest quoted
+   only in the body is no longer checked; a wrong digest followed by U+2028, a second CR or an
+   NBSP is refused, where the first two were refused on `main` and the NBSP was not.
+
+Measured against the corpus: 0 of 1,113 records contain a CR, U+2028 or U+2029 or begin with
+whitespace, and all 213 that declare an `id:` declare one id. Re-depositing every held record
+into an empty store refuses the same three under `main` and under this change — `relay-0113`,
+`relay-0408`, `relay-0693`, each for a `parent-sha256:` that is not a digest, as
+`refuseNonDigest` already documents.
 
 ## What this does not settle
 

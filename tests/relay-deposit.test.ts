@@ -284,6 +284,8 @@ describe("header-like lines quoted in a body", () => {
     expect((await loadStore(root)).get(r.id)?.provenance).toBe("as-received");
   });
 
+  // A guard, not a regression test: it passes on main too. It is here so that a
+  // repair of the quoted case cannot quietly cost a CRLF record its own fields.
   it("still reads a CRLF record's own from: as authored", async () => {
     const root = scratch();
     const r = await depositLocal(crlf(quoting("nothing header-like")), "a", undefined, root);
@@ -309,6 +311,39 @@ describe("header-like lines quoted in a body", () => {
     const stored = (await loadStore(root)).get(r.id);
     expect(stored?.provenance).toBe("as-received");
     expect(stored?.from).toBeNull();
+  });
+});
+
+describe("deposit checks read the fields the store reads", () => {
+  // Pinned after the second attack on PR #225's repair, which reverted each check
+  // to its old `/^field:…$/m` in turn and found two that no test noticed. U+2028
+  // is the input that tells the two readings apart: under `m` it starts a line,
+  // under the store's rule it does not.
+  const hidden = (line: string) =>
+    `@p-e/x0\nfrom: a\nparent: relay-0001\nnote: x\u2028${line}\n\nbody\n`;
+
+  it("does not refuse a digest line the store does not read as a field", async () => {
+    const root = scratch();
+    const r = await appendRelay(hidden("parent-sha256: PLACEHOLDER"), undefined, root);
+    expect((await loadStore(root)).get(r.id)?.parentSha256).toBeNull();
+  });
+
+  it("does not check a parent digest the store does not read as a field", async () => {
+    const root = scratch();
+    const r = await appendRelay(hidden(`parent-sha256: ${"0".repeat(64)}`), undefined, root);
+    expect(r.parentCheck).toBe("LABEL_ONLY");
+  });
+
+  it.each([
+    ["empty", "id:\nrelay-0009"],
+    ["two tokens", "id: relay-0002 relay-0009"],
+  ])("refuses an id: that is present and not one id (%s)", async (_, line) => {
+    // The empty case was refused on main only because `\s*` crossed the newline
+    // and read `relay-0009` as the id; the two-token case was accepted silently.
+    const root = scratch();
+    await expect(
+      appendRelay(`@p-e/x0\n${line}\nfrom: a\n\nbody\n`, undefined, root),
+    ).rejects.toThrow(/`id:` is present and not a single id/);
   });
 });
 

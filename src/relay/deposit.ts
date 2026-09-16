@@ -10,6 +10,7 @@ import {
   headerBlock,
   loadStore,
   markerDir,
+  oneToken,
 } from "./store.js";
 
 /**
@@ -337,7 +338,6 @@ async function deposit(
   }
 }
 
-/** The part of a deposit that runs once the id is settled and its marker held. */
 /**
  * The header block of what this deposit will store.
  *
@@ -352,11 +352,7 @@ function storedHead(bytes: string): string {
   return headerBlock(bytes.trimStart());
 }
 
-/** A field that is one token, or undefined when it is absent or is not one. */
-function token(raw: string | undefined): string | undefined {
-  return raw === undefined ? undefined : /^\s*(\S+)\s*$/.exec(raw)?.[1];
-}
-
+/** The part of a deposit that runs once the id is settled and its marker held. */
 async function write(
   bytes: string,
   depositedBy: string,
@@ -371,7 +367,17 @@ async function write(
   // this path had not: a body quoting `id: relay-0007` was refused as though the record
   // declared it, and a body quoting `from:` fabricated an `authored` provenance for a
   // record whose header names no sender. Audit-03 F4, reproduced before fixing.
-  const declared = token(fieldValue(storedHead(bytes), "id"));
+  //
+  // Present and not one token is refused rather than read as absent, which is the
+  // distinction `header()` keeps. The old `/^id:\s*(\S+)\s*$/m` refused an empty
+  // `id:` only by accident — its `\s*` crossed the newline and read the next line
+  // as the id — and silently ignored `id: a b`. 213 held records declare an id;
+  // every one is a single token.
+  const raw = fieldValue(storedHead(bytes), "id");
+  const declared = oneToken(raw);
+  if (raw !== undefined && declared === undefined) {
+    throw new Error(`the record's \`id:\` is present and not a single id: ${JSON.stringify(raw)}`);
+  }
   if (declared !== undefined && declared !== id) {
     throw new Error(`the record declares id: ${declared} and would be stored as ${id}`);
   }
@@ -498,7 +504,7 @@ async function commit(root: string, path: string, text: string): Promise<void> {
 function checkParent(bytes: string, held: ReadonlyMap<string, { readonly sha256: string }>) {
   const head = storedHead(bytes);
   const raw = fieldValue(head, "parent")?.trim();
-  // `none` is the reserved word for the absence of a link — `store.ts:124` reads
+  // `none` is the reserved word for the absence of a link — `header()` in store.ts reads
   // it as null, and so must this.
   const parent = raw === undefined || raw === "none" ? null : raw;
   const declared = fieldValue(head, "parent-sha256")?.trim() ?? null;
@@ -584,7 +590,7 @@ export async function depositLocal(
   proposedId?: string,
   root = STORE_ROOT,
 ): Promise<DepositResult> {
-  const from = token(fieldValue(storedHead(bytes), "from"));
+  const from = oneToken(fieldValue(storedHead(bytes), "from"));
   return deposit(
     bytes,
     depositor,

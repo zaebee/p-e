@@ -121,6 +121,47 @@ describe("relay-put --root", () => {
     }
   });
 
+  // A regression the second attack on PR #225's repair found: reading values to
+  // the real line ending left `[ \t]*` unable to see past U+2028 or a second CR,
+  // so these wrong digests were stored. Refused on main, and refused again here.
+  it.each([
+    [
+      "followed by U+2028",
+      (h: string) => `@p-e/x0\nfrom: b\nparent: relay-0001\nparent-sha256: ${h}\u2028\n\nbody\n`,
+    ],
+    [
+      "followed by CR CR",
+      (h: string) =>
+        `@p-e/x0\nfrom: b\nparent: relay-0001\nparent-sha256: ${h}\r\r\nkind: x\n\nbody\n`,
+    ],
+    [
+      "in a CRLF record",
+      (h: string) =>
+        `@p-e/x0\r\nfrom: b\r\nparent: relay-0001\r\nparent-sha256: ${h}\r\n\r\nbody\r\n`,
+    ],
+    [
+      "after a leading blank line",
+      (h: string) => `\n\n@p-e/x0\nfrom: b\nparent: relay-0001\nparent-sha256: ${h}\n\nbody\n`,
+    ],
+  ])("refuses a wrong parent digest %s", (_, build) => {
+    const root = mkdtempSync(join(tmpdir(), "pr-root-"));
+    const src = mkdtempSync(join(tmpdir(), "pr-src-"));
+    try {
+      const seed = join(src, "seed.txt");
+      writeFileSync(seed, "@p-e/x0\nfrom: alice\n\nfirst\n");
+      expect(put([seed, "--root", root]).status).toBe(0);
+
+      const input = join(src, "in.txt");
+      writeFileSync(input, build("0".repeat(64)));
+      const out = put([input, "--root", root]);
+      expect(out.stderr).toContain("parent-sha256 does not match relay-0001");
+      expect(out.status).toBe(1);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+    }
+  });
+
   it("refuses a flag with no value rather than taking the next argument", () => {
     const out = put(["--root"]);
     expect(out.status).toBe(1);

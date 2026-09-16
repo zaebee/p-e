@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   exists,
+  fieldValue,
   getRelay,
   headerBlock,
   knownMissing,
@@ -112,6 +113,21 @@ describe("where the header block ends", () => {
         "deposited-by: tester\nprovenance: authored\n---\n@p-e/x0\nfrom: alice\rkind: decision\n\ntext\n",
     });
     await expect(loadStore(root)).rejects.toThrow(/`from:` is present and unparseable/);
+  });
+
+  it("refuses a value carrying U+2028 the same way, which main read as a line break", async () => {
+    // Disclosed in ADR-4: main read `from: alice<U+2028>kind: note` as two fields.
+    const root = scratch({
+      "relay-0001":
+        "deposited-by: tester\nprovenance: authored\n---\n@p-e/x0\nfrom: alice\u2028kind: note\n\ntext\n",
+    });
+    await expect(loadStore(root)).rejects.toThrow(/`from:` is present and unparseable/);
+  });
+
+  it("takes the CR before an LF off a value, and only that one", () => {
+    expect(fieldValue("@p-e/x0\r\nkind: a\r\nfrom: b", "kind")).toBe(" a");
+    expect(fieldValue("@p-e/x0\nkind: a\r\r\nfrom: b", "kind")).toBe(" a\r");
+    expect(fieldValue("@p-e/x0\nnote: x\u2028kind: a", "kind")).toBeUndefined();
   });
 });
 
