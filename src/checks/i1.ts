@@ -1,6 +1,7 @@
 import { decodeAbiParameters } from "viem";
 import { apexHealth, apexHistory } from "../adapters/apex.js";
 import { parseHivemark } from "../adapters/hivemark.js";
+import { ascending, byCodeUnit } from "../order.js";
 import type { Finding } from "../verdict.js";
 import { CLAIM_TYPES, FIELD, VERDICT_NAMES } from "./claim-schema.js";
 
@@ -25,7 +26,7 @@ export function checkI1(files: Map<string, Uint8Array>): Finding[] {
       undecodable++;
     }
   }
-  const named = [...codes].sort().map((c) => VERDICT_NAMES[c] ?? `unknown(${c})`);
+  const named = [...codes].sort(ascending).map((c) => VERDICT_NAMES[c] ?? `unknown(${c})`);
   const keepsAbsenceApart = codes.has(0) && (codes.has(1) || codes.has(2));
   findings.push({
     invariant: "I-1",
@@ -58,8 +59,8 @@ export function checkI1(files: Map<string, Uint8Array>): Finding[] {
     verdict: exercised ? "CONFORMS" : "UNDECIDABLE",
     evidence: "OBSERVED",
     reason: exercised
-      ? `the not-observed state occurs: states {${[...states].sort().join(", ")}}, ${records.filter((h) => h.gaps > 0).length} hosts with gaps, snapshot ok:${health.ok}`
-      : `the mechanism exists but is never exercised: observed states {${[...states].sort().join(", ")}} with no unknown, all ${records.length} hosts at gaps:0, snapshot ok:${health.ok}. A reader could distinguish not-observed from cold if it occurred; in this corpus it does not`,
+      ? `the not-observed state occurs: states {${[...states].sort(byCodeUnit).join(", ")}}, ${records.filter((h) => h.gaps > 0).length} hosts with gaps, snapshot ok:${health.ok}`
+      : `the mechanism exists but is never exercised: observed states {${[...states].sort(byCodeUnit).join(", ")}} with no unknown, all ${records.length} hosts at gaps:0, snapshot ok:${health.ok}. A reader could distinguish not-observed from cold if it occurred; in this corpus it does not`,
     projections: [
       "`unknown` is a possible state. The artifact shows alive and cold; that a third state exists in apex's vocabulary is not visible in it. The gaps counter and the snapshot ok flag, which carry the rest of this finding, are native",
     ],

@@ -542,7 +542,7 @@ export function listRelays(
   store: Map<string, RelayRecord>,
   after?: string,
 ): { present: string[]; missing: string[] } {
-  const present = [...store.keys()].sort().filter((id) => (after ? id > after : true));
+  const present = [...store.keys()].sort(bySeq).filter((id) => (after ? id > after : true));
   const missing = knownMissing(store).filter((id) => (after ? id > after : true));
   return { present, missing };
 }

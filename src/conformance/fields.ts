@@ -1,3 +1,5 @@
+import { byCodeUnit } from "../order.js";
+
 /**
  * Record which fields a check actually opened.
  *
@@ -80,5 +82,5 @@ export function watch<T>(value: T, path: string, seen: Set<string>): T {
 
 /** Every field path recorded, sorted, for comparison against a declaration. */
 export function fieldsSeen(seen: ReadonlySet<string>): string[] {
-  return [...seen].sort();
+  return [...seen].sort(byCodeUnit);
 }

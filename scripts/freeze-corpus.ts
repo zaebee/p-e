@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { type CorpusEntry, sha256 } from "../src/manifest.js";
+import { byCodeUnit } from "../src/order.js";
 
 /**
  * Where the producer repositories live. This is the one local-only assumption in
@@ -109,7 +110,7 @@ for (const s of SOURCES) freeze(s.from, s.to, s.producer, s.repo);
 
 for (const name of readdirSync(join(PROJECTS, LOG_DIR))
   .filter((n) => n.endsWith(".md"))
-  .sort()) {
+  .sort(byCodeUnit)) {
   freeze(`${LOG_DIR}/${name}`, `apex/log/${name}`, "apex", "apex");
 }
 
