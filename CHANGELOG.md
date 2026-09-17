@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/zaebee/p-e/compare/p-e-v0.2.1...p-e-v0.3.0) (2026-09-17)
+
+
+### Features
+
+* **mcp:** structured results for the four tools whose answer is data ([#252](https://github.com/zaebee/p-e/issues/252)) ([7bb6b80](https://github.com/zaebee/p-e/commit/7bb6b805325a11413786c607539e575a4bee93a5))
+
 ## [0.2.1](https://github.com/zaebee/p-e/compare/p-e-v0.2.0...p-e-v0.2.1) (2026-09-17)
 
 
