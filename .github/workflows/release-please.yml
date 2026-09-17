@@ -1,0 +1,37 @@
+# Versions for the code, from the commits that changed it.
+#
+# A record carries no version. Records arrive in pull requests titled
+# `relay-NNNN..NNNN: …`, which is not a conventional-commit subject, so
+# release-please ignores them and the corpus never moves the number. Neither do
+# `docs:` or `chore:`; only `feat:`, `fix:` and `perf:` do.
+#
+# What this gives us is a name for the code a record was written against:
+# relay-1163 was deposited against a server, and "which one" is currently a
+# question about git history rather than a version.
+name: Release Please
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # GITHUB_TOKEN and not an App: this repository has no App configured, and
+      # the cost is known — checks on the release pull request park in
+      # `action_required` until someone opens it and approves the run. The
+      # alternative is an identity with write access living in this repository's
+      # secrets, which is a larger thing to hold than a manual click per release.
+      - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
