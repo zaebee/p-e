@@ -2,8 +2,22 @@
 #
 # A separate file from release-please.yml on purpose: this job holds a registry
 # identity and push rights to the image, and nothing in the release job should
-# inherit them. It runs on a published release — release-please creates one when
-# its pull request merges — so an ordinary push to main is not a publish.
+# inherit them.
+#
+# `workflow_run` and not `release: published`, which is what this file tried
+# first and which never fired: release-please creates the release with
+# GITHUB_TOKEN, and events raised by that token do not start workflow runs.
+# Measured on 0.2.0 — the release existed, the tag existed, and no run was
+# queued; that version reached the registry by a manual dispatch.
+#
+# So this runs after EVERY successful Release Please, which is most pushes to
+# main, and decides for itself whether there is anything to publish: the version
+# in package.json against the versions the registry already lists. An ordinary
+# merge leaves them equal and the job stops. The merge of a release pull request
+# is the one that moves package.json, and that is the run that publishes.
+#
+# Deciding from the registry rather than from a release event also makes a
+# re-run harmless: the second one finds the version listed and stops.
 #
 # The order inside the job is not free: mcp-publisher asks the registry to
 # validate the image, and the registry reads the `io.modelcontextprotocol.server.name`
@@ -13,13 +27,11 @@
 name: Publish to MCP Registry
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Release Please"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Version to publish, without a leading v (e.g. 0.1.0)"
-        required: true
 
 permissions: {}
 
@@ -30,6 +42,13 @@ concurrency:
 jobs:
   publish:
     name: Image, then server.json
+    # Dispatch only from main, so an older branch cannot publish its own
+    # server.json. The repository check is defence in depth: Release Please does
+    # not run for forks.
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -45,32 +64,45 @@ jobs:
       MCP_PUBLISHER_VERSION: "1.8.1"
       MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
     steps:
-      - name: Work out the version
-        id: version
-        env:
-          TAG: ${{ github.event.release.tag_name }}
-          INPUT: ${{ inputs.version }}
-        run: |
-          set -euo pipefail
-          version="${INPUT:-${TAG#v}}"
-          case "$version" in
-            "" ) echo "::error::no version to publish"; exit 1 ;;
-            *[!0-9.a-zA-Z+-]* ) echo "::error::refusing odd version '$version'"; exit 1 ;;
-          esac
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout the released commit
+      - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          ref: ${{ github.event.release.tag_name || github.ref }}
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
 
+      - name: Decide whether to publish
+        id: gate
+        run: |
+          set -euo pipefail
+          version=$(jq -r .version package.json)
+          declared=$(jq -r .version server.json)
+          if [ "$version" != "$declared" ]; then
+            echo "::error::package.json says $version and server.json says $declared"
+            exit 1
+          fi
+          # The registry is the record of what has been published. Asking it
+          # beats asking for a release event, which never arrives, or trusting
+          # that a run happens once.
+          listed=$(curl --proto '=https' --tlsv1.2 -fsSL --max-time 30 \
+            "https://registry.modelcontextprotocol.io/v0/servers?search=io.github.zaebee/p-e" \
+            | jq -r '[.servers[].server | select(.name == "io.github.zaebee/p-e") | .version] | join(" ")')
+          echo "version=$version listed=[$listed]"
+          if printf '%s\n' $listed | grep -qx "$version"; then
+            echo "$version is already in the registry; nothing to do"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Log in to ghcr.io
+        if: steps.gate.outputs.publish == 'true'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Build and push the image
+        if: steps.gate.outputs.publish == 'true'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.gate.outputs.version }}
         run: |
           set -euo pipefail
           docker build -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
@@ -78,8 +110,9 @@ jobs:
           docker push "$IMAGE:latest"
 
       - name: Check the ownership label the registry will read
+        if: steps.gate.outputs.publish == 'true'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.gate.outputs.version }}
         run: |
           set -euo pipefail
           # The registry reads this label off the pushed image and refuses the
@@ -92,19 +125,21 @@ jobs:
           [ "$got" = "$want" ]
 
       - name: Point server.json at the image just pushed
+        if: steps.gate.outputs.publish == 'true'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.gate.outputs.version }}
         run: |
           set -euo pipefail
           # release-please keeps `$.version` in step; the OCI identifier carries
           # its version in the tag, where a jsonpath bump cannot reach it, so it
-          # is set here from the release being published.
+          # is set here from the version the gate read.
           jq --arg v "$VERSION" --arg image "$IMAGE" \
             '.version = $v | .packages[0].identifier = ($image + ":" + $v)' \
             server.json > server.json.tmp && mv server.json.tmp server.json
           cat server.json
 
       - name: Install mcp-publisher
+        if: steps.gate.outputs.publish == 'true'
         run: |
           set -euo pipefail
           url="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
@@ -113,10 +148,13 @@ jobs:
           tar -xzf mcp-publisher.tar.gz mcp-publisher
 
       - name: Validate server.json
+        if: steps.gate.outputs.publish == 'true'
         run: ./mcp-publisher validate
 
       - name: Log in with GitHub OIDC
+        if: steps.gate.outputs.publish == 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish
+        if: steps.gate.outputs.publish == 'true'
         run: ./mcp-publisher publish
