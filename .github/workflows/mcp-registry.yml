@@ -1,0 +1,122 @@
+# Publish the image, then the record that points at it.
+#
+# A separate file from release-please.yml on purpose: this job holds a registry
+# identity and push rights to the image, and nothing in the release job should
+# inherit them. It runs on a published release — release-please creates one when
+# its pull request merges — so an ordinary push to main is not a publish.
+#
+# The order inside the job is not free: mcp-publisher asks the registry to
+# validate the image, and the registry reads the `io.modelcontextprotocol.server.name`
+# label off it anonymously. The image therefore has to be pushed, and public,
+# before the record is published. A private package fails validation with
+# "is private or requires authentication".
+name: Publish to MCP Registry
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, without a leading v (e.g. 0.1.0)"
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: mcp-registry
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Image, then server.json
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Pushes the image to ghcr.io under this repository's owner.
+      packages: write
+      # OIDC for `mcp-publisher login github-oidc`: no registry secret is stored.
+      id-token: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      # Pinned and checksum-verified: this job holds a registry identity, so it
+      # must not run whatever `releases/latest` happens to be. Bump both
+      # together; a binary too old for the registry fails login on the audience.
+      MCP_PUBLISHER_VERSION: "1.8.1"
+      MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+    steps:
+      - name: Work out the version
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          INPUT: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="${INPUT:-${TAG#v}}"
+          case "$version" in
+            "" ) echo "::error::no version to publish"; exit 1 ;;
+            *[!0-9.a-zA-Z+-]* ) echo "::error::refusing odd version '$version'"; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout the released commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+          persist-credentials: false
+
+      - name: Log in to ghcr.io
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build and push the image
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          docker build -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
+          docker push "$IMAGE:$VERSION"
+          docker push "$IMAGE:latest"
+
+      - name: Check the ownership label the registry will read
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # The registry reads this label off the pushed image and refuses the
+          # publish when it does not equal `name` in server.json. Failing here
+          # names the mismatch; failing there names it too, one network round
+          # trip and a permanent-looking error later.
+          want=$(jq -r .name server.json)
+          got=$(docker inspect --format '{{ index .Config.Labels "io.modelcontextprotocol.server.name" }}' "$IMAGE:$VERSION")
+          echo "label=$got want=$want"
+          [ "$got" = "$want" ]
+
+      - name: Point server.json at the image just pushed
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # release-please keeps `$.version` in step; the OCI identifier carries
+          # its version in the tag, where a jsonpath bump cannot reach it, so it
+          # is set here from the release being published.
+          jq --arg v "$VERSION" --arg image "$IMAGE" \
+            '.version = $v | .packages[0].identifier = ($image + ":" + $v)' \
+            server.json > server.json.tmp && mv server.json.tmp server.json
+          cat server.json
+
+      - name: Install mcp-publisher
+        run: |
+          set -euo pipefail
+          url="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}/mcp-publisher_linux_amd64.tar.gz"
+          curl --proto '=https' --tlsv1.2 -fsSL "$url" -o mcp-publisher.tar.gz
+          echo "${MCP_PUBLISHER_SHA256}  mcp-publisher.tar.gz" | sha256sum --check --strict
+          tar -xzf mcp-publisher.tar.gz mcp-publisher
+
+      - name: Validate server.json
+        run: ./mcp-publisher validate
+
+      - name: Log in with GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
