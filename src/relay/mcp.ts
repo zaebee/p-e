@@ -100,21 +100,31 @@ const TOOLS = [
   {
     name: "exists",
     description:
-      "PRESENT, KNOWN_MISSING (a held record names this id and the bytes are absent), or UNKNOWN (nothing here mentions it). UNKNOWN is not a weaker KNOWN_MISSING.",
+      "Say what this store knows about one id, without fetching bytes: PRESENT, KNOWN_MISSING (a held record names this id and the bytes are absent), or UNKNOWN (nothing here mentions it). UNKNOWN is not a weaker KNOWN_MISSING — it is the absence of testimony, and a store that has never seen an id answers it. Ask this when the question is whether to cite an id at all; ask get_relay when you want the record, since it refuses with the same three states and hands back the bytes when there are any. Returns one line of text.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" } },
+      properties: {
+        id: {
+          type: "string",
+          description:
+            "a relay id as this store writes them, `relay-` and four digits — e.g. relay-0033. Any other shape is UNKNOWN rather than an error",
+        },
+      },
       required: ["id"],
     },
   },
   {
     name: "list_relays",
     description:
-      "Ids held and ids known to be missing, optionally after a given id. Gaps are reported, never closed.",
+      "Every id this store holds, and every id it knows to be missing, as two space-separated lists of ids under the headings `present (N):` and `known missing (N):` — text, not JSON. Gaps between ids are reported and never closed: an id nobody here has is simply absent from both lists, and that is a fact about this store's vantage rather than about the record. Ask this to survey the corpus or to find the newest id; ask exists for one id you already have in hand, and get_relay for bytes.",
     inputSchema: {
       type: "object",
       properties: {
-        after: { type: "string", description: "optional; return ids greater than this" },
+        after: {
+          type: "string",
+          description:
+            "optional; a relay id — `relay-` and four digits, e.g. relay-1100 — and only ids greater than it are returned. Omit it for the whole store",
+        },
       },
     },
   },
