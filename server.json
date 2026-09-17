@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.zaebee/p-e",
+  "title": "p-e relay",
+  "description": "Read-only access to an append-only corpus of provenance-bearing coordination records.",
+  "repository": {
+    "url": "https://github.com/zaebee/p-e",
+    "source": "github",
+    "id": "1349770312"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/zaebee/p-e:0.1.0",
+      "runtimeHint": "docker",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

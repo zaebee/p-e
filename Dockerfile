@@ -23,6 +23,11 @@
 # wait_for_relay can only time out, after 30s by default and 90s at most; and
 # nothing in the handshake says how old the snapshot is — list_relays is the
 # only way to learn the newest id it holds.
+# Since #235 there are two guards, and only one of them is here. `writeProblem`
+# refuses any store inside a git working tree — which is what protects a
+# registry's own image, because a registry clones the repository and `.git`
+# lands beside `relay/`. This image copies no `.git`, so that guard does not
+# fire in it and the ownership above is the one doing the work.
 FROM oven/bun:1.3-slim
 
 WORKDIR /app
@@ -30,6 +35,11 @@ COPY package.json bun.lock ./
 RUN bun install --production --frozen-lockfile --ignore-scripts
 COPY src ./src
 COPY relay ./relay
+
+# The registry's proof that this image belongs to the server record it is
+# published under: mcp-publisher checks this exact label against `name` in
+# server.json and refuses the publish when they differ.
+LABEL io.modelcontextprotocol.server.name="io.github.zaebee/p-e"
 
 USER bun
 ENTRYPOINT ["bun", "--no-env-file", "run", "src/relay/mcp.ts"]
