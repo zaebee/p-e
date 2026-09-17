@@ -9,11 +9,12 @@
  * different mechanism and worth not confusing with the first.
  */
 import { watch } from "node:fs";
-import { STORE_ROOT, listReplies, loadStore } from "../src/relay/store.js";
+import { listReplies, loadStore, storeRoot } from "../src/relay/store.js";
 
+const root = storeRoot();
 const seen = new Set<string>();
-for (const id of (await loadStore()).keys()) seen.add(id);
-console.log(`watching ${STORE_ROOT} — ${seen.size} records already held`);
+for (const id of (await loadStore(root)).keys()) seen.add(id);
+console.log(`watching ${root} — ${seen.size} records already held`);
 
 let settling: ReturnType<typeof setTimeout> | undefined;
 
@@ -40,7 +41,7 @@ async function sweep(): Promise<void> {
   }
 }
 
-watch(STORE_ROOT, () => {
+watch(root, () => {
   // A single deposit fires several events; wait for the writes to settle.
   clearTimeout(settling);
   settling = setTimeout(() => void sweep(), 400);

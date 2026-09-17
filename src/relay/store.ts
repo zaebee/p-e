@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
+import { existsSync, realpathSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -12,15 +13,95 @@ import { fileURLToPath } from "node:url";
  */
 
 /**
- * Resolved against this module, never against the process working directory.
+ * Where the store is: `PE_STORE_ROOT` when it is set, and otherwise the `relay/`
+ * beside this source — never anything resolved against the working directory.
  *
  * A relative path was wrong for the one deployment that matters: a tunnel
  * launches the MCP server from a directory of its choosing, and the store then
  * found nothing and reported an empty exchange. An absence of access rendered as
  * a fact about the world — which is the defect this whole project is about,
- * appearing in its own code.
+ * appearing in its own code. So a configured root must be absolute. `~` is
+ * refused with it: nothing here expands it, and relay-ui, which reads the same
+ * variable name, does — a value written for one would silently mean something
+ * else to the other.
+ *
+ * The variable exists to take the live store out of a git working tree, where a
+ * checkout on 2026-09-16 deleted `relay-1157` and its marker under the running
+ * service and the store bound the id twice (`relay-1159`).
  */
-export const STORE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "relay");
+export function storeRootFrom(configured: string | undefined): string {
+  if (configured === undefined || configured === "") {
+    return join(dirname(fileURLToPath(import.meta.url)), "..", "..", "relay");
+  }
+  if (configured !== configured.trim()) {
+    throw new Error(
+      `PE_STORE_ROOT has leading or trailing whitespace: ${JSON.stringify(configured)}`,
+    );
+  }
+  if (!isAbsolute(configured)) {
+    throw new Error(
+      `PE_STORE_ROOT must be an absolute path, got ${JSON.stringify(configured)}. Nothing here expands \`~\`, and a relative root would resolve against a working directory a service does not choose.`,
+    );
+  }
+  return resolve(configured);
+}
+
+/**
+ * The store root, read from the environment when it is asked for.
+ *
+ * A function and not a constant computed at import: a bad `PE_STORE_ROOT` then
+ * fails the call that uses it, and not every module that merely imports this
+ * one — so `--root` still works under a broken variable, and so do the pure
+ * helpers `headers.ts` and `reference.ts` import from here.
+ */
+export function storeRoot(): string {
+  return storeRootFrom(process.env.PE_STORE_ROOT);
+}
+
+/**
+ * The git working tree `path` sits in, or null when it sits in none.
+ *
+ * A working tree is recognised by a `.git` entry in the directory or an ancestor
+ * — a directory for a clone, a file for a `git worktree`. Found by walking up the
+ * real path, so a symlink into a repository counts as the repository.
+ *
+ * A heuristic, and its edges are known. It does not see a working tree whose git
+ * directory lives elsewhere — `git --git-dir=X --work-tree=Y`, `GIT_WORK_TREE`,
+ * `core.worktree`, a dotfiles repository kept bare — and an attack reproduced a
+ * double bind through exactly that. It does see an empty `.git` that git itself
+ * would not call a repository, which refuses a write that was safe. The store's
+ * deployment avoids both; asking git on every deposit was the alternative, at a
+ * process spawn per write and a dependency on git being installed.
+ */
+export function gitWorkTreeOf(path: string): string | null {
+  let dir = existsSync(path) ? realpathSync(path) : resolve(path);
+  for (;;) {
+    if (existsSync(join(dir, ".git"))) return dir;
+    const up = dirname(dir);
+    if (up === dir) return null;
+    dir = up;
+  }
+}
+
+/**
+ * Why a store may not be written at `root`, or null when it may.
+ *
+ * A store inside a git working tree is one checkout away from losing records and
+ * markers while something is writing to it — `relay-1159` is that happening. A
+ * copy of the store kept in git for review is exactly such a directory, so this
+ * one rule also keeps anything from depositing into the copy and binding an id
+ * the live store will allocate again.
+ *
+ * The rule is about where the directory is, not about a file in it. A marker that
+ * permits or forbids writes would live in the same working tree, and the same
+ * checkout could delete it; the working tree's own `.git` is the one thing a
+ * checkout does not remove.
+ */
+export function writeProblem(root: string): string | null {
+  const tree = gitWorkTreeOf(root);
+  if (tree === null) return null;
+  return `${root} is inside the git working tree ${tree}, and a checkout there can delete records and markers under a running store (relay-1159). The live store lives outside git: set PE_STORE_ROOT to it, or deposit over mcp-deposit.`;
+}
 
 /**
  * Three states, and the third is not a variant of the second.
@@ -238,7 +319,7 @@ export const ID = new RegExp(String.raw`^${ID_PREFIX}\d{${ID_DIGITS}}$`);
  * rationale above travelled with the function rather than being left behind it,
  * which the first version of this move got wrong.
  */
-export function markerDir(root = STORE_ROOT): string {
+export function markerDir(root = storeRoot()): string {
   return join(root, "history");
 }
 
@@ -382,7 +463,7 @@ function parse(id: string, raw: string): RelayRecord {
   };
 }
 
-export async function loadStore(root = STORE_ROOT): Promise<Map<string, RelayRecord>> {
+export async function loadStore(root = storeRoot()): Promise<Map<string, RelayRecord>> {
   const out = new Map<string, RelayRecord>();
   let names: string[];
   try {

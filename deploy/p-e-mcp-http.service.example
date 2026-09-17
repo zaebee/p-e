@@ -28,13 +28,21 @@ Type=simple
 # `.env` holds keys this process has no use for; the flag disables the loading
 # and the directory removes the file it would find. CLAUDE.md's rule: prefer the
 # flag where the command line is yours, the directory where it is not, and both
-# where a silent failure would go unnoticed. The store's location comes from the
-# source file's own path, so neither choice can point it anywhere.
+# where a silent failure would go unnoticed. Neither choice points the store
+# anywhere: that is `PE_STORE_ROOT` below, and nothing else.
 # `%h` is systemd's own expansion of the user's home directory, which is what
 # makes this file copyable rather than a template someone has to edit — and an
 # edited example is an example that drifts from what is running.
 WorkingDirectory=%h
-ExecStart=%h/.bun/bin/bun --no-env-file run %h/projects/p-e/src/relay/mcp-http.ts
+# A clone kept for the service and updated deliberately — not a checkout anyone
+# switches branches in. The service runs whatever code this path holds when it
+# (re)starts, and a restart is not always the operator's.
+ExecStart=%h/.bun/bin/bun --no-env-file run %h/srv/p-e/src/relay/mcp-http.ts
+
+# The store, outside every git working tree. Absolute: a relative value or `~`
+# is refused. Deposits refuse a store inside a working tree, where a checkout
+# deleted relay-1157 and its marker under this service (relay-1159).
+Environment=PE_STORE_ROOT=%h/.local/share/p-e/relay
 
 # The credential table. Absent, the server refuses to start rather than serving
 # an open write endpoint — see `loadTokens`.

@@ -28,7 +28,7 @@
 import { storeIdentity } from "../src/relay/authority.js";
 import { checkReferences, tallyReferences } from "../src/relay/reference.js";
 import { REFUSED_UNIDENTIFIED, REFUSED_UNREADABLE, refuse } from "../src/relay/refusal.js";
-import { ID, STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
+import { ID, loadStore, markerAgreement, storeRoot } from "../src/relay/store.js";
 
 const all = process.argv.includes("--all");
 const at = process.argv.indexOf("--root");
@@ -54,13 +54,13 @@ try {
 } catch (error) {
   refuse(
     REFUSED_UNREADABLE,
-    `cannot read the store at ${root ?? STORE_ROOT}`,
+    `cannot read the store at ${root ?? storeRoot()}`,
     error,
     "No report is produced. This is not a finding about any record.",
   );
 }
 // The marker set, so a deleted record still counts as a possible referrer.
-const { lost, deleted } = await markerAgreement(store, root ?? STORE_ROOT);
+const { lost, deleted } = await markerAgreement(store, root ?? storeRoot());
 // Filtered by id shape, as `markerAgreement` filters both its sides. Without it
 // a `.txt` in the store whose name is not an id counts as a successor and can
 // flip the record below it out of NO_SUCCESSORS. Pre-existing on main; the first

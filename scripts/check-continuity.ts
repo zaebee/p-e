@@ -14,7 +14,7 @@
 import { storeIdentity } from "../src/relay/authority.js";
 import { checkContinuity, tally } from "../src/relay/continuity.js";
 import { REFUSED_UNIDENTIFIED, REFUSED_UNREADABLE, refuse } from "../src/relay/refusal.js";
-import { STORE_ROOT, loadStore, markerAgreement } from "../src/relay/store.js";
+import { loadStore, markerAgreement, storeRoot } from "../src/relay/store.js";
 
 /**
  * Divergences that exist and can never be repaired.
@@ -131,7 +131,7 @@ try {
 } catch (error) {
   refuse(
     REFUSED_UNREADABLE,
-    `cannot read the store at ${root ?? STORE_ROOT}`,
+    `cannot read the store at ${root ?? storeRoot()}`,
     error,
     "Nothing is claimed about the records. This is not a finding.",
   );
@@ -214,7 +214,7 @@ for (const [digest, ids] of byDigest) {
 // the ordinary post-delete state the marker is designed to produce, and is not a
 // defect. A first version of this collapsed both and failed the suite on a
 // spec-sanctioned deletion — found in review.
-const agreement = await markerAgreement(store, root ?? STORE_ROOT);
+const agreement = await markerAgreement(store, root ?? storeRoot());
 if (agreement.unmarked.length > 0) {
   console.log(
     `\n  ${agreement.unmarked.length} record(s) with no marker — a store written before MUST 1; the next deposit backfills them`,

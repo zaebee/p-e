@@ -57,6 +57,7 @@ import { readFileSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { MAX_RECORD_BYTES } from "./deposit.js";
 import { READ_ONLY_TOOLS, handle } from "./mcp.js";
+import { storeRoot, writeProblem } from "./store.js";
 
 /** Loopback only. Not configurable — see the file comment. */
 const HOST = "127.0.0.1";
@@ -661,6 +662,14 @@ export function describeCredential(credential: Credential, options: { now?: numb
 export async function serveHttp(
   port = Number(process.env.PE_MCP_HTTP_PORT ?? DEFAULT_PORT),
 ): Promise<Server> {
+  // The root every tool call will use. A store inside a git working tree is
+  // warned about and still served: deposits into it refuse on their own, and
+  // refusing to start would take reads down too — including after an unattended
+  // restart (`Restart=on-failure`, a reboot) that loads newer code than the
+  // deployment was prepared for.
+  const root = storeRoot();
+  const problem = writeProblem(root);
+  if (problem !== null) console.error(`WARNING, serving read-only in effect: ${problem}`);
   const tokens = loadTokens();
   const server = createHttpServer(tokens);
   await new Promise<void>((resolve) => server.listen(port, HOST, resolve));
@@ -670,7 +679,7 @@ export async function serveHttp(
   // an agent mysteriously getting 401 from a file that looks right.
   const described = [...tokens.byAgent.values()].map((c) => describeCredential(c));
   console.error(
-    `p-e mcp over http on ${HOST}:${port}, ${tokens.byAgent.size} credential(s): ${described.join(" ")}`,
+    `p-e mcp over http on ${HOST}:${port}, store ${root}, ${tokens.byAgent.size} credential(s): ${described.join(" ")}`,
   );
   return server;
 }

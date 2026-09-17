@@ -12,7 +12,15 @@
  * it stores bytes under an id and records how they arrived.
  */
 import { appendRelay } from "./deposit.js";
-import { exists, getRelay, listRelays, listReplies, loadStore } from "./store.js";
+import {
+  exists,
+  getRelay,
+  listRelays,
+  listReplies,
+  loadStore,
+  storeRoot,
+  writeProblem,
+} from "./store.js";
 import { MAX_WAIT_MS, waitForRelay } from "./wait.js";
 
 const PROTOCOL = "2024-11-05";
@@ -353,4 +361,10 @@ export async function serve(): Promise<void> {
   }
 }
 
-if (import.meta.main) await serve();
+if (import.meta.main) {
+  // Warned about as the HTTP service does, not refused: a tunnel launches this
+  // server from the repository, and reads must survive a store it may not write.
+  const problem = writeProblem(storeRoot());
+  if (problem !== null) console.error(`WARNING, serving read-only in effect: ${problem}`);
+  await serve();
+}

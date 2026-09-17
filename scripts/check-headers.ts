@@ -28,7 +28,7 @@ import { strandedHeaders } from "../src/relay/headers.js";
  * report it until somebody says whose records these are would be ceremony.
  */
 import { REFUSED_UNREADABLE, refuse } from "../src/relay/refusal.js";
-import { STORE_ROOT, loadStore } from "../src/relay/store.js";
+import { loadStore, storeRoot } from "../src/relay/store.js";
 
 const at = process.argv.indexOf("--root");
 const root = at === -1 ? undefined : process.argv[at + 1];
@@ -39,7 +39,7 @@ try {
 } catch (error) {
   refuse(
     REFUSED_UNREADABLE,
-    `cannot read the store at ${root ?? STORE_ROOT}`,
+    `cannot read the store at ${root ?? storeRoot()}`,
     error,
     "No report is produced. This is not a finding about any record.",
   );

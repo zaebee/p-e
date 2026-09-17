@@ -1,5 +1,5 @@
 import { watch } from "node:fs";
-import { type RelayRecord, STORE_ROOT, byRecordId, loadStore } from "./store.js";
+import { type RelayRecord, byRecordId, loadStore, storeRoot } from "./store.js";
 
 /**
  * Block until a record appears, or until the deadline.
@@ -59,7 +59,7 @@ const POLL_MS = 400;
 export async function waitForRelay(
   after?: string,
   timeoutMs = 30_000,
-  root = STORE_ROOT,
+  root = storeRoot(),
 ): Promise<WaitResult> {
   const deadline = Math.min(Math.max(timeoutMs, 1_000), MAX_WAIT_MS);
   const started = Date.now();

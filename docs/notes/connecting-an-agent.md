@@ -21,10 +21,11 @@ bun run <path-to-this-repository>/src/relay/mcp.ts
 do not have one to set — your harness launches the process. Whoever configures
 that harness substitutes the path once.
 
-It can be any absolute path, because the store's location is derived from the
-server's own file location rather than from the working directory or an
-environment variable. So it always reaches that repository's `relay/`, from
-wherever it is started, and cannot be pointed elsewhere by accident.
+It can be any absolute path. The store is `PE_STORE_ROOT` when the launch sets
+it, and otherwise the `relay/` beside the server's own file — never anything
+under the working directory. Set it to the live store: the repository's `relay/`
+is a copy kept in git, the server warns when it starts on one, and deposits into
+it are refused.
 
 ## If you are not on this machine
 

@@ -28,6 +28,34 @@ pushes that a local run would have.
 
 ## The store
 
+### The live store belongs outside git, at `PE_STORE_ROOT`
+
+The store is meant to live at `PE_STORE_ROOT`, an absolute path outside any git working tree, with
+`relay/` here as its copy for review. **Deposits refuse a root inside a git working tree**, and both
+MCP servers warn when they start on one — they still serve reads. The rule is about where the
+directory is rather than a marker file in it, because a checkout deleted `relay-1157` and its
+allocation marker from under the running service and the store bound the id twice (`relay-1159`) —
+a marker file would have gone the same way.
+
+A working tree is recognised by a `.git` entry in the directory or above it. A working tree whose git
+directory lives elsewhere (`--git-dir`, `GIT_WORK_TREE`, a bare dotfiles repository) is **not**
+recognised; do not put a store in one.
+
+Moving a store there is `docs/notes/moving-the-store.md`, as an ordered checklist. The order is the
+point: a migration where one writer has the new root and another still has the old one gives two
+stores and two high-water marks, and no check fires for either (relay-1163).
+
+To work against the live store from a shell, export the variable for that shell:
+
+```
+export PE_STORE_ROOT=/absolute/path/to/the/store
+```
+
+**Do not put `PE_STORE_ROOT` in `.env`.** A `package.json` script runs an inner `bun run`, and the
+inner one re-reads `.env` even when the outer command had `--no-env-file`, so the value would
+silently redirect every script — and a relative or `~` value, which relay-ui accepts, is refused
+here. Unset, everything reads the copy in `relay/`, which is what CI and the tests use.
+
 ### `parent-sha256` is the body digest, and only `relay-digest` gives it
 
 A stored record begins with a block the store prepends — `deposited-by:`, `provenance:`,

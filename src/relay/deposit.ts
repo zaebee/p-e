@@ -5,12 +5,13 @@ import {
   ID,
   ID_DIGITS,
   ID_PREFIX,
-  STORE_ROOT,
   fieldValue,
   headerBlock,
   loadStore,
   markerDir,
   oneToken,
+  storeRoot,
+  writeProblem,
 } from "./store.js";
 
 /**
@@ -254,6 +255,10 @@ async function deposit(
   proposedId: string | undefined,
   root: string,
 ): Promise<DepositResult> {
+  // First, before anything reads or claims: see `writeProblem`.
+  const problem = writeProblem(root);
+  if (problem !== null) throw new Error(problem);
+
   // Two different risks, one guard. Whitespace and newlines would inject a line
   // into the store's deposit metadata block above `---`. Control characters
   // cannot inject a header — `\s` already catches the ones that end a line — but
@@ -566,7 +571,7 @@ function refuseNonDigest(bytes: string): void {
 export async function appendRelay(
   bytes: string,
   proposedId?: string,
-  root = STORE_ROOT,
+  root = storeRoot(),
   channel = "mcp",
 ): Promise<DepositResult> {
   if (channel !== "mcp" && !/^mcp\/[a-z0-9][a-z0-9._-]{0,31}$/.test(channel)) {
@@ -588,7 +593,7 @@ export async function depositLocal(
   bytes: string,
   depositor: string,
   proposedId?: string,
-  root = STORE_ROOT,
+  root = storeRoot(),
 ): Promise<DepositResult> {
   const from = oneToken(fieldValue(storedHead(bytes), "from"));
   return deposit(
