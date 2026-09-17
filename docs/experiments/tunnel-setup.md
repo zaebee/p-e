@@ -1,5 +1,15 @@
 # Connecting the relay store to ChatGPT
 
+> **Retired on 2026-09-17.** The ChatGPT tunnel is gone: no `tunnel-client`
+> process runs, `scripts/restart-tunnel.sh` and `.env.example` were deleted, and
+> the profile at `~/.config/tunnel-client/p-e-relay.yaml` was removed from the
+> machine. The two `CONTROL_PLANE_*` values below are dead, and the key they
+> name should be revoked at the platform if that has not been done. What follows
+> is the record of how the tunnel was built and what it cost to find out. It is
+> kept because `docs/notes/observations.md` and several records cite it, not
+> because anything here still runs. The relay is reached over HTTP at
+> relay.zae.life, and over stdio by agents that start the server themselves.
+
 Infrastructure for the T1/T2 experiment in relay-0046. Nothing here changes relay
 semantics, and `p-e/core` is untouched.
 
