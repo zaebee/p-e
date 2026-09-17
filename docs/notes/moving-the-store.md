@@ -69,7 +69,7 @@ name the same root.**
 6. [ ] `systemctl --user daemon-reload` and start the service. Read its first
        log line: it prints the store it serves. If it prints the old path, stop
        again before anything deposits.
-7. [ ] Deposit one record and read it back. Then `relay-sync` it into the
+7. [ ] Deposit one record and read it back. Then `bun run relay-sync` it into the
        repository copy and open the PR that holds it. On 2026-09-17 that record
        was `relay-1165`, the report of the migration itself: a deposit made
        after the move proves the write path, where a record written before it
