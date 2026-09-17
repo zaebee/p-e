@@ -168,3 +168,106 @@ describe("the read/write classification", () => {
     expect(TOOL_NAMES.filter((name) => !READ_ONLY_TOOLS.has(name))).toEqual(["append_relay"]);
   });
 });
+
+/**
+ * Structured results, for the four tools whose answer is data.
+ *
+ * `get_relay` and `append_relay` are deliberately not among them: the text a
+ * caller gets from `get_relay` is the record's own bytes, and a schema over
+ * them would be this store describing a payload it refuses to parse.
+ *
+ * The spec (2025-06-18) says a tool returning structured content SHOULD also
+ * put the serialized JSON in its text block. These do not, and the assertions
+ * below pin that: the text is what six agents already read, and structure is
+ * added beside it rather than over it.
+ */
+const structuredOf = (r: unknown): unknown =>
+  (r as { result: { structuredContent?: unknown } }).result.structuredContent;
+
+describe("structured results", () => {
+  it("declares an output schema for the four data tools and for no others", async () => {
+    const r = (await call("tools/list")) as {
+      result: { tools: Array<{ name: string; outputSchema?: object }> };
+    };
+    const withSchema = r.result.tools.filter((t) => t.outputSchema).map((t) => t.name);
+    expect(withSchema.sort()).toEqual(["exists", "list_relays", "list_replies", "wait_for_relay"]);
+  });
+
+  it("every declared output schema is an object schema naming its required fields", async () => {
+    const r = (await call("tools/list")) as {
+      result: {
+        tools: Array<{
+          name: string;
+          outputSchema?: { type?: string; properties?: object; required?: string[] };
+        }>;
+      };
+    };
+    for (const tool of r.result.tools.filter((t) => t.outputSchema)) {
+      expect(tool.outputSchema?.type, tool.name).toBe("object");
+      expect(Object.keys(tool.outputSchema?.properties ?? {}).length, tool.name).toBeGreaterThan(0);
+      expect(tool.outputSchema?.required?.length, tool.name).toBeGreaterThan(0);
+    }
+  });
+
+  it("exists answers a state beside the line it already answered", async () => {
+    const r = await call("tools/call", { name: "exists", arguments: { id: "relay-0033" } });
+    expect(textOf(r)).toBe("relay-0033: PRESENT");
+    expect(structuredOf(r)).toEqual({ id: "relay-0033", state: "PRESENT" });
+  });
+
+  it("exists structures UNKNOWN, which is not a weaker KNOWN_MISSING", async () => {
+    const r = await call("tools/call", { name: "exists", arguments: { id: "relay-9999" } });
+    expect(structuredOf(r)).toEqual({ id: "relay-9999", state: "UNKNOWN" });
+  });
+
+  it("list_relays structures both lists, and says what it was asked after", async () => {
+    const r = await call("tools/call", {
+      name: "list_relays",
+      arguments: { after: "relay-1160" },
+    });
+    const out = structuredOf(r) as { present: string[]; knownMissing: string[]; after: string };
+    expect(out.after).toBe("relay-1160");
+    expect(out.present).toContain("relay-1161");
+    expect(out.present.every((id) => id > "relay-1160")).toBe(true);
+    expect(Array.isArray(out.knownMissing)).toBe(true);
+    expect(textOf(r)).toMatch(/^present \(\d+\): /);
+  });
+
+  it("list_relays says after: null when it was asked for the whole store", async () => {
+    const r = await call("tools/call", { name: "list_relays", arguments: {} });
+    expect((structuredOf(r) as { after: unknown }).after).toBeNull();
+  });
+
+  it("list_replies names the parent asked about, and the records naming it", async () => {
+    const r = await call("tools/call", { name: "list_replies", arguments: { id: "relay-1161" } });
+    const out = structuredOf(r) as {
+      parent: string;
+      replies: Array<{ id: string; kind: string | null }>;
+    };
+    expect(out.parent).toBe("relay-1161");
+    expect(out.replies.map((x) => x.id)).toContain("relay-1162");
+  });
+
+  it("list_replies structures an empty answer rather than omitting it", async () => {
+    const r = await call("tools/call", { name: "list_replies", arguments: { id: "relay-9999" } });
+    expect(structuredOf(r)).toEqual({ parent: "relay-9999", replies: [] });
+    expect(textOf(r)).toBe("no held record names relay-9999 as parent or ref");
+  });
+
+  it("wait_for_relay structures a timeout as a fact about the window", async () => {
+    const r = await call("tools/call", {
+      name: "wait_for_relay",
+      arguments: { after: "relay-9999", timeout_ms: 1_000 },
+    });
+    const out = structuredOf(r) as { timedOut: boolean; waitedMs: number; appeared: unknown[] };
+    expect(out.timedOut).toBe(true);
+    expect(out.waitedMs).toBeGreaterThan(0);
+    expect(out.appeared).toEqual([]);
+  });
+
+  it("carries nothing structured on a refusal, because a refusal is not a result", async () => {
+    const r = await call("tools/call", { name: "no_such_tool", arguments: {} });
+    expect((r as { result: { isError?: boolean } }).result.isError).toBe(true);
+    expect(structuredOf(r)).toBeUndefined();
+  });
+});

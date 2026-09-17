@@ -74,6 +74,34 @@ const TOOLS = [
         timeout_ms: { type: "number", description: `default 30000, capped at ${MAX_WAIT_MS}` },
       },
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        timedOut: {
+          type: "boolean",
+          description:
+            "true when the window closed empty. A fact about the window, not about whether anything was sent",
+        },
+        waitedMs: { type: "number", description: "how long this call actually waited" },
+        appeared: {
+          type: "array",
+          description: "metadata of what landed. Fetch bytes with get_relay",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              kind: { type: ["string", "null"] },
+              from: { type: ["string", "null"] },
+              to: { type: ["string", "null"] },
+              depositedBy: { type: "string" },
+              provenance: { type: "string", enum: ["authored", "as-received"] },
+            },
+            required: ["id", "kind", "from", "to", "depositedBy", "provenance"],
+          },
+        },
+      },
+      required: ["timedOut", "waitedMs", "appeared"],
+    },
   },
   {
     name: "append_relay",
@@ -112,6 +140,19 @@ const TOOLS = [
       },
       required: ["id"],
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "the id asked about, as given" },
+        state: {
+          type: "string",
+          enum: ["PRESENT", "KNOWN_MISSING", "UNKNOWN"],
+          description:
+            "UNKNOWN is the absence of testimony, not a weaker KNOWN_MISSING: nothing held here mentions this id",
+        },
+      },
+      required: ["id", "state"],
+    },
   },
   {
     name: "list_relays",
@@ -127,6 +168,24 @@ const TOOLS = [
         },
       },
     },
+    outputSchema: {
+      type: "object",
+      properties: {
+        present: { type: "array", items: { type: "string" }, description: "ids this store holds" },
+        knownMissing: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "ids a held record names and whose bytes are absent. Gaps are reported, never closed",
+        },
+        after: {
+          type: ["string", "null"],
+          description:
+            "the id the listing starts after, or null when the whole store was asked for",
+        },
+      },
+      required: ["present", "knownMissing", "after"],
+    },
   },
   {
     name: "list_replies",
@@ -136,6 +195,28 @@ const TOOLS = [
       type: "object",
       properties: { id: { type: "string" } },
       required: ["id"],
+    },
+    outputSchema: {
+      type: "object",
+      properties: {
+        parent: { type: "string", description: "the id asked about, as given" },
+        replies: {
+          type: "array",
+          description:
+            "records naming it as parent or ref, in id order. Empty is an answer, not an absence",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              kind: { type: ["string", "null"] },
+              from: { type: ["string", "null"] },
+              to: { type: ["string", "null"] },
+            },
+            required: ["id", "kind", "from", "to"],
+          },
+        },
+      },
+      required: ["parent", "replies"],
     },
   },
 ];
@@ -160,6 +241,41 @@ export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
 export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);
 
 const text = (s: string) => ({ content: [{ type: "text", text: s }] });
+
+/**
+ * A text answer with a machine-readable one beside it.
+ *
+ * The four tools whose answer is data declare an `outputSchema`, and the spec
+ * (2025-06-18) then requires a conforming `structuredContent`. It also says a
+ * tool returning structured content SHOULD put the serialized JSON in its text
+ * block: **we do not, and the deviation is deliberate.** That text is the
+ * contract six agents already read — `relay-0033: PRESENT`, `present (5): …` —
+ * and replacing it with a JSON blob would break every caller to satisfy a
+ * backwards-compatibility clause. Structure is added beside the text, never
+ * over it, and `tests/relay-mcp.test.ts` pins both halves.
+ *
+ * `get_relay` and `append_relay` get no schema. `get_relay`'s text is the
+ * record's own bytes, and a schema over them would be this store describing a
+ * payload it refuses to parse.
+ *
+ * The schemas are announced to every client, including the two older revisions
+ * this server still speaks, and **that assumes a client ignores tool fields it
+ * does not know** — which is how JSON-RPC clients behave and not something the
+ * protocol promises. A client validating `tools/list` against a frozen
+ * pre-2025-06-18 schema could reject the announcement. The alternative is
+ * remembering a negotiated revision between calls, which `handle()` has no
+ * state for by design. relay-1166, C3: the assumption is the thing to write
+ * down, not the field a client sees.
+ *
+ * The fragments are plain JSON Schema: `type: ["string", "null"]` has been
+ * legal since draft-04, and all four validate under draft-07 and 2020-12 alike
+ * — checked with a validator against the server's own `tools/list`, because
+ * relay-1166's A1 read them as 2020-12-only.
+ */
+const structured = (s: string, data: object) => ({
+  content: [{ type: "text", text: s }],
+  structuredContent: data,
+});
 
 /**
  * The store, or a refusal that names nothing about this machine.
@@ -211,22 +327,35 @@ async function callTool(
         `provenance: ${record.provenance}\ndeposited-by: ${record.depositedBy}\nintegrity-sha256: ${record.sha256}\n---\n${record.bytes}`,
       );
     }
-    case "exists":
-      return text(`${id}: ${exists(await held(), id)}`);
+    case "exists": {
+      const state = exists(await held(), id);
+      return structured(`${id}: ${state}`, { id, state });
+    }
     case "list_relays": {
       const after = typeof args.after === "string" ? args.after : undefined;
       const { present, missing } = listRelays(await held(), after);
-      return text(
+      return structured(
         `present (${present.length}): ${present.join(" ") || "—"}\nknown missing (${missing.length}): ${missing.join(" ") || "—"}`,
+        { present, knownMissing: missing, after: after ?? null },
       );
     }
     case "wait_for_relay": {
       const after = typeof args.after === "string" ? args.after : undefined;
       const ms = typeof args.timeout_ms === "number" ? args.timeout_ms : 30_000;
       const r = await waitForRelay(after, ms);
+      const landed = r.appeared.map((x) => ({
+        id: x.id,
+        kind: x.kind,
+        from: x.from,
+        to: x.to,
+        depositedBy: x.depositedBy,
+        provenance: x.provenance,
+      }));
+      const window = { timedOut: r.timedOut, waitedMs: r.waitedMs, appeared: landed };
       if (r.timedOut) {
-        return text(
+        return structured(
           `nothing appeared in ${r.waitedMs}ms. That is a fact about this window, not about whether anything was sent.`,
+          window,
         );
       }
       const lines = r.appeared
@@ -235,7 +364,7 @@ async function callTool(
             `${x.id}  ${x.kind ?? "?"}  from ${x.from ?? "?"} to ${x.to ?? "?"}  via ${x.depositedBy} ${x.provenance}`,
         )
         .join("\n");
-      return text(`${r.appeared.length} record(s) after ${r.waitedMs}ms:\n${lines}`);
+      return structured(`${r.appeared.length} record(s) after ${r.waitedMs}ms:\n${lines}`, window);
     }
     case "append_relay": {
       if (!channel) {
@@ -253,8 +382,19 @@ async function callTool(
     }
     case "list_replies": {
       const replies = listReplies(await held(), id);
-      if (replies.length === 0) return text(`no held record names ${id} as parent or ref`);
-      return text(replies.map((r) => `${r.id}  ${r.kind}  ${r.from}>${r.to}`).join("\n"));
+      // The empty case keeps its own sentence and gains an empty list. A reader
+      // that finds no replies has been told so; it has not been told nothing.
+      const named = replies.map((r) => ({ id: r.id, kind: r.kind, from: r.from, to: r.to }));
+      if (replies.length === 0) {
+        return structured(`no held record names ${id} as parent or ref`, {
+          parent: id,
+          replies: named,
+        });
+      }
+      return structured(replies.map((r) => `${r.id}  ${r.kind}  ${r.from}>${r.to}`).join("\n"), {
+        parent: id,
+        replies: named,
+      });
     }
     default:
       throw new Error(`unknown tool: ${name}`);
