@@ -156,6 +156,18 @@ describe("roleProblem", () => {
     expect(roleProblem(dir(one), linked(true))).toMatch(/history is a symlink/);
     expect(roleProblem(linked(false), dir(one, true))).toMatch(/history is a symlink/);
   });
+
+  it("refuses a symlinked history/ that points at nothing yet", () => {
+    // A dangling link reads as absent to anything that follows it, so a check
+    // written as "does it exist, and is it a link" never asks the second
+    // question. The link is the hazard, not its target: the target can be
+    // created between this check and the write.
+    const copy = dir({}, true);
+    rmSync(join(copy, "history"), { recursive: true });
+    symlinkSync(join(dir({}), "not-yet", "history"), join(copy, "history"));
+    expect(existsSync(join(copy, "history"))).toBe(false);
+    expect(roleProblem(dir(one), copy)).toMatch(/history is a symlink/);
+  });
 });
 
 describe("applySync", () => {

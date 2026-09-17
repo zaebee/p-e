@@ -1,4 +1,4 @@
-import { constants, existsSync, lstatSync } from "node:fs";
+import { constants, type Stats, lstatSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { ID, gitWorkTreeOf } from "./store.js";
@@ -86,45 +86,91 @@ async function held(root: string): Promise<{ records: Set<string>; markers: Set<
 const recordPath = (id: string) => `${id}.txt`;
 const markerPath = (id: string) => `history/${id}`;
 
+/** Ids held on one side, as `held` returns them. */
+type Held = Awaited<ReturnType<typeof held>>;
+
+/** The buckets `planSync` fills, before `differ` is decided by reading bytes. */
+interface Sorted {
+  readonly copy: string[];
+  readonly onlyInMirror: string[];
+  readonly deletedInStore: string[];
+  readonly waiting: string[];
+  /** Held by both sides: a candidate for `differ`, decided by `differing`. */
+  readonly compare: string[];
+}
+
+/** Where one id's record belongs, by which side holds it. Reads no bytes. */
+function sortRecord(id: string, s: Held, m: Held, out: Sorted): void {
+  if (s.records.has(id)) {
+    if (m.records.has(id)) out.compare.push(recordPath(id));
+    else out.copy.push(recordPath(id));
+    return;
+  }
+  if (!m.records.has(id)) return;
+  if (s.markers.has(id)) out.deletedInStore.push(recordPath(id));
+  else out.onlyInMirror.push(recordPath(id));
+}
+
+/** Where one id's marker belongs. Reads no bytes. A marker is copied only behind its record. */
+function sortMarker(id: string, s: Held, m: Held, out: Sorted): void {
+  if (!s.markers.has(id)) {
+    if (m.markers.has(id)) out.onlyInMirror.push(markerPath(id));
+    return;
+  }
+  if (m.markers.has(id)) out.compare.push(markerPath(id));
+  else if (s.records.has(id) || m.records.has(id)) out.copy.push(markerPath(id));
+  else out.waiting.push(markerPath(id));
+}
+
+/**
+ * Concurrent reads, bounded, the way `loadStore` reads a store: a sync compares
+ * every file both sides hold — two reads per record, twice again for its marker
+ * — and one round trip at a time made planning the slowest part of a run over a
+ * store of a thousand records. The bound is what keeps a large store from
+ * opening a thousand files at once.
+ *
+ * Order is the caller's: `paths` arrives in id order and the result keeps it,
+ * because a batch is awaited whole before the next one is read.
+ */
+const COMPARE_FAN_OUT = 32;
+
+async function differing(store: string, mirror: string, paths: string[]): Promise<string[]> {
+  const differ: string[] = [];
+  for (let i = 0; i < paths.length; i += COMPARE_FAN_OUT) {
+    const batch = await Promise.all(
+      paths.slice(i, i + COMPARE_FAN_OUT).map(async (path) => {
+        const [a, b] = await Promise.all([
+          readFile(join(store, path)),
+          readFile(join(mirror, path)),
+        ]);
+        return a.equals(b) ? null : path;
+      }),
+    );
+    for (const path of batch) if (path !== null) differ.push(path);
+  }
+  return differ;
+}
+
 /** What a sync from `store` into `mirror` would do. Reads both; writes nothing. */
 export async function planSync(store: string, mirror: string): Promise<SyncPlan> {
   const [s, m] = await Promise.all([held(store), held(mirror)]);
-  const copy: string[] = [];
-  const differ: string[] = [];
-  const onlyInMirror: string[] = [];
-  const deletedInStore: string[] = [];
-  const waiting: string[] = [];
-
-  const same = async (path: string): Promise<boolean> => {
-    const [a, b] = await Promise.all([readFile(join(store, path)), readFile(join(mirror, path))]);
-    return a.equals(b);
-  };
+  const out: Sorted = { copy: [], onlyInMirror: [], deletedInStore: [], waiting: [], compare: [] };
 
   const ids = [...new Set([...s.records, ...s.markers, ...m.records, ...m.markers])].sort(
     byCodeUnit,
   );
   for (const id of ids) {
-    if (s.records.has(id)) {
-      if (!m.records.has(id)) copy.push(recordPath(id));
-      else if (!(await same(recordPath(id)))) differ.push(recordPath(id));
-    } else if (m.records.has(id)) {
-      if (s.markers.has(id)) deletedInStore.push(recordPath(id));
-      else onlyInMirror.push(recordPath(id));
-    }
-
-    if (s.markers.has(id)) {
-      if (m.markers.has(id)) {
-        if (!(await same(markerPath(id)))) differ.push(markerPath(id));
-      } else if (s.records.has(id) || m.records.has(id)) {
-        copy.push(markerPath(id));
-      } else {
-        waiting.push(markerPath(id));
-      }
-    } else if (m.markers.has(id)) {
-      onlyInMirror.push(markerPath(id));
-    }
+    sortRecord(id, s, m, out);
+    sortMarker(id, s, m, out);
   }
-  return { copy, differ, onlyInMirror, deletedInStore, waiting };
+
+  return {
+    copy: out.copy,
+    differ: await differing(store, mirror, out.compare),
+    onlyInMirror: out.onlyInMirror,
+    deletedInStore: out.deletedInStore,
+    waiting: out.waiting,
+  };
 }
 
 /**
@@ -150,7 +196,20 @@ export function roleProblem(store: string, mirror: string): string | null {
   }
   for (const root of [store, mirror]) {
     const history = join(root, "history");
-    if (existsSync(history) && lstatSync(history).isSymbolicLink()) {
+    // lstat and not existsSync-then-lstat: existsSync FOLLOWS the link, so a
+    // link pointing at nothing yet read as absent and was never asked whether
+    // it was a link. The dangling case is not harmless — `mkdir` through it
+    // fails today, but the target can be created between this check and the
+    // write, and then markers land wherever it points. gemini-code-assist
+    // found this on #236; the reproduction is in the tests.
+    let entry: Stats;
+    try {
+      entry = lstatSync(history);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+    if (entry.isSymbolicLink()) {
       return `${history} is a symlink. Markers allocate ids, and a sync would write them wherever it points`;
     }
   }
