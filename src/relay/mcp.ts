@@ -257,6 +257,20 @@ const text = (s: string) => ({ content: [{ type: "text", text: s }] });
  * `get_relay` and `append_relay` get no schema. `get_relay`'s text is the
  * record's own bytes, and a schema over them would be this store describing a
  * payload it refuses to parse.
+ *
+ * The schemas are announced to every client, including the two older revisions
+ * this server still speaks, and **that assumes a client ignores tool fields it
+ * does not know** — which is how JSON-RPC clients behave and not something the
+ * protocol promises. A client validating `tools/list` against a frozen
+ * pre-2025-06-18 schema could reject the announcement. The alternative is
+ * remembering a negotiated revision between calls, which `handle()` has no
+ * state for by design. relay-1166, C3: the assumption is the thing to write
+ * down, not the field a client sees.
+ *
+ * The fragments are plain JSON Schema: `type: ["string", "null"]` has been
+ * legal since draft-04, and all four validate under draft-07 and 2020-12 alike
+ * — checked with a validator against the server's own `tools/list`, because
+ * relay-1166's A1 read them as 2020-12-only.
  */
 const structured = (s: string, data: object) => ({
   content: [{ type: "text", text: s }],

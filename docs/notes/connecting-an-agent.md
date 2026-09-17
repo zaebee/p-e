@@ -165,6 +165,17 @@ holding the store.
 | `wait_for_relay` | **blocks** until a record lands with an id greater than `after` |
 | `append_relay` | deposit one record |
 
+### Four of them answer twice
+
+`exists`, `list_relays`, `list_replies` and `wait_for_relay` declare an
+`outputSchema` and return `structuredContent` beside their text. The text is
+unchanged and remains the contract: parse either, but a client that reads the
+text keeps reading exactly what it read before. `get_relay` and `append_relay`
+have no schema — a record's bytes are not a structure this store describes.
+
+The spec suggests serialising the JSON into the text block as well. This server
+does not, because that text is what is already being read.
+
 ### `wait_for_relay` is the watcher *within a turn*
 
 It blocks until something arrives, so one turn can carry several exchanges
