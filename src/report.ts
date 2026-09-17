@@ -9,6 +9,7 @@ import { checkI8 } from "./checks/i8.js";
 import { checkI9 } from "./checks/i9.js";
 import { RecordingCorpus, coverageOf } from "./coverage.js";
 import type { Manifest } from "./manifest.js";
+import { byCodeUnit } from "./order.js";
 import { type Finding, admits } from "./verdict.js";
 
 const TITLES: Record<string, string> = {
@@ -260,7 +261,7 @@ verdict below rests on something read directly out of an artifact.`,
 };
 
 export function renderReport(findings: readonly Finding[], meta: ReportMeta): string {
-  const invariants = [...new Set(findings.map((f) => f.invariant))].sort();
+  const invariants = [...new Set(findings.map((f) => f.invariant))].sort(byCodeUnit);
 
   const rows = invariants.map((id) => {
     const own = findings.filter((f) => f.invariant === id);
@@ -315,7 +316,7 @@ export function renderReport(findings: readonly Finding[], meta: ReportMeta): st
             .filter((f) => f.invariant === id && f.verdict === "CONFORMS")
             .map((f) => f.producer),
         ),
-      ].sort();
+      ].sort(byCodeUnit);
       const witness = confirming.length === 0 ? "no" : `${confirming.join(", ")} only`;
       return `| ${id} ${TITLES[id] ?? ""} | yes (per spec §3) | ${witness} |`;
     })

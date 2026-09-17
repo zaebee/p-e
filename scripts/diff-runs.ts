@@ -8,6 +8,7 @@
  * record of what an earlier methodology concluded.
  */
 import { readFile } from "node:fs/promises";
+import { byCodeUnit } from "../src/order.js";
 
 const FINDING = /^- \*\*(\S+) — ([A-Z_]+)\*\* \*\((\w+)\)\*\./;
 const SECTION = /^### (I-\d) · .* — (\w+)$/;
@@ -48,7 +49,7 @@ if (!a || !b) throw new Error("usage: diff-runs <report-a.md> <report-b.md>");
 const from = await parse(a);
 const to = await parse(b);
 
-const keys = [...new Set([...from.findings.keys(), ...to.findings.keys()])].sort();
+const keys = [...new Set([...from.findings.keys(), ...to.findings.keys()])].sort(byCodeUnit);
 const lines: string[] = [];
 
 for (const key of keys) {
@@ -59,7 +60,7 @@ for (const key of keys) {
   if (before !== after) lines.push(`  ${key.padEnd(18)} ${before}  ->  ${after}`);
 }
 
-for (const id of [...new Set([...from.results.keys(), ...to.results.keys()])].sort()) {
+for (const id of [...new Set([...from.results.keys(), ...to.results.keys()])].sort(byCodeUnit)) {
   const before = from.results.get(id) ?? "absent";
   const after = to.results.get(id) ?? "absent";
   if (before !== after) lines.push(`  ${id.padEnd(18)} ${before}  ->  ${after}`);
@@ -67,4 +68,4 @@ for (const id of [...new Set([...from.results.keys(), ...to.results.keys()])].so
 
 console.log(`${a}  ->  ${b}\n`);
 console.log(lines.length > 0 ? lines.join("\n") : "  no verdict changed");
-console.log(`\n  ${from.admitted.replace(/\*\*/g, "")}  ->  ${to.admitted.replace(/\*\*/g, "")}`);
+console.log(`\n  ${from.admitted.replaceAll("**", "")}  ->  ${to.admitted.replaceAll("**", "")}`);

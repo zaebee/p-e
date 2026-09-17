@@ -1,4 +1,5 @@
 import type { Envelope } from "../envelope.js";
+import { byCodeUnit } from "../order.js";
 
 const decoder = new TextDecoder();
 
@@ -53,7 +54,7 @@ export const apexHistory = (files: Map<string, Uint8Array>) =>
  */
 export function apexLog(files: Map<string, Uint8Array>): ApexLogEntry[] {
   const out: ApexLogEntry[] = [];
-  for (const file of [...files.keys()].filter((k) => k.startsWith("apex/log/")).sort()) {
+  for (const file of [...files.keys()].filter((k) => k.startsWith("apex/log/")).sort(byCodeUnit)) {
     const body = text(files, file);
     const match = /^---\n([\s\S]*?)\n---/.exec(body);
     const front = match?.[1];

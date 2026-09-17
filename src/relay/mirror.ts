@@ -1,6 +1,7 @@
 import { constants, type Stats, lstatSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { byCodeUnit } from "../order.js";
 import { ID, gitWorkTreeOf } from "./store.js";
 
 /**
@@ -52,17 +53,6 @@ export interface SyncPlan {
    * record; reported on every run, so one that never resolves is visible.
    */
   readonly waiting: readonly string[];
-}
-
-/**
- * Code-unit order, written out. The default `sort()` gives the same order and
- * Sonar asks for a comparator; `localeCompare`, which it suggests, would make the
- * order of a report depend on the machine's locale.
- */
-function byCodeUnit(a: string, b: string): number {
-  if (a < b) return -1;
-  if (a > b) return 1;
-  return 0;
 }
 
 /** Ids with a record, and ids with a marker, under a root. Names that are not store ids are ignored. */

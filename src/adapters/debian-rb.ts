@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync } from "node:zlib";
+import { byCodeUnit } from "../order.js";
 
 /**
  * Adapter for the Debian reproducible-builds (r-b) producer.
@@ -85,6 +86,19 @@ export interface DebianRb {
   recomputeDisagreement: number;
 }
 
+/**
+ * Everything before a `//` comment, or the whole string when there is none.
+ *
+ * Was `s.replace(/\/\/.*$/, "")`, which Sonar flags for backtracking. The
+ * pattern is linear and the input is one short field, so the flag is about the
+ * shape rather than a measured cost — but a cut at an index says what this does
+ * without anyone having to decide that.
+ */
+function cutComment(s: string): string {
+  const at = s.indexOf("//");
+  return at === -1 ? s : s.slice(0, at);
+}
+
 /** Pull enum variant identifiers out of a Rust `enum Name { .. }` block.
  * Returns null (not []) when the enum is absent from the source, so a missing
  * enum is distinguishable from an enum that genuinely declares no variants. */
@@ -95,7 +109,7 @@ function rustEnumVariants(src: string, name: string): string[] | null {
   const body = m[1] ?? "";
   return body
     .split(/[,\n]/)
-    .map((s) => s.replace(/\/\/.*$/, "").trim())
+    .map((s) => cutComment(s).trim())
     .filter((s) => /^[A-Za-z][A-Za-z0-9_]*$/.test(s));
 }
 
@@ -106,7 +120,7 @@ export async function readDebianRb(): Promise<DebianRb> {
   };
   const builds = buildsRaw.records;
 
-  const statusValues = [...new Set(builds.map((b) => b.status))].sort();
+  const statusValues = [...new Set(builds.map((b) => b.status))].sort(byCodeUnit);
   const retriesByStatus: Record<string, { count: number; withRetries: number }> = {};
   for (const b of builds) {
     let e = retriesByStatus[b.status];
@@ -130,7 +144,7 @@ export async function readDebianRb(): Promise<DebianRb> {
     has_attestation?: boolean;
     has_diffoscope?: boolean;
   }>;
-  const pkgStatusValues = [...new Set(pkgRaw.map((r) => r.status))].sort();
+  const pkgStatusValues = [...new Set(pkgRaw.map((r) => r.status))].sort(byCodeUnit);
   const pkgCarryTrace =
     pkgRaw.length > 0 &&
     pkgRaw.every(

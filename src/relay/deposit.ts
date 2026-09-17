@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { link, mkdir, open, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { type Continuity, stateOf } from "./continuity.js";
@@ -462,10 +463,7 @@ async function write(
  * this comment does not close it.
  */
 async function commit(root: string, path: string, text: string): Promise<void> {
-  const temp = join(
-    root,
-    `.deposit-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-  );
+  const temp = join(root, `.deposit-${process.pid}-${Date.now()}-${randomUUID()}`);
   const handle = await open(temp, "wx");
   try {
     await handle.writeFile(text);
