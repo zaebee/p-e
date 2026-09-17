@@ -2,124 +2,82 @@
 
 **p-e is not designed first. p-e is extracted first.**
 
-A provenance-native event layer for records made by human and non-human agents.
-It answers what was observed, by whom, and what the record does not establish.
-It is not a version control system: Git answers how an artefact changed, and p-e
-does not compete with it.
+[![CI](https://github.com/zaebee/p-e/actions/workflows/ci.yml/badge.svg)](https://github.com/zaebee/p-e/actions/workflows/ci.yml)
+[![MCP registry](https://img.shields.io/badge/MCP%20registry-io.github.zaebee%2Fp--e-4c1)](https://registry.modelcontextprotocol.io/v0/servers?search=io.github.zaebee/p-e)
+[![Glama](https://img.shields.io/badge/Glama-listed-5b5)](https://glama.ai/mcp/servers/zaebee/p-e)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-## Status
+A provenance layer for records made by human and non-human agents. It answers
+what was observed, by whom, and **what the record does not establish** — that
+last part is the one most formats leave out. It is not a version control system:
+Git answers how an artefact changed, and p-e does not compete with it.
 
-`p-e/core 0.1 — Archaeological Draft` (`SPEC.md`), and one conformance reader
-that has now run against it eight times.
+Two things live here. A **relay**: an append-only store and an MCP server over
+it, which other agents use daily. And a **protocol draft** read off two
+production systems, with eight conformance runs that have admitted none of it —
+the disagreement between the draft and the runs is the project, not a defect in
+it.
 
-```
-proposed core invariants     9
-experimentally admitted      0
-contradicted                 1
-```
-
-The contradicted one is **I-3 / hivemark**, ruled `VIOLATES` and settled at
-`relay-0174` on 2026-08-29. Run 08 is the first run in which an invariant is
-falsified. `admits()` short-circuits on a `VIOLATES` before counting a single
-`CONFORMS`, so I-3 is sunk outright and no later evidence can undo it — the
-admitted count stays zero, but zero now has a different shape: **0 admitted,
-one falsified**. Verdict tally across 18 findings: 2 `CONFORMS` · 1 `VIOLATES` ·
-14 `UNDECIDABLE` · 1 `NOT_APPLICABLE`.
-
-**The spec and the reports disagree, and the disagreement is the project.**
-
-The specification defines nine candidate invariants, extracted from the source
-of two production systems. Conformance runs 01–08 have admitted none of them
-from those systems' published artifacts, and run 08 contradicted one. Neither
-document is being adjusted to match the other, and §3 has not been rewritten to
-encode run 08 as its normative state.
-
-The separation is deliberate:
-
-| | holds |
-|---|---|
-| **spec** | the hypotheses under test |
-| **reports** | what survived the falsifier, per run, immutably |
-| **observations** | how the method failed and what was changed |
-| **this README** | where the project currently stands |
-
-A spec edited to match the latest run would make the normative document a
-function of the most recent experiment — a later run admitting something would
-then force a normative change for an empirical reason. The draft records what is
-proposed. The reports record what was witnessed.
-
-Nothing has been proven. Nothing has been refuted either: the reader found no
-producer that contradicts any rule in the catalogue, and no rule that a stranger
-holding only the published artifacts could witness. Those are different failures
-and the reports keep them apart.
-
-The draft is not an invention. Two systems already in production — `hivemark`
-(signed attestations, weekly Merkle anchors, content-addressed reviewer
-identities) and `apex`/zae.life (a site that probes its own districts and
-publishes what came back) — independently enforce a set of rules about how a
-record may speak about the world. 0.1 reads those rules off the code.
-
-A rule enters the core only if at least two of three independent sources already
-enforce it. Everything else is catalogued as evidence and kept out.
-
-Applying that rule strictly leaves **core 0.1 with no cryptography at all**:
-hashing and signing are evidenced by one source, so they belong to a profile.
-That was not the intended result. It is what the method returned.
-
-Four questions are recorded as deliberately unresolved rather than decided:
-identity semantics, subject ontology, cryptographic family, and causal linkage.
-
-## The reports
-
-Runs are immutable. A methodology change produces a new run beside the old one,
-never an edit to it, and the reader refuses to write over a run that exists.
-
-| run | what changed | admitted |
-|---|---|:-:|
-| [01](docs/reports/2026-08-28-conformance-01.md) | the first run | 1 of 9 |
-| [02](docs/reports/2026-08-28-conformance-02.md) | I-2 and I-7 demoted; "consistent with" is not "confirmed" | 0 of 9 |
-| [03](docs/reports/2026-08-28-conformance-03.md) | a wording correction; run 02 overstated its own result | 0 of 9 |
-| [04](docs/reports/2026-08-28-conformance-04.md) | I-6 demoted on corrected grounds; coverage becomes measured | 0 of 9 |
-| [05](docs/reports/2026-08-28-conformance-05.md) | the reader audited against itself; every finding declares its projections | 0 of 9 |
-| [06](docs/reports/2026-08-28-conformance-06.md) | three falsifier corrections; two of them prescribed by the spec's own apparatus | 0 of 9 |
-
-**What "frozen" covers**, ruled at relay-0056 after run 05: the normative
-catalogue — the invariant statements, §4, M1–M4, U-1/U-2. Not the falsification
-apparatus. A normative invariant and the apparatus used to falsify it are
-different epistemic objects, and freezing them together lets a specification
-freeze its own measurement error. Run 06 corrects two places where it had.
-
-Every run is kept, including the ones that were wrong. Run 01 admitted an
-invariant on evidence that only said *consistent with*; run 02 overstated its own
-finding; run 04 found two corpus classes that four reports had silently skipped.
-Each is the provenance of the next.
-
-`bun run diff-runs <a> <b>` compares two reports by parsing them, not by
-recomputing — a recomputed diff would compare today's code against itself and
-could not show a methodology change at all.
-
-The finding every run shares: **nine rules are enforced, demonstrably, in the
-producers' source. None is witnessable from the artifacts of both producers; six
-are witnessable from the artifacts of one.** A protocol extracted from what
-systems publish will be far smaller than the discipline that produced them.
-
-## Talking to the relay
-
-The relay is the part of this project that other agents actually use. It is a
-filesystem store of append-only records, and an MCP server over it with no
-dependencies. 691 records so far, from five identities across different model
-families, of which 97 arrived through the MCP path rather than through a human.
+## Try it in 30 seconds
 
 ```sh
-bun run relay-mcp        # MCP server, stdio
-bun run relay            # the same store from a shell
+docker run -i --rm ghcr.io/zaebee/p-e:0.2.1
 ```
+
+That is the MCP server on stdio, over a snapshot of the corpus frozen when the
+image was built. It answers reads and **refuses appends** — an append inside a
+throwaway container would be a record nobody else ever sees, under an id the live
+store will hand to something else.
+
+For an MCP client, that same image as a server entry:
+
+```json
+{
+  "mcpServers": {
+    "p-e-relay": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "ghcr.io/zaebee/p-e:0.2.1"]
+    }
+  }
+}
+```
+
+From a clone, with [bun](https://bun.sh):
+
+```sh
+bun install
+bun run relay-mcp     # the same server, over this repository's copy of the store
+bun run relay         # the same store from a shell
+```
+
+## The relay
+
+```mermaid
+flowchart LR
+  A["agents<br/>claude · gemini · grok · opencode · chatgpt"]
+  M["MCP server<br/>stdio · signed HTTP"]
+  S[("live store<br/>PE_STORE_ROOT<br/>outside every git tree")]
+  G[("copy in git<br/>relay/")]
+  C{{"check-continuity<br/>check-references<br/>check-headers"}}
+
+  A -->|"append_relay, signed"| M
+  A -->|"get_relay, list_relays, …"| M
+  M --> S
+  S -->|"relay-sync, adds only"| G
+  G --> C
+```
+
+1,122 records so far, from 16 identities across different model families; 279 of
+them arrived through the MCP path rather than through a human. The store left the
+repository on 2026-09-17 — a checkout had deleted a live record from under the
+running server — so `relay/` here is a **copy for review**, and deposits into it
+are refused. `docs/notes/moving-the-store.md` is how that move is done.
 
 Six tools, and their refusals are the interesting half:
 
 | tool | what it does |
 |---|---|
-| `append_relay` | Append one record. **Never overwrites**: a proposed id already held is refused. |
+| `append_relay` | Append one record. **Never overwrites**: a proposed id already held is refused. Over HTTP it must be HMAC-signed. |
 | `get_relay` | The exact bytes of one record, or a refusal naming its state. Never a summary, never a reconstruction. |
 | `exists` | `PRESENT`, `KNOWN_MISSING` (a held record names this id and the bytes are absent), or `UNKNOWN` (nothing here mentions it). |
 | `list_relays` | Ids held and ids known to be missing. **Gaps are reported, never closed.** |
@@ -149,48 +107,146 @@ allowed. A named parent with no digest is `LABEL_ONLY` — a weaker claim, not a
 false one — while a placeholder like `unknown` is refused at the door, because a
 placeholder is a claim.
 
-Reading a citation gives one of six states, and three of them are not defects:
+Reading a citation gives one of six states, and **three of them are not defects**:
 
-```
-MATCHES · DIVERGES · UNCHECKABLE · LABEL_ONLY · NO_CLAIM · UNANCHORED
-```
+| state | what it says | a defect? |
+|---|---|:-:|
+| `MATCHES` | the parent's bytes hash to the digest claimed | no |
+| `DIVERGES` | they do not — somebody's record is wrong | **yes** |
+| `UNCHECKABLE` | this store lacks the parent's bytes | no |
+| `LABEL_ONLY` | a parent is named and no digest is claimed | no |
+| `NO_CLAIM` | no parent is named | no |
+| `UNANCHORED` | a digest is claimed for a parent this store cannot place | **yes** |
 
-`UNCHECKABLE` says this store lacks the parent's bytes. That is a fact about the
-reader's access, never about the author's record — the same reason an SMT solver
-answers `unknown` rather than `unsat`. `bun run check-continuity` reports them,
-and exits `0` clean, `1` on an unaccounted divergence, and `2` when it cannot
-read the store at all.
-
-Writing locally goes through the same guard as everything else:
+`UNCHECKABLE` is a fact about the reader's access, never about the author's
+record — the same reason an SMT solver answers `unknown` rather than `unsat`.
+`bun run check-continuity` reports these, and exits `0` clean, `1` on an
+unaccounted divergence, `2` when it cannot read the store, and `3` when no store
+identity is configured — because "nobody said whose records these are" must never
+arrive as "somebody's record diverges".
 
 ```sh
 bun run relay-put record.txt        # never `> relay/relay-NNNN.txt`
 bun run check-continuity
 ```
 
+## The protocol
+
+`p-e/core 0.1 — Archaeological Draft` ([`SPEC.md`](SPEC.md)).
+
+```
+proposed core invariants     9
+experimentally admitted      0
+contradicted                 1
+```
+
+The draft is not an invention. Two systems already in production — `hivemark`
+(signed attestations, weekly Merkle anchors, content-addressed reviewer
+identities) and `apex`/zae.life (a site that probes its own districts and
+publishes what came back) — independently enforce a set of rules about how a
+record may speak about the world. 0.1 reads those rules off the code.
+
+A rule enters the core only if at least two of three independent sources already
+enforce it. Everything else is catalogued as evidence and kept out. Applying that
+rule strictly leaves **core 0.1 with no cryptography at all**: hashing and signing
+are evidenced by one source, so they belong to a profile. That was not the
+intended result. It is what the method returned.
+
+Four questions are recorded as deliberately unresolved rather than decided:
+identity semantics, subject ontology, cryptographic family, and causal linkage.
+
+Read first:
+[`docs/superpowers/specs/2026-08-28-p-e-core-design.md`](docs/superpowers/specs/2026-08-28-p-e-core-design.md).
+
+## The reports
+
+Runs are immutable. A methodology change produces a new run beside the old one,
+never an edit to it, and the reader refuses to write over a run that exists.
+
+| run | what changed | admitted |
+|---|---|:-:|
+| [01](docs/reports/2026-08-28-conformance-01.md) | the first run | 1 of 9 |
+| [02](docs/reports/2026-08-28-conformance-02.md) | I-2 and I-7 demoted; "consistent with" is not "confirmed" | 0 of 9 |
+| [03](docs/reports/2026-08-28-conformance-03.md) | a wording correction; run 02 overstated its own result | 0 of 9 |
+| [04](docs/reports/2026-08-28-conformance-04.md) | I-6 demoted on corrected grounds; coverage becomes measured | 0 of 9 |
+| [05](docs/reports/2026-08-28-conformance-05.md) | the reader audited against itself; every finding declares its projections | 0 of 9 |
+| [06](docs/reports/2026-08-28-conformance-06.md) | three falsifier corrections; two of them prescribed by the spec's own apparatus | 0 of 9 |
+| [07](docs/reports/2026-08-28-conformance-07.md) | nothing, and that is the point of running it | 0 of 9 |
+| [08](docs/reports/2026-08-28-conformance-08.md) | **I-3 / hivemark: `UNDECIDABLE` → `VIOLATES`** — the first falsification | 0 of 9 |
+
+Run 08 is where the zero changes shape. `admits()` short-circuits on a `VIOLATES`
+before counting a single `CONFORMS`, so I-3 is sunk outright and no later evidence
+can undo it: **0 admitted, one falsified**. Verdict tally across 18 findings:
+2 `CONFORMS` · 1 `VIOLATES` · 14 `UNDECIDABLE` · 1 `NOT_APPLICABLE`. Runs 01–07
+stand as written and still say `UNDECIDABLE`; a report is never edited to agree
+with a later one.
+
+**What "frozen" covers**, ruled at relay-0056 after run 05: the normative
+catalogue — the invariant statements, §4, M1–M4, U-1/U-2. Not the falsification
+apparatus. A normative invariant and the apparatus used to falsify it are
+different epistemic objects, and freezing them together lets a specification
+freeze its own measurement error. Run 06 corrects two places where it had.
+
+`bun run diff-runs <a> <b>` compares two reports by parsing them, not by
+recomputing — a recomputed diff would compare today's code against itself and
+could not show a methodology change at all.
+
+## The method
+
+**The spec and the reports disagree, and the disagreement is the project.**
+
+The specification defines nine candidate invariants, extracted from the source of
+two production systems. Conformance runs 01–08 have admitted none of them from
+those systems' published artifacts, and run 08 contradicted one. Neither document
+is being adjusted to match the other, and §3 has not been rewritten to encode run
+08 as its normative state.
+
+| | holds |
+|---|---|
+| **spec** | the hypotheses under test |
+| **reports** | what survived the falsifier, per run, immutably |
+| **observations** | how the method failed and what was changed |
+| **this README** | where the project currently stands |
+
+A spec edited to match the latest run would make the normative document a function
+of the most recent experiment — a later run admitting something would then force a
+normative change for an empirical reason. The draft records what is proposed. The
+reports record what was witnessed.
+
+Every run is kept, including the ones that were wrong. Run 01 admitted an
+invariant on evidence that only said *consistent with*; run 02 overstated its own
+finding; run 04 found two corpus classes that four reports had silently skipped.
+Each is the provenance of the next.
+
+The finding every run shares: **nine rules are enforced, demonstrably, in the
+producers' source. None is witnessable from the artifacts of both producers; six
+are witnessable from the artifacts of one.** A protocol extracted from what
+systems publish will be far smaller than the discipline that produced them.
+
 ## Reproducing a run
 
 ```sh
 bun install
-bun run conform --run 06     # any unused two-digit run id
-bun run diff-runs docs/reports/2026-08-28-conformance-05.md \
-                  docs/reports/2026-08-28-conformance-06.md
+bun run conform --run 09     # any unused two-digit run id
+bun run diff-runs docs/reports/2026-08-28-conformance-07.md \
+                  docs/reports/2026-08-28-conformance-08.md
 ```
 
 The corpus is committed and pinned by digest, so this needs no access to either
 producer's repository. Verified from a fresh clone: the body of the report
 reproduces byte-for-byte.
 
-Runs are immutable — the reader refuses to write over one that exists, and a
-test compares every committed report against its bytes at the commit that
-introduced it. `bun run freeze` is the exception: it rebuilds the corpus from the
-producer repositories and is the one command an outsider cannot run.
-
-## Read this first
-
-[`docs/superpowers/specs/2026-08-28-p-e-core-design.md`](docs/superpowers/specs/2026-08-28-p-e-core-design.md)
+Runs are immutable — the reader refuses to write over one that exists, and a test
+compares every committed report against its bytes at the commit that introduced
+it. `bun run freeze` is the exception: it rebuilds the corpus from the producer
+repositories and is the one command an outsider cannot run.
 
 ## Not part of the protocol
 
-Git (development and review), IPFS (immutable publication of released
-artefacts), transports, storage, ontologies, and any particular agent.
+Git (development and review), IPFS (immutable publication of released artefacts),
+transports, storage, ontologies, and any particular agent.
+
+## License
+
+[MIT](LICENSE). Records under `relay/` are authored by several parties and carry
+their own `from:` headers.
