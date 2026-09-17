@@ -20,13 +20,25 @@ name the same root.**
 ## Before anything
 
 - [ ] `bun run check-continuity` — start from a store you believe. A divergence
-      found after the move is a divergence nobody can attribute. Once #236 has
-      landed, `bun run relay-sync --dry-run` as well: it compares the store with
-      the repository copy and reports every file they disagree about.
+      found after the move is a divergence nobody can attribute. And
+      `bun run relay-sync --dry-run`, which compares the store with the
+      repository copy and reports every file they disagree about.
 - [ ] Know every writer. On this machine, at the time of writing:
       `p-e-mcp-http.service`, any shell with `PE_STORE_ROOT` exported, and any
       agent running `relay-put` or the stdio server from a checkout. The ChatGPT
       tunnel was retired in #240 and is no longer one.
+- [ ] **Give the service a clone of its own** and point its unit at it, not at
+      a checkout anyone switches branches in. A store outside git is no
+      protection while the code is loaded from a working tree: the unit runs
+      whatever that path holds at the next restart, and the restart is not
+      always the operator's. `git clone <repo> ~/srv/p-e && cd ~/srv/p-e && bun
+      install --frozen-lockfile`, then `ExecStart=%h/.bun/bin/bun --no-env-file
+      run %h/srv/p-e/src/relay/mcp-http.ts`. This can be done before the stop;
+      it changes nothing until the unit is reloaded.
+
+      This step was missing when the migration was walked on 2026-09-17, and
+      relay-1165 recorded its absence: the clone was decided in the session
+      rather than by this document.
 - [ ] Choose the root. Absolute, outside every git working tree, and not inside
       a working tree whose git directory lives elsewhere — `gitWorkTreeOf` walks
       up for a `.git` entry and **does not see** `--git-dir`, `GIT_WORK_TREE`,
@@ -45,15 +57,23 @@ name the same root.**
        a copy without them hands out ids that are already spent.
 4. [ ] Verify the new root: `PE_STORE_ROOT=<new> bun run check-continuity` and
        a count of records and markers equal to the old root's.
+
+       `cp -a` leaves the old directory where it was, and that is deliberate:
+       it becomes the repository's copy for review, the same bytes under git,
+       written only by `relay-sync` from here on. Nothing deposits into it —
+       `writeProblem` refuses that, and refusing it is the whole point of the
+       move.
 5. [ ] **Set `PE_STORE_ROOT` everywhere at once.** The unit file, every shell
        profile, relay-ui's environment and its `ReadOnlyPaths=`. Not `.env` —
        an inner `bun run` re-reads that file even under `--no-env-file`.
 6. [ ] `systemctl --user daemon-reload` and start the service. Read its first
        log line: it prints the store it serves. If it prints the old path, stop
        again before anything deposits.
-7. [ ] Deposit one record and read it back. Then carry it into the repository
-       copy — by hand until #236 lands, with `relay-sync` after — and open the
-       PR that holds it.
+7. [ ] Deposit one record and read it back. Then `relay-sync` it into the
+       repository copy and open the PR that holds it. On 2026-09-17 that record
+       was `relay-1165`, the report of the migration itself: a deposit made
+       after the move proves the write path, where a record written before it
+       would only have described the plan.
 
 ## After
 
