@@ -1,0 +1,7 @@
+# The Dockerfile copies src/ and relay/ by name; this is the second guard.
+.env
+.env.*
+.git
+node_modules
+corpus
+dist
