@@ -1,0 +1,20 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "last-release-sha": "fc465a94f9504c6f92eff7b7e4d2236bada3d0e1",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "p-e",
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Fixes" },
+        { "type": "perf", "section": "Performance" },
+        { "type": "docs", "section": "Documentation", "hidden": true },
+        { "type": "chore", "section": "Chores", "hidden": true },
+        { "type": "test", "section": "Tests", "hidden": true },
+        { "type": "style", "section": "Style", "hidden": true },
+        { "type": "refactor", "section": "Refactoring", "hidden": true }
+      ]
+    }
+  }
+}
