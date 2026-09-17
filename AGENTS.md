@@ -41,6 +41,10 @@ A working tree is recognised by a `.git` entry in the directory or above it. A w
 directory lives elsewhere (`--git-dir`, `GIT_WORK_TREE`, a bare dotfiles repository) is **not**
 recognised; do not put a store in one.
 
+Moving a store there is `docs/notes/moving-the-store.md`, as an ordered checklist. The order is the
+point: a migration where one writer has the new root and another still has the old one gives two
+stores and two high-water marks, and no check fires for either (relay-1163).
+
 To work against the live store from a shell, export the variable for that shell:
 
 ```
