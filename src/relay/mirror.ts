@@ -185,6 +185,12 @@ export async function planSync(store: string, mirror: string): Promise<SyncPlan>
  * root's real path, and a linked `history/` would carry markers — which allocate
  * ids — into whatever directory it points at. An attack did exactly that into a
  * second store and burned two of its ids.
+ *
+ * A symlink is the case this catches, and not the only way two roots can share
+ * one directory: a bind mount is not a link, `lstat` reports an ordinary
+ * directory, and this check passes while both roots write the same inodes
+ * (relay-1163, F7). Nothing here can see that from the path alone, so it is a
+ * standing limit of the role check rather than something it enforces.
  */
 export function roleProblem(store: string, mirror: string): string | null {
   const storeTree = gitWorkTreeOf(store);
@@ -221,6 +227,13 @@ export function roleProblem(store: string, mirror: string): string | null {
  * copied. Each copy is exclusive: a file that appeared in the copy since planning
  * makes it throw rather than overwrite. A throw leaves every file already
  * reported in place and names the one that failed; the caller says so.
+ *
+ * A crash between two copies is the case this order is built for: the next run
+ * copies what is missing. A crash **inside** one is not repaired here — an
+ * exclusive copy interrupted partway can leave a short file, and the next plan
+ * reads it as a disagreement and refuses (exit 1) until someone deletes it.
+ * That is the intended end: a partial record in the copy is exactly the thing
+ * this script must never paper over (relay-1163, F5).
  */
 export async function applySync(
   store: string,
