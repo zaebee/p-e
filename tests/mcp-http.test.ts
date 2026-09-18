@@ -18,6 +18,7 @@ import {
   parseTokens,
   replayed,
   sign,
+  spendsWriteQuota,
 } from "../src/relay/mcp-http.js";
 import * as mcp from "../src/relay/mcp.js";
 import { handle } from "../src/relay/mcp.js";
@@ -311,6 +312,63 @@ describe("the HTTP transport", () => {
 
     const withCredential = await signed({ jsonrpc: "2.0", id: 1, method: "tools/list" });
     expect(withCredential.status).toBe(200);
+  });
+
+  it("does not spend a deposit's quota on a wait, which deposits nothing", async () => {
+    // The signature gate and the write quota are different questions, and
+    // conflating them would let 30 waits exhaust an agent's right to deposit.
+    const call = (name: string) => ({
+      jsonrpc: "2.0" as const,
+      id: 1,
+      method: "tools/call",
+      params: { name, arguments: {} },
+    });
+    expect(spendsWriteQuota(call("append_relay"))).toBe(true);
+    expect(spendsWriteQuota(call("append_relay_v2"))).toBe(true);
+    expect(spendsWriteQuota(call("wait_for_relay"))).toBe(false);
+    expect(spendsWriteQuota(call("exists"))).toBe(false);
+    expect(spendsWriteQuota({ jsonrpc: "2.0" as const, id: 1, method: "tools/list" })).toBe(false);
+  });
+
+  it("refuses an unsigned wait_for_relay, which spends the server's socket", async () => {
+    // The one read that costs the server something: it holds the connection for
+    // up to MAX_WAIT_MS. Every other read answers and lets go. A credential is
+    // required for it over HTTP not because it changes anything — it changes
+    // nothing — but because an anonymous caller could otherwise hold sockets
+    // open at will (relay-1168: unsigned, held 8.2s against relay.zae.life).
+    const res = await post({
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "wait_for_relay", arguments: { after: "relay-9999", timeout_ms: 1_000 } },
+      }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("serves wait_for_relay to a credential, because the agents that use it hold one", async () => {
+    const res = await signed({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "wait_for_relay", arguments: { after: "relay-9999", timeout_ms: 1_000 } },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("still serves an unsigned exists, which answers and lets go", async () => {
+    const res = await post({
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: "exists", arguments: { id: "relay-0033" } },
+      }),
+    });
+    expect(res.status).toBe(200);
   });
 
   it("treats an unknown tool as a write, because the default has to protect", async () => {

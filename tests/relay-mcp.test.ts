@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { READ_ONLY_TOOLS, TOOL_NAMES, handle, loadStoreOrRefuse } from "../src/relay/mcp.js";
+import {
+  READ_ONLY_TOOLS,
+  TOOL_NAMES,
+  UNSIGNED_OVER_HTTP,
+  handle,
+  loadStoreOrRefuse,
+} from "../src/relay/mcp.js";
 
 /** Drives the server the way a client would, over the JSON-RPC shapes. */
 const call = (method: string, params?: Record<string, unknown>) =>
@@ -185,6 +191,15 @@ const structuredOf = (r: unknown): unknown =>
   (r as { result: { structuredContent?: unknown } }).result.structuredContent;
 
 describe("structured results", () => {
+  it("lets an unsigned HTTP caller reach every read but the one that holds a socket", async () => {
+    // Two questions, two sets. READ_ONLY_TOOLS answers "what changes the
+    // store"; UNSIGNED_OVER_HTTP answers "what may be called without a
+    // credential over HTTP", and its boundary is spending the server's time.
+    const held = [...READ_ONLY_TOOLS].filter((name) => !UNSIGNED_OVER_HTTP.has(name));
+    expect(held).toEqual(["wait_for_relay"]);
+    for (const name of UNSIGNED_OVER_HTTP) expect(READ_ONLY_TOOLS.has(name)).toBe(true);
+  });
+
   it("gives every parameter a description, because the schema's type is not its meaning", async () => {
     const r = (await call("tools/list")) as {
       result: {
