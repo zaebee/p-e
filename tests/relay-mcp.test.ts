@@ -185,6 +185,22 @@ const structuredOf = (r: unknown): unknown =>
   (r as { result: { structuredContent?: unknown } }).result.structuredContent;
 
 describe("structured results", () => {
+  it("gives every parameter a description, because the schema's type is not its meaning", async () => {
+    const r = (await call("tools/list")) as {
+      result: {
+        tools: Array<{
+          name: string;
+          inputSchema: { properties?: Record<string, { description?: string }> };
+        }>;
+      };
+    };
+    for (const tool of r.result.tools) {
+      for (const [param, schema] of Object.entries(tool.inputSchema.properties ?? {})) {
+        expect(schema.description, `${tool.name}.${param}`).toBeTruthy();
+      }
+    }
+  });
+
   it("declares an output schema for the four data tools and for no others", async () => {
     const r = (await call("tools/list")) as {
       result: { tools: Array<{ name: string; outputSchema?: object }> };

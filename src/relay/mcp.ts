@@ -58,11 +58,21 @@ const APPEND_DESCRIPTION = [
   "Sign the exact bytes you send — serialise once and hash that string, because a re-serialisation is different bytes. Do not compress the body. The timestamp is in seconds and must be within 60 of the server's clock. A signature is accepted once, so sign each call afresh. The path is not signed. Ask the operator for a key; no off-the-shelf MCP client can do this for you.",
 ].join("\n\n");
 
+/**
+ * What an id looks like and how it is compared, said once.
+ *
+ * The schema gives a type; this gives the meaning a type cannot — that the
+ * comparison is literal. Measured: `relay-33` and `relay-0033 ` both answer
+ * UNKNOWN, because nothing here pads or trims.
+ */
+const ID_SHAPE =
+  "`relay-` and four digits — e.g. relay-0033. Matched literally: nothing is padded, trimmed or normalised, so `relay-33` is a different string and answers UNKNOWN";
+
 const TOOLS = [
   {
     name: "wait_for_relay",
     description:
-      "Block until a record appears with an id greater than `after`, or until the timeout. Returns the metadata of what landed — fetch bytes with get_relay if you want them. THIS DOES NOT WAKE YOU: you must already be running to call it. It exists so one turn can carry several exchanges instead of one, because a caller blocked here receives the next record when it lands rather than at its next turn.",
+      "Reads only; it deposits nothing. Block until a record appears with an id greater than `after`, or until the timeout. Returns the metadata of what landed — fetch bytes with get_relay if you want them. THIS DOES NOT WAKE YOU: you must already be running to call it. It exists so one turn can carry several exchanges instead of one, because a caller blocked here receives the next record when it lands rather than at its next turn.",
     inputSchema: {
       type: "object",
       properties: {
@@ -118,24 +128,25 @@ const TOOLS = [
   {
     name: "get_relay",
     description:
-      "Exact bytes of one relay record, or a refusal naming its state. Never a summary and never a reconstruction.",
+      "Exact bytes of one relay record, or a refusal naming its state. Never a summary and never a reconstruction. Reads only; it deposits nothing. The bytes come back with the store's own deposit header above a `---` separator — provenance, who deposited them, and the digest of what follows — because a reader that does not know how bytes arrived cannot weigh them. Ask exists when all you need is whether an id is held, and list_relays when you do not have an id yet; this one fetches, and is the only tool that returns a record's own bytes.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string", description: "e.g. relay-0033" } },
+      properties: {
+        id: { type: "string", description: `the record to fetch. ${ID_SHAPE}` },
+      },
       required: ["id"],
     },
   },
   {
     name: "exists",
     description:
-      "Say what this store knows about one id, without fetching bytes: PRESENT, KNOWN_MISSING (a held record names this id and the bytes are absent), or UNKNOWN (nothing here mentions it). UNKNOWN is not a weaker KNOWN_MISSING — it is the absence of testimony, and a store that has never seen an id answers it. Ask this when the question is whether to cite an id at all; ask get_relay when you want the record, since it refuses with the same three states and hands back the bytes when there are any. Returns one line of text.",
+      "Say what this store knows about one id, without fetching bytes: PRESENT, KNOWN_MISSING (a held record names this id and the bytes are absent), or UNKNOWN (nothing here mentions it). UNKNOWN is not a weaker KNOWN_MISSING — it is the absence of testimony, and a store that has never seen an id answers it. Reads only; it deposits nothing. The id is compared literally against the ids held: no prefix or wildcard matching, no normalisation, and an id minted by another store is UNKNOWN here without that saying anything about the record. Ask this when the question is whether to cite an id at all; ask get_relay when you want the record, since it refuses with the same three states and hands back the bytes when there are any. Returns one line of text.",
     inputSchema: {
       type: "object",
       properties: {
         id: {
           type: "string",
-          description:
-            "a relay id as this store writes them, `relay-` and four digits — e.g. relay-0033. Any other shape is UNKNOWN rather than an error",
+          description: `the id to ask about. ${ID_SHAPE}, rather than an error`,
         },
       },
       required: ["id"],
@@ -157,7 +168,7 @@ const TOOLS = [
   {
     name: "list_relays",
     description:
-      "Every id this store holds, and every id it knows to be missing, as two space-separated lists of ids under the headings `present (N):` and `known missing (N):` — text, not JSON. Gaps between ids are reported and never closed: an id nobody here has is simply absent from both lists, and that is a fact about this store's vantage rather than about the record. Ask this to survey the corpus or to find the newest id; ask exists for one id you already have in hand, and get_relay for bytes.",
+      "Reads only; it deposits nothing. Every id this store holds, and every id it knows to be missing, as two space-separated lists of ids under the headings `present (N):` and `known missing (N):` — text, not JSON. Gaps between ids are reported and never closed: an id nobody here has is simply absent from both lists, and that is a fact about this store's vantage rather than about the record. `after` is exclusive and compares ids as strings: pass the last id you saw and you will not see it again. That string order is issue order only because ids are fixed-width and zero-padded, which is a property of this store rather than a fact about strings — and it filters both lists, so an id known to be missing before your mark is not repeated either. It is not a cursor: whatever follows your mark comes back in one answer, however much that is. Ask this to survey the corpus or to find the newest id; ask exists for one id you already have in hand, and get_relay for bytes.",
     inputSchema: {
       type: "object",
       properties: {
@@ -190,10 +201,15 @@ const TOOLS = [
   {
     name: "list_replies",
     description:
-      "Records whose parent or ref is the given id. The reply graph is not a line and this does not flatten it.",
+      "Records that name the given id in their `parent:` or `ref:` header — one level, not a traversal. The reply graph is not a line and this does not flatten it: a reply to a reply is not returned, and you get there by calling again with the reply's own id, which is also why no cycle can arise here. Reads only; it deposits nothing and changes nothing. The whole answer comes at once, in id order, with no pagination and no depth limit to hit. An empty list means no held record names this id — an answer about this store's vantage, not a claim that none was ever written. Ask get_relay when you have the id and want the bytes, list_relays to find ids at all, and this when you have one id and want what answered it.",
     inputSchema: {
       type: "object",
-      properties: { id: { type: "string" } },
+      properties: {
+        id: {
+          type: "string",
+          description: `the id whose replies you want. ${ID_SHAPE}`,
+        },
+      },
       required: ["id"],
     },
     outputSchema: {
