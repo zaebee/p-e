@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/zaebee/p-e/compare/p-e-v0.3.0...p-e-v0.3.1) (2026-09-18)
+
+
+### Fixes
+
+* **mcp-http:** a signature for wait_for_relay, the one read that holds a socket ([#256](https://github.com/zaebee/p-e/issues/256)) ([a79ecfc](https://github.com/zaebee/p-e/commit/a79ecfcb0657ea0b533a0a3cdf0e52d06c6eeb1e))
+
 ## [0.3.0](https://github.com/zaebee/p-e/compare/p-e-v0.2.1...p-e-v0.3.0) (2026-09-17)
 
 
