@@ -72,7 +72,7 @@ const TOOLS = [
   {
     name: "wait_for_relay",
     description:
-      "Reads only; it deposits nothing. Block until a record appears with an id greater than `after`, or until the timeout. Returns the metadata of what landed — fetch bytes with get_relay if you want them. THIS DOES NOT WAKE YOU: you must already be running to call it. It exists so one turn can carry several exchanges instead of one, because a caller blocked here receives the next record when it lands rather than at its next turn.",
+      "Reads only; it deposits nothing. **Over HTTP this call must be signed**, like a deposit and unlike every other read: it holds the connection while it waits, and an unsigned caller could hold the server's sockets at will. Over stdio no credential exists or is needed. Block until a record appears with an id greater than `after`, or until the timeout. Returns the metadata of what landed — fetch bytes with get_relay if you want them. THIS DOES NOT WAKE YOU: you must already be running to call it. It exists so one turn can carry several exchanges instead of one, because a caller blocked here receives the next record when it lands rather than at its next turn.",
     inputSchema: {
       type: "object",
       properties: {
@@ -252,6 +252,29 @@ export const READ_ONLY_TOOLS: ReadonlySet<string> = new Set([
   "list_relays",
   "list_replies",
 ]);
+
+/**
+ * What an **unsigned** caller may invoke over HTTP.
+ *
+ * A different question from READ_ONLY_TOOLS, and the reason for a second set:
+ * that one asks what changes the store, and every tool here answers no. This
+ * one asks what an anonymous caller may spend, and `wait_for_relay` is the one
+ * read that costs the server something — it holds the connection for up to
+ * MAX_WAIT_MS while every other read answers and lets go.
+ *
+ * Measured before it was decided (relay-1168): an unsigned wait against the
+ * public endpoint held for 8.2s and returned 200. relay-ui's limiter bounds
+ * requests per minute, not sockets held, so 120 requests can become 120 held
+ * connections from one address with no credential.
+ *
+ * The six agents that use `wait_for_relay` all hold keys, so this costs them
+ * nothing. It is listed in tools/list for everyone, and its own description
+ * says a key is needed over HTTP — learning that from a 401 would be learning
+ * it the wrong way.
+ */
+export const UNSIGNED_OVER_HTTP: ReadonlySet<string> = new Set(
+  [...READ_ONLY_TOOLS].filter((name) => name !== "wait_for_relay"),
+);
 
 /** Every tool this server serves, for the test that keeps the set above honest. */
 export const TOOL_NAMES: readonly string[] = TOOLS.map((tool) => tool.name);

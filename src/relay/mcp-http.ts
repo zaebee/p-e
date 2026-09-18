@@ -56,7 +56,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from "node:http";
 import { MAX_RECORD_BYTES } from "./deposit.js";
-import { READ_ONLY_TOOLS, handle } from "./mcp.js";
+import { READ_ONLY_TOOLS, UNSIGNED_OVER_HTTP, handle } from "./mcp.js";
 import { storeRoot, writeProblem } from "./store.js";
 
 /** Loopback only. Not configurable — see the file comment. */
@@ -491,17 +491,41 @@ function readBody(req: IncomingMessage): Promise<string> {
 }
 
 /**
- * Whether this request must be signed. Anything that is not a **named read** is
- * treated as a write, including a tool this server does not have.
+ * Whether this request must be signed. Anything not named as callable without a
+ * credential is treated as a write, including a tool this server does not have.
  *
  * The first version asked whether the tool was `append_relay`, which is
  * fail-open: a write tool added later would serve unauthenticated until someone
  * remembered this line. gemini-code-assist named that on #159. Inverted, the
- * default protects, and `READ_ONLY_TOOLS` lives beside the tool definitions in
- * `mcp.ts` where a new tool is written, with a test that fails if one is added
- * and left unclassified.
+ * default protects, and `UNSIGNED_OVER_HTTP` lives beside the tool definitions
+ * in `mcp.ts` where a new tool is written, with a test that fails if one is
+ * added and left unclassified.
+ *
+ * The set is not the read/write split: `wait_for_relay` reads and still needs a
+ * signature here, because it holds a socket rather than answering and letting
+ * go (relay-1168). The name says "needs a signature" and not "is a write" for
+ * that reason.
  */
-function isWrite(request: Parameters<typeof handle>[0]): boolean {
+function needsSignature(request: Parameters<typeof handle>[0]): boolean {
+  if (request.method !== "tools/call") return false;
+  const params = request.params as { name?: unknown } | undefined;
+  return typeof params?.name !== "string" || !UNSIGNED_OVER_HTTP.has(params.name);
+}
+
+/**
+ * Whether this request spends the credential's deposit quota.
+ *
+ * Deliberately NOT `needsSignature`. They were one predicate for an hour, and
+ * that hour was a bug: `wait_for_relay` needs a signature and deposits nothing,
+ * so an agent spending 30 waits would have lost its right to deposit for the
+ * window without writing a single record. Caught by a test before it shipped;
+ * the two questions now have two functions and two names.
+ *
+ * Fail-closed on the same principle as above: a tool this server does not know
+ * is counted, because an unknown tool is more likely a new writer than a new
+ * reader.
+ */
+export function spendsWriteQuota(request: Parameters<typeof handle>[0]): boolean {
   if (request.method !== "tools/call") return false;
   const params = request.params as { name?: unknown } | undefined;
   return typeof params?.name !== "string" || !READ_ONLY_TOOLS.has(params.name);
@@ -563,12 +587,13 @@ export function createHttpServer(tokens: TokenTable): Server {
       const taken = await take(req, res);
       if (!taken.ok) return;
 
-      // A credential is examined only for a write. A read needs none, and
+      // A credential is examined only when one is required. Most reads need
+      // none, and
       // verifying one anyway would consume its signature in the replay cache —
       // so a client that retried a read after a dropped connection would be
       // refused for replaying something that never needed protecting.
-      const write = isWrite(taken.request);
-      const channel = write ? channelFor(tokens, req, taken.body) : undefined;
+      const signatureRequired = needsSignature(taken.request);
+      const channel = signatureRequired ? channelFor(tokens, req, taken.body) : undefined;
 
       // `Origin` is not refused, and that is a decision rather than an
       // oversight. The Streamable HTTP transport requires the check against DNS
@@ -580,7 +605,7 @@ export function createHttpServer(tokens: TokenTable): Server {
       // CORS headers: a cross-origin page may send, and may not see the answer.
       // Add a permissive `Access-Control-Allow-Origin` and this reasoning is
       // void.
-      if (write && !channel) {
+      if (signatureRequired && !channel) {
         // A 401 names its scheme, per RFC 6750's shape, so a client learns HOW
         // to authenticate instead of guessing. The MCP authorization spec would
         // have this header also carry `resource_metadata=` pointing at an RFC
@@ -598,7 +623,10 @@ export function createHttpServer(tokens: TokenTable): Server {
       // The quota is charged AFTER the signature verifies, so an unsigned
       // flood cannot spend a legitimate agent's allowance, and only writes are
       // counted — a read costs nothing permanent.
-      const wait = write && channel !== undefined ? quotaDelayMs(channel, Date.now()) : 0;
+      const wait =
+        spendsWriteQuota(taken.request) && channel !== undefined
+          ? quotaDelayMs(channel, Date.now())
+          : 0;
       if (wait > 0) {
         res.setHeader("retry-after", String(Math.ceil(wait / 1000)));
         return send(
