@@ -14,10 +14,17 @@ interface StoredEnvelope {
   };
 }
 
+const parseCache = new WeakMap<Uint8Array, unknown>();
+
 export function parseHivemark(files: Map<string, Uint8Array>, name: string): unknown {
   const bytes = files.get(name);
   if (!bytes) throw new Error(`not in corpus: ${name}`);
-  return JSON.parse(decoder.decode(bytes));
+  let cached = parseCache.get(bytes);
+  if (cached === undefined) {
+    cached = JSON.parse(decoder.decode(bytes));
+    parseCache.set(bytes, cached);
+  }
+  return cached;
 }
 
 /**

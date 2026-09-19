@@ -45,9 +45,27 @@ export const FIELD = {
  * `unresolved` and must never share a code with `confirmed`, which is the whole
  * point of I-1 in this producer.
  */
+import { decodeAbiParameters } from "viem";
+
 export const VERDICT_NAMES: Record<number, string> = {
   0: "unresolved",
   1: "confirmed",
   2: "refuted",
   3: "uncertain",
 };
+
+const MAX_CLAIM_CACHE_SIZE = 2048;
+const claimDataCache = new Map<string, readonly unknown[]>();
+
+export function decodeClaimData(data: `0x${string}`): readonly unknown[] {
+  let decoded = claimDataCache.get(data);
+  if (decoded === undefined) {
+    if (claimDataCache.size >= MAX_CLAIM_CACHE_SIZE) {
+      const firstKey = claimDataCache.keys().next().value;
+      if (firstKey !== undefined) claimDataCache.delete(firstKey);
+    }
+    decoded = decodeAbiParameters(CLAIM_TYPES, data);
+    claimDataCache.set(data, decoded);
+  }
+  return decoded;
+}

@@ -1,8 +1,7 @@
-import { decodeAbiParameters } from "viem";
 import { apexHealth } from "../adapters/apex.js";
 import { parseHivemark } from "../adapters/hivemark.js";
 import type { Finding } from "../verdict.js";
-import { CLAIM_TYPES, FIELD } from "./claim-schema.js";
+import { FIELD, decodeClaimData } from "./claim-schema.js";
 
 interface Stored {
   attestation: { uid: string; message: { data: `0x${string}`; time: string } };
@@ -17,7 +16,7 @@ export function recomputeSuperseded(files: Map<string, Uint8Array>) {
   for (const e of raw) {
     let decoded: readonly unknown[];
     try {
-      decoded = decodeAbiParameters(CLAIM_TYPES, e.attestation.message.data);
+      decoded = decodeClaimData(e.attestation.message.data);
     } catch {
       undecodable++;
       continue;
