@@ -14,6 +14,19 @@ interface StoredEnvelope {
   };
 }
 
+/**
+ * Parsed corpus files, keyed by the buffer they were read from.
+ *
+ * Every check that reads the same file now gets the same object graph rather
+ * than its own parse, which is where this run's time went. The value is
+ * `unknown` and each check casts it to a mutable array, so nothing in the types
+ * holds the invariant: a check that normalises `raw` in place — sorting it by
+ * time is the obvious thing to write — would silently change what every later
+ * check in `CHECKS` sees, while the per-check tests, each running alone, stay
+ * green. `src/report.ts` gives each check its own `RecordingCorpus` so that
+ * attribution is measured and not declared; treat the parse the same way.
+ * Read from it; copy before changing anything.
+ */
 const parseCache = new WeakMap<Uint8Array, unknown>();
 
 export function parseHivemark(files: Map<string, Uint8Array>, name: string): unknown {

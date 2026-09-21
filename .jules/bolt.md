@@ -39,3 +39,13 @@ orders of magnitude, and a future repair must not be justified as if it were.
 End to end, five interleaved pairs of `bun run conform -- --run NN`: 258 ms →
 177 ms, **31%**, which reproduces the 31.4% above on faster hardware. The
 figures in the Measured line are the author's and are left as written.
+
+The Action's "bounded LRU/Map caches" describes neither what was written nor
+what should be: the eviction was FIFO, a hit never reordered a key, and the
+bound was the defect. `decodeClaimData` has two callers, both inside the one
+CLI process that exits when the report is written, so the long-running service
+the 2048-entry cap was sized for does not exist; at 2049 distinct claims the
+cap turned a 100% hit rate into 0% silently. The cap is gone and
+`tests/claim-schema.test.ts` scans past it — verified to fail with the cap
+restored. Read the Action as: cache per process, and bound one only where
+something outlives the scan.

@@ -54,16 +54,33 @@ export const VERDICT_NAMES: Record<number, string> = {
   3: "uncertain",
 };
 
-const MAX_CLAIM_CACHE_SIZE = 2048;
+/**
+ * Decoded claims, by the encoded data they came from.
+ *
+ * Unbounded on purpose. The cache was first written with a 2048-entry cap
+ * evicting the oldest key, against a corpus of 932 distinct `data` values —
+ * 2.2x headroom against a snapshot of a producer that grows. The cap does not
+ * degrade at the edge, it falls off it: i1 scans the attestations in order and
+ * would leave the cache holding entries 2..2049, i4 then rescans from entry 1
+ * and misses on every lookup, evicting each entry just before it is wanted.
+ * The hit rate goes 100% to 0%, the end-to-end win disappears, and no test and
+ * no line of the report changes to say so. LRU behaves the same way — a
+ * sequential scan longer than the cache thrashes under any eviction policy.
+ *
+ * Nothing needs the bound: `decodeClaimData` has two callers, `i1` and `i4`,
+ * both inside one CLI process reading one corpus, which exits when the report
+ * is written. The long-running service the cap was sized for does not exist.
+ *
+ * The returned array is shared with every later caller for the same `data`.
+ * `readonly` is erased at runtime, so a caller that writes to it — say
+ * `decoded[FIELD.verdict]` — poisons every subsequent decode in the run. Read
+ * from it; copy before changing anything.
+ */
 const claimDataCache = new Map<string, readonly unknown[]>();
 
 export function decodeClaimData(data: `0x${string}`): readonly unknown[] {
   let decoded = claimDataCache.get(data);
   if (decoded === undefined) {
-    if (claimDataCache.size >= MAX_CLAIM_CACHE_SIZE) {
-      const firstKey = claimDataCache.keys().next().value;
-      if (firstKey !== undefined) claimDataCache.delete(firstKey);
-    }
     decoded = decodeAbiParameters(CLAIM_TYPES, data);
     claimDataCache.set(data, decoded);
   }
