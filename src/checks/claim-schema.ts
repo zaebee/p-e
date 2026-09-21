@@ -1,3 +1,5 @@
+import { decodeAbiParameters } from "viem";
+
 /**
  * The claim schema's field types, in the order the published data encodes them.
  *
@@ -45,8 +47,6 @@ export const FIELD = {
  * `unresolved` and must never share a code with `confirmed`, which is the whole
  * point of I-1 in this producer.
  */
-import { decodeAbiParameters } from "viem";
-
 export const VERDICT_NAMES: Record<number, string> = {
   0: "unresolved",
   1: "confirmed",

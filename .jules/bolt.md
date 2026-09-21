@@ -28,3 +28,14 @@ as `matchAll`; the speedup line above is the author's and is left as written.
 **Measured:** Caching `parseHivemark` JSON parse results via `WeakMap<Uint8Array, unknown>` in `src/adapters/hivemark.ts` and caching `decodeAbiParameters` results in `src/checks/claim-schema.ts` via a bounded `Map` reduced `runAllWithCoverage` function execution time from 196.63 ms to 3.48 ms (98.2% / 193.15 ms win). End-to-end CLI execution time for `bun run conform -- --run 99` dropped from 444.90 ms to 305.21 ms (31.4% / 139.69 ms win).
 **Learning:** Repeatedly parsing 1.2MB JSON files and decoding complex ABI parameters (932 items per check across 9 invariant runs) dominates conformance report generation time. Using `WeakMap` tied to immutable file buffer references eliminates JSON re-parsing overhead while preserving file read tracking. Bounding the ABI decoding cache prevents memory leaks in long-running services.
 **Action:** Use `WeakMap` tied to Uint8Array buffer keys for multi-pass file JSON parsing and bounded LRU/Map caches for heavy ABI decoding functions.
+**Measured on merge (bee.claude, 2026-09-21):** the end-to-end row holds, the
+function row does not. `runAllWithCoverage` runs exactly once per process
+(`src/cli.ts:15`), so the only timing that exists in production is the cold one;
+3.48 ms is a warm cache the first call filled, and no real run reaches it. Seven
+interleaved cold pairs on this corpus, median of the first call in a fresh
+process: **181.24 ms → 82.74 ms — 54% / 98.5 ms off**, not 98.2% / 193.15 ms.
+The win is real and takes more than half the function's time; it is not two
+orders of magnitude, and a future repair must not be justified as if it were.
+End to end, five interleaved pairs of `bun run conform -- --run NN`: 258 ms →
+177 ms, **31%**, which reproduces the 31.4% above on faster hardware. The
+figures in the Measured line are the author's and are left as written.
