@@ -49,3 +49,14 @@ cap turned a 100% hit rate into 0% silently. The cap is gone and
 `tests/claim-schema.test.ts` scans past it — verified to fail with the cap
 restored. Read the Action as: cache per process, and bound one only where
 something outlives the scan.
+
+A shared cache and a read-recording `Proxy` are exclusive, which is worth
+knowing before the next cache. `Object.freeze` on the decoded claim is free and
+kept — every field is a primitive, so the shallow freeze covers the value, and
+a write now throws where it is made. The same freeze on the `parseHivemark`
+result cost four I-1/I-3 apex cases: `tests/reader-conformance.test.ts` wraps a
+parse in a recording proxy to measure which fields a check opened, and a proxy
+over a frozen target must hand back the target's own object for a
+non-configurable property, which a recording wrapper cannot. Freeze what a
+check derives; leave what a check is measured against unfrozen and say so in
+the comment.

@@ -1,6 +1,6 @@
 import { encodeAbiParameters } from "viem";
 import { describe, expect, it } from "vitest";
-import { CLAIM_TYPES, decodeClaimData } from "../src/checks/claim-schema.js";
+import { CLAIM_TYPES, FIELD, decodeClaimData } from "../src/checks/claim-schema.js";
 
 /** A distinct encoded claim per `pr`, so every payload is a different key. */
 function claim(pr: number): `0x${string}` {
@@ -24,6 +24,14 @@ describe("decodeClaimData", () => {
   it("returns the same decode for the same data", () => {
     const data = claim(1);
     expect(decodeClaimData(data)).toBe(decodeClaimData(data));
+  });
+
+  it("refuses a write to the shared decode rather than poisoning the cache", () => {
+    const decoded = decodeClaimData(claim(2)) as unknown[];
+    expect(() => {
+      decoded[FIELD.verdict] = 99;
+    }).toThrow(TypeError);
+    expect(decodeClaimData(claim(2))[FIELD.verdict]).toBe(1);
   });
 
   it("still holds the first payload after a scan longer than any cap", () => {

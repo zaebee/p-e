@@ -71,17 +71,19 @@ export const VERDICT_NAMES: Record<number, string> = {
  * both inside one CLI process reading one corpus, which exits when the report
  * is written. The long-running service the cap was sized for does not exist.
  *
- * The returned array is shared with every later caller for the same `data`.
- * `readonly` is erased at runtime, so a caller that writes to it — say
- * `decoded[FIELD.verdict]` — poisons every subsequent decode in the run. Read
- * from it; copy before changing anything.
+ * The returned array is shared with every later caller for the same `data`, so
+ * a caller that writes to it — say `decoded[FIELD.verdict]` — would poison
+ * every subsequent decode in the run. `readonly` is erased at runtime and would
+ * not stop that, so the array is frozen instead: the write throws where it is
+ * made rather than surfacing as a wrong verdict somewhere downstream. Every
+ * decoded field is a primitive, so a shallow freeze covers the whole value.
  */
 const claimDataCache = new Map<string, readonly unknown[]>();
 
 export function decodeClaimData(data: `0x${string}`): readonly unknown[] {
   let decoded = claimDataCache.get(data);
   if (decoded === undefined) {
-    decoded = decodeAbiParameters(CLAIM_TYPES, data);
+    decoded = Object.freeze(decodeAbiParameters(CLAIM_TYPES, data));
     claimDataCache.set(data, decoded);
   }
   return decoded;

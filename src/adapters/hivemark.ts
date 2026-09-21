@@ -23,9 +23,17 @@ interface StoredEnvelope {
  * holds the invariant: a check that normalises `raw` in place — sorting it by
  * time is the obvious thing to write — would silently change what every later
  * check in `CHECKS` sees, while the per-check tests, each running alone, stay
- * green. `src/report.ts` gives each check its own `RecordingCorpus` so that
- * attribution is measured and not declared; treat the parse the same way.
- * Read from it; copy before changing anything.
+ * green.
+ *
+ * `Object.freeze` here would make that throw instead, and it was tried: the
+ * reader-conformance harness wraps a parse in a recording `Proxy` to measure
+ * which fields a check actually opened, and a proxy over a frozen target must
+ * return the target's own object for a non-configurable property. The
+ * recording wrapper cannot, so four I-1/I-3 apex cases die with `'get' on
+ * proxy: property '0' is a read-only and non-configurable data property`.
+ * Measuring what a check read and freezing what it reads are exclusive, and
+ * this corpus measures. So the invariant is stated and not enforced: read from
+ * the value, copy before changing anything.
  */
 const parseCache = new WeakMap<Uint8Array, unknown>();
 
