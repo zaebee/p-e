@@ -23,3 +23,40 @@ as `matchAll`; the speedup line above is the author's and is left as written.
 **Measured:** Replaced batch-of-32 `readFile` calls and `node:crypto` `createHash("sha256")` in `loadStore` with `Bun.file().text()` and `Bun.sha(bytes, "hex")` across 1,122 records. `loadStore` execution time dropped from 30.23ms to 19.76ms (~34.6% function win, 10.47ms saved). However, end-to-end runtime for `check-continuity` dropped from 131.9ms to 121.5ms (~7.9% / 10.4ms speedup), which falls below the required >=10% or >=20ms end-to-end threshold.
 **Learning:** `loadStore` file I/O and SHA-256 hashing is a significant component of store initialization (~30ms out of ~50ms total execution work), but CLI script process setup and Bun runtime startup dominate short-lived commands (~95ms baseline).
 **Action:** Do not open a PR for store I/O fast-pathing alone unless store record count grows enough for the ~10.5ms savings to exceed 20ms or 10% of the target command's end-to-end runtime.
+
+## 2026-09-19 - WeakMap Buffer JSON Caching & Bounded ABI Decoding in Conformance Runs
+**Measured:** Caching `parseHivemark` JSON parse results via `WeakMap<Uint8Array, unknown>` in `src/adapters/hivemark.ts` and caching `decodeAbiParameters` results in `src/checks/claim-schema.ts` via a bounded `Map` reduced `runAllWithCoverage` function execution time from 196.63 ms to 3.48 ms (98.2% / 193.15 ms win). End-to-end CLI execution time for `bun run conform -- --run 99` dropped from 444.90 ms to 305.21 ms (31.4% / 139.69 ms win).
+**Learning:** Repeatedly parsing 1.2MB JSON files and decoding complex ABI parameters (932 items per check across 9 invariant runs) dominates conformance report generation time. Using `WeakMap` tied to immutable file buffer references eliminates JSON re-parsing overhead while preserving file read tracking. Bounding the ABI decoding cache prevents memory leaks in long-running services.
+**Action:** Use `WeakMap` tied to Uint8Array buffer keys for multi-pass file JSON parsing and bounded LRU/Map caches for heavy ABI decoding functions.
+**Measured on merge (bee.claude, 2026-09-21):** the end-to-end row holds, the
+function row does not. `runAllWithCoverage` runs exactly once per process
+(`src/cli.ts:15`), so the only timing that exists in production is the cold one;
+3.48 ms is a warm cache the first call filled, and no real run reaches it. Seven
+interleaved cold pairs on this corpus, median of the first call in a fresh
+process: **181.24 ms → 82.74 ms — 54% / 98.5 ms off**, not 98.2% / 193.15 ms.
+The win is real and takes more than half the function's time; it is not two
+orders of magnitude, and a future repair must not be justified as if it were.
+End to end, five interleaved pairs of `bun run conform -- --run NN`: 258 ms →
+177 ms, **31%**, which reproduces the 31.4% above on faster hardware. The
+figures in the Measured line are the author's and are left as written.
+
+The Action's "bounded LRU/Map caches" describes neither what was written nor
+what should be: the eviction was FIFO, a hit never reordered a key, and the
+bound was the defect. `decodeClaimData` has two callers, both inside the one
+CLI process that exits when the report is written, so the long-running service
+the 2048-entry cap was sized for does not exist; at 2049 distinct claims the
+cap turned a 100% hit rate into 0% silently. The cap is gone and
+`tests/claim-schema.test.ts` scans past it — verified to fail with the cap
+restored. Read the Action as: cache per process, and bound one only where
+something outlives the scan.
+
+A shared cache and a read-recording `Proxy` are exclusive, which is worth
+knowing before the next cache. `Object.freeze` on the decoded claim is free and
+kept — every field is a primitive, so the shallow freeze covers the value, and
+a write now throws where it is made. The same freeze on the `parseHivemark`
+result cost four I-1/I-3 apex cases: `tests/reader-conformance.test.ts` wraps a
+parse in a recording proxy to measure which fields a check opened, and a proxy
+over a frozen target must hand back the target's own object for a
+non-configurable property, which a recording wrapper cannot. Freeze what a
+check derives; leave what a check is measured against unfrozen and say so in
+the comment.

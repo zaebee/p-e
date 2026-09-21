@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readHivemark } from "../src/adapters/hivemark.js";
+import { parseHivemark, readHivemark } from "../src/adapters/hivemark.js";
 import { loadCorpus } from "../src/manifest.js";
 
 describe("readHivemark", () => {
@@ -18,5 +18,14 @@ describe("readHivemark", () => {
   it("converts the occurrence time to ISO without inventing precision", async () => {
     const [first] = readHivemark(await loadCorpus("."));
     expect(first?.occurred_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/);
+  });
+});
+
+describe("parseHivemark", () => {
+  it("hands every check the same parse", async () => {
+    const files = await loadCorpus(".");
+    expect(parseHivemark(files, "hivemark/attestations.json")).toBe(
+      parseHivemark(files, "hivemark/attestations.json"),
+    );
   });
 });
