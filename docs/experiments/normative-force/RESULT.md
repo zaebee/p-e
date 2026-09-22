@@ -145,3 +145,15 @@ and said one.
 
 The companion stand in `docs/experiments/rounds-read/READER-jev.md` replicates its own finding
 three times and records the same correction.
+
+### A defect in the key, recorded and not edited
+
+`gemini-code-assist` is right that `KEY.md` prints item 2 at line 126 and item 3 at line 264,
+while `scripts/normative-force.ts` reads 126–127 and 264–266. The model saw the fuller ranges;
+the key names the first line of each.
+
+**Not corrected.** `KEY.md` was committed before the run as the pre-registered key, and this
+project's precedent is `lineage-blind`, whose sealed contract was found to contradict itself
+after both readers had run and was left as written: *"editing a sealed artifact after the runs is
+what sealing exists to prevent."* The discrepancy changes no key entry — both items are keyed
+`binding` and were answered `binding` — so it costs nothing but its own record.
