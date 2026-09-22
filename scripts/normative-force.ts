@@ -87,11 +87,23 @@ async function ask(
     throw new Error(`${ENDPOINT} returned ${response.status}: ${await response.text()}`);
   }
   const body = (await response.json()) as {
-    answers: Record<string, { choice: string; confidence: number }>;
-    usage?: { input_tokens: number };
+    answers?: Record<string, { choice?: unknown; confidence?: unknown }>;
+    usage?: { input_tokens?: unknown };
   };
-  if (body.usage) console.log(`  input tokens: ${body.usage.input_tokens}`);
-  return body.answers;
+  if (!body?.answers) throw new Error(`${ENDPOINT} returned no answers`);
+  if (body.usage) console.log(`  input tokens: ${Number(body.usage.input_tokens)}`);
+  // Everything below this line is a third party's output, and this script's printed table is
+  // transcribed into a recorded measurement. An unconstrained string would let the endpoint
+  // write lines of that record, so a value that is not one of the two choices is shown as
+  // invalid rather than shown.
+  return Object.fromEntries(
+    [...passages.keys()].map((id) => {
+      const a = body.answers?.[id];
+      const choice = a?.choice === "binding" || a?.choice === "descriptive" ? a.choice : "INVALID";
+      const confidence = Number(a?.confidence);
+      return [id, { choice, confidence: Number.isFinite(confidence) ? confidence : Number.NaN }];
+    }),
+  );
 }
 
 function score(answers: Record<string, { choice: string; confidence: number }>): number {
@@ -103,7 +115,8 @@ function score(answers: Record<string, { choice: string; confidence: number }>):
     if (hit) correct++;
     console.log(
       `  ${item.id.padEnd(24)}  ${item.key.padEnd(12)}  ${(got?.choice ?? "—").padEnd(12)}  ` +
-        `${got?.confidence?.toFixed(2) ?? "—"}  ${hit ? "" : "MISS"}`,
+        `${got && Number.isFinite(got.confidence) ? got.confidence.toFixed(2) : "—"}  ` +
+        `${hit ? "" : "MISS"}`,
     );
   }
   return correct;

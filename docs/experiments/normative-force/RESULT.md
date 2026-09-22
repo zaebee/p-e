@@ -110,3 +110,38 @@ n = 10, one model, one document, one wording of the question, two requests. No r
 verdict. The questions are mine, so under `relay-0799` the output is candidates. Nobody who did
 not write this has attacked it, so under rule 14 nothing here is adopted — including the reading
 of item 10, where the key and the model disagree and the key is the weaker of the two.
+
+---
+
+## Added 2026-09-22 — the runner is hardened, and the confidences do not reproduce
+
+SonarCloud flagged `S5145`, log injection: the endpoint's answers reached this script's printed
+table unvalidated, and that table is transcribed into this document. A third party could have
+written lines of a recorded measurement. A choice outside the two permitted values now shows as
+`INVALID` and the confidence is coerced. This run's output happened to be well-formed, which was
+luck and not a guarantee.
+
+**The questions, the state and the key are untouched, so the result above stands.** Re-running it
+unchanged returns **identical choices on all ten items in both conditions** — 9/10 and 5/10 both
+reproduce exactly, and so does every individual verdict.
+
+**The confidences do not reproduce to the precision they were printed at.** They move by up to
+0.11 between runs:
+
+| item | first run | second run |
+|---|---|---|
+| i10, condition A | 0.70 | 0.59 |
+| i09, condition A | 0.72 | 0.77 |
+| i07, condition A | 0.30 | 0.34 |
+| **i01, condition B** | **0.17** | **0.28** |
+| i03, condition B | 0.43 | 0.55 |
+| i05, condition B | 0.45 | 0.51 |
+
+The 0.17 is the one this document leaned on hardest — *"0.17 where the model had lost its
+evidence"* — and it came back 0.28. **The qualitative claim survives**: condition B's marked
+passages are still far below condition A's 0.89–0.99. The two-decimal precision does not. Any
+later stand quoting a confidence should say how many runs it rests on; this one rests on two,
+and said one.
+
+The companion stand in `docs/experiments/rounds-read/READER-jev.md` replicates its own finding
+three times and records the same correction.
