@@ -98,24 +98,42 @@ if (!response.ok) {
   throw new Error(`${ENDPOINT} returned ${response.status}: ${await response.text()}`);
 }
 const body = (await response.json()) as {
-  answers: Record<string, { choice: string; confidence: number }>;
-  usage?: { input_tokens: number };
+  answers?: Record<string, { choice?: unknown; confidence?: unknown }>;
+  usage?: { input_tokens?: unknown };
 };
+if (!body?.answers) throw new Error(`${ENDPOINT} returned no answers`);
+
+// The answers are a third party's output and this script's printed table is transcribed into a
+// recorded measurement, so an unconstrained string would let the endpoint write lines of that
+// record. A value that is not one of the two choices is shown as invalid rather than shown.
+function answerFor(n: number): { choice: string; confidence: number } {
+  const a = body.answers?.[`item${String(n).padStart(2, "0")}`];
+  const confidence = Number(a?.confidence);
+  return {
+    choice: a?.choice === "arrived" || a?.choice === "incomplete" ? a.choice : "INVALID",
+    confidence: Number.isFinite(confidence) ? confidence : Number.NaN,
+  };
+}
+
+function keyFor(n: number): string {
+  if (UNSCORED.has(n)) return "—";
+  return INCOMPLETE.has(n) ? "incomplete" : "arrived";
+}
 
 console.log(`state: ${state.length} chars over ${STATE_FILES.length} files`);
-if (body.usage) console.log(`input tokens: ${body.usage.input_tokens}\n`);
+if (body.usage) console.log(`input tokens: ${Number(body.usage.input_tokens)}\n`);
 
 const flagged: number[] = [];
 const falsePositives: number[] = [];
 const dissent: number[] = [];
 
 for (const u of undertakings) {
-  const got = body.answers[`item${String(u.n).padStart(2, "0")}`];
-  const keyed = UNSCORED.has(u.n) ? "—" : INCOMPLETE.has(u.n) ? "incomplete" : "arrived";
+  const got = answerFor(u.n);
+  const keyed = keyFor(u.n);
   const note: string[] = [];
   if (UNSCORED.has(u.n)) note.push("CONTESTED, unscored");
   else if (INCOMPLETE.has(u.n)) {
-    if (got?.choice === "incomplete") {
+    if (got.choice === "incomplete") {
       flagged.push(u.n);
       note.push("FOUND");
     } else {
@@ -123,14 +141,14 @@ for (const u of undertakings) {
       if (WEAK_KEY.has(u.n)) dissent.push(u.n);
     }
     if (WEAK_KEY.has(u.n)) note.push("key adjudicated, not agreed");
-  } else if (got?.choice === "incomplete") {
+  } else if (got.choice === "incomplete") {
     falsePositives.push(u.n);
     note.push("flags what the key calls arrived");
   }
   console.log(
     `item ${String(u.n).padStart(2)}  line ${String(u.line).padStart(4)}  ` +
-      `key ${keyed.padEnd(10)}  jev ${(got?.choice ?? "—").padEnd(10)}  ` +
-      `${got?.confidence?.toFixed(2) ?? "—"}  ${note.join("; ")}`,
+      `key ${keyed.padEnd(10)}  jev ${got.choice.padEnd(10)}  ` +
+      `${Number.isFinite(got.confidence) ? got.confidence.toFixed(2) : "—"}  ${note.join("; ")}`,
   );
 }
 

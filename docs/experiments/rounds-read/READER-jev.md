@@ -109,3 +109,41 @@ wording might do better, and nothing here bounds that. The questions are mine, s
 `relay-0799` this is a reading and not a verdict, and under rule 14 nothing in it is adopted
 until a party that did not write it has attacked it — starting with the two key entries the
 stand itself marked weaker.
+
+---
+
+## Replication, added 2026-09-22 after hardening the runner
+
+SonarCloud flagged `S5145`, log injection: the endpoint's answers flowed unvalidated into this
+script's printed table, and that table is transcribed into this document. A third party could
+have written lines of a recorded measurement. The runner now shows a choice outside the two
+permitted values as `INVALID` and coerces the confidence, so the finding is real and is fixed
+rather than waved off — the first run's output happened to be well-formed, which is luck and not
+a guarantee.
+
+**The questions, the state and the key are untouched, so the run above stands.** Only the
+printing changed. Two further runs were made against the hardened runner:
+
+| | run 1 | run 2 | run 3 |
+|---|---|---|---|
+| found, of the six | 4 — items 3, 5, 6, 46 | 4 — same four | 4 — same four |
+| flagged where the key says arrived | 6 | 7 | 8 |
+| **correct, of 45** | **37** | **36** | **35** |
+| item 11 | `arrived` 1.00 | — | `arrived` 0.99 |
+| item 30 (contested) | `arrived` 0.52 | — | `arrived` 0.58 |
+| item 28 | `arrived` 0.52 | — | `arrived` 0.48 |
+
+**The finding replicates and the score does not improve.** The same four are found every time,
+the exemplar is missed at the top of the confidence range every time, and the false positives
+grow run over run — 37, 36, 35 against a baseline of 39. Three samples, all below it.
+
+Item 30 came back 0.52 and 0.58: a coin flip twice, so *"a third reader has not settled it"*
+is a statement about two runs now, not one.
+
+**And a correction to how the numbers were reported.** The companion experiment's confidences
+were quoted to two decimals. Re-running it unchanged returns identical choices on all ten items
+and confidences that move by up to 0.11 — item 10 went 0.70 to 0.59, and the 0.17 that
+`normative-force/RESULT.md` leaned on as the clearest signal of lost evidence came back 0.28.
+**The verdicts reproduce; the confidences do not reproduce to the precision they were printed
+at.** The qualitative claim — low in condition B, high in condition A — survives. Any future
+stand quoting a confidence should say how many runs it rests on.
