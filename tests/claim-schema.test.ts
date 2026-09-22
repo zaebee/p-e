@@ -1,6 +1,8 @@
-import { encodeAbiParameters } from "viem";
+import { decodeAbiParameters, encodeAbiParameters } from "viem";
 import { describe, expect, it } from "vitest";
+import { parseHivemark } from "../src/adapters/hivemark.js";
 import { CLAIM_TYPES, FIELD, decodeClaimData } from "../src/checks/claim-schema.js";
+import { loadCorpus } from "../src/manifest.js";
 
 /** A distinct encoded claim per `pr`, so every payload is a different key. */
 function claim(pr: number): `0x${string}` {
@@ -42,5 +44,40 @@ describe("decodeClaimData", () => {
     const first = decodeClaimData(claim(100_000));
     for (let pr = 100_001; pr < 103_000; pr++) decodeClaimData(claim(pr));
     expect(decodeClaimData(claim(100_000))).toBe(first);
+  });
+
+  it("matches viem decodeAbiParameters output exactly on corpus records and fuzzed inputs", async () => {
+    const files = await loadCorpus(".");
+    const raw = parseHivemark(files, "hivemark/attestations.json") as Array<{
+      attestation: { message: { data: `0x${string}` } };
+    }>;
+
+    for (const e of raw) {
+      const data = e.attestation.message.data;
+      const expected = decodeAbiParameters(CLAIM_TYPES, data);
+      const actual = decodeClaimData(data);
+      expect(JSON.stringify(actual)).toBe(JSON.stringify(expected));
+    }
+
+    // Fuzz inputs with edge cases (unicode, newlines, empty strings, boundary numbers)
+    for (let i = 0; i < 100; i++) {
+      const fuzzed = encodeAbiParameters(CLAIM_TYPES, [
+        `0x${(i % 256).toString(16).padStart(2, "0").repeat(32)}`,
+        `repo_${i}_\n\r\t_⚡_🚀`,
+        i * 1000,
+        "a".repeat(40),
+        `src/path_${i}/file.ts`,
+        i + 1,
+        i % 2 === 0 ? "correctness" : "security",
+        i % 3 === 0 ? "high" : "low",
+        i % 100,
+        i % 4,
+        i % 10,
+        `0x${((i + 1) % 256).toString(16).padStart(2, "0").repeat(32)}`,
+      ]);
+      const expected = decodeAbiParameters(CLAIM_TYPES, fuzzed);
+      const actual = decodeClaimData(fuzzed);
+      expect(JSON.stringify(actual)).toBe(JSON.stringify(expected));
+    }
   });
 });
