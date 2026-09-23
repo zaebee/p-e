@@ -463,6 +463,17 @@ function parse(id: string, raw: string): RelayRecord {
   };
 }
 
+/** Load a single record by id directly without scanning the whole store. */
+export async function loadRecord(id: string, root = storeRoot()): Promise<RelayRecord | null> {
+  try {
+    const raw = await readFile(join(root, `${id}.txt`), "utf8");
+    return parse(id, raw);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
+  }
+}
+
 export async function loadStore(root = storeRoot()): Promise<Map<string, RelayRecord>> {
   const out = new Map<string, RelayRecord>();
   let names: string[];

@@ -10,6 +10,7 @@ import {
   knownMissing,
   listRelays,
   listReplies,
+  loadRecord,
   loadStore,
 } from "../src/relay/store.js";
 
@@ -182,5 +183,12 @@ describe("relay store", () => {
   it("never invents a record for an id it does not hold", () => {
     expect(getRelay(store, "relay-0030")).toBeNull();
     expect(knownMissing(store)).not.toContain("relay-0036");
+  });
+
+  it("loads a single record directly via loadRecord", async () => {
+    const r = await loadRecord("relay-0033");
+    expect(r?.id).toBe("relay-0033");
+    expect(r?.sha256).toBe(getRelay(store, "relay-0033")?.sha256);
+    expect(await loadRecord("relay-9999")).toBeNull();
   });
 });

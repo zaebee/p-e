@@ -19,17 +19,17 @@
  * A rule that only the shell contradicts is a rule nobody follows. This makes the
  * right value as cheap to obtain as the wrong one.
  */
-import { loadStore } from "../src/relay/store.js";
+import { loadRecord, loadStore } from "../src/relay/store.js";
 
 const [id] = process.argv.slice(2);
-const store = await loadStore();
 
 if (id === undefined) {
+  const store = await loadStore();
   for (const r of [...store.values()].sort((a, b) => (a.id < b.id ? -1 : 1))) {
     console.log(`${r.id}  ${r.sha256}`);
   }
 } else {
-  const record = store.get(id);
+  const record = await loadRecord(id);
   if (!record) {
     console.error(`${id} is not held by this store`);
     process.exit(1);
