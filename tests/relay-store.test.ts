@@ -191,4 +191,17 @@ describe("relay store", () => {
     expect(r?.sha256).toBe(getRelay(store, "relay-0033")?.sha256);
     expect(await loadRecord("relay-9999")).toBeNull();
   });
+
+  it("does not read outside the store for an id that is not one", async () => {
+    const root = scratch({ "relay-0001": record("from: a") });
+    writeFileSync(join(root, "..", "outside.txt"), record("from: a"));
+    expect(await loadRecord("../outside", root)).toBeNull();
+    expect(await loadRecord("relay-1", root)).toBeNull();
+    expect((await loadRecord("relay-0001", root))?.id).toBe("relay-0001");
+  });
+
+  it("refuses a store root it cannot open rather than reporting the record absent", async () => {
+    const root = join(mkdtempSync(join(tmpdir(), "relay-")), "missing");
+    await expect(loadRecord("relay-0001", root)).rejects.toThrow(/relay store not readable/);
+  });
 });

@@ -463,14 +463,28 @@ function parse(id: string, raw: string): RelayRecord {
   };
 }
 
-/** Load a single record by id directly without scanning the whole store. */
+/**
+ * One record by id, read without scanning the whole store.
+ *
+ * An id outside the store's format is not held, and is never joined onto the
+ * root: `../x` would otherwise read a file beside the store as if it were one.
+ *
+ * A missing record and a missing store are different answers. `loadStore`
+ * refuses a root it cannot open, and so does this — otherwise a mistyped
+ * `PE_STORE_ROOT` would answer "relay-0808 is not held by this store" for
+ * every id, which reads as a fact about the record rather than the root.
+ */
 export async function loadRecord(id: string, root = storeRoot()): Promise<RelayRecord | null> {
+  if (!ID.test(id)) return null;
   try {
     const raw = await readFile(join(root, `${id}.txt`), "utf8");
     return parse(id, raw);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw error;
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    if (!existsSync(root)) {
+      throw new Error(`relay store not readable at ${root}: ${(error as Error).message}`);
+    }
+    return null;
   }
 }
 
