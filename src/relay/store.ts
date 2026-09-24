@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -481,9 +481,12 @@ export async function loadRecord(id: string, root = storeRoot()): Promise<RelayR
     return parse(id, raw);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    if (!existsSync(root)) {
+    // `stat` rather than `readdir`: a miss should not list the whole store to
+    // learn that the store is there. A root that is a file or unreadable never
+    // reaches this line — the open above fails with ENOTDIR or EACCES instead.
+    await stat(root).catch(() => {
       throw new Error(`relay store not readable at ${root}: ${(error as Error).message}`);
-    }
+    });
     return null;
   }
 }
