@@ -484,8 +484,10 @@ export async function loadRecord(id: string, root = storeRoot()): Promise<RelayR
     // `stat` rather than `readdir`: a miss should not list the whole store to
     // learn that the store is there. A root that is a file or unreadable never
     // reaches this line — the open above fails with ENOTDIR or EACCES instead.
-    await stat(root).catch(() => {
-      throw new Error(`relay store not readable at ${root}: ${(error as Error).message}`);
+    await stat(root).catch((statError: unknown) => {
+      throw new Error(
+        `relay store not readable at ${root}: ${statError instanceof Error ? statError.message : String(statError)}`,
+      );
     });
     return null;
   }

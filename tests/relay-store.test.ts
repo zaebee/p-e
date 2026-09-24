@@ -202,6 +202,8 @@ describe("relay store", () => {
 
   it("refuses a store root it cannot open rather than reporting the record absent", async () => {
     const root = join(mkdtempSync(join(tmpdir(), "relay-")), "missing");
-    await expect(loadRecord("relay-0001", root)).rejects.toThrow(/relay store not readable/);
+    await expect(loadRecord("relay-0001", root)).rejects.toThrow(
+      /relay store not readable at .*missing: ENOENT.*stat/,
+    );
   });
 });
