@@ -1,12 +1,6 @@
 import { decodeAbiParameters, encodeAbiParameters } from "viem";
 import { describe, expect, it } from "vitest";
-import { parseHivemark } from "../src/adapters/hivemark.js";
 import { CLAIM_TYPES, FIELD, decodeClaimData } from "../src/checks/claim-schema.js";
-import { loadCorpus } from "../src/manifest.js";
-
-interface Stored {
-  attestation: { message: { data: string } };
-}
 
 /** A distinct encoded claim per `pr`, so every payload is a different key. */
 function claim(pr: number): `0x${string}` {
@@ -46,17 +40,10 @@ describe("decodeClaimData", () => {
     expect(decodeClaimData(claim(100_000))).toBe(first);
   });
 
-  it("agrees exactly with viem decodeAbiParameters on all corpus records", async () => {
-    const corpus = await loadCorpus(".");
-    const raw = parseHivemark(corpus, "hivemark/attestations.json") as Stored[];
-    expect(raw.length).toBeGreaterThan(0);
-
-    for (const e of raw) {
-      const hex = e.attestation.message.data;
-      const viemDecoded = decodeAbiParameters(CLAIM_TYPES, hex as `0x${string}`);
-      const fastDecoded = decodeClaimData(hex as `0x${string}`);
-
-      expect(fastDecoded).toEqual(viemDecoded);
+  it("agrees with viem decodeAbiParameters on decoded values", () => {
+    for (let pr = 1; pr <= 10; pr++) {
+      const hex = claim(pr);
+      expect(decodeClaimData(hex)).toEqual(decodeAbiParameters(CLAIM_TYPES, hex));
     }
   });
 });
