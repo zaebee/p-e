@@ -54,6 +54,11 @@ export const VERDICT_NAMES: Record<number, string> = {
 
 const HEX_DIGITS = /^[0-9a-fA-F]*$/;
 
+function parseHexWord(clean: string, byteOffset: number): number {
+  const hexOffset = byteOffset * 2;
+  return Number.parseInt(clean.slice(hexOffset, hexOffset + 64), 16);
+}
+
 function decodeClaimDataFast(hex: string): readonly unknown[] {
   if (typeof hex !== "string") throw new Error("Invalid input");
   const clean = hex.startsWith("0x") || hex.startsWith("0X") ? hex.slice(2) : hex;
@@ -63,29 +68,32 @@ function decodeClaimDataFast(hex: string): readonly unknown[] {
   const totalBytes = clean.length >> 1;
 
   const identityId = `0x${clean.slice(0, 64)}`;
-  const repoOff = Number.parseInt(clean.slice(64, 128), 16);
-  const prVal = Number.parseInt(clean.slice(128, 192), 16);
-  const commitShaOff = Number.parseInt(clean.slice(192, 256), 16);
-  const fileOff = Number.parseInt(clean.slice(256, 320), 16);
-  const lineVal = Number.parseInt(clean.slice(320, 384), 16);
-  const categoryOff = Number.parseInt(clean.slice(384, 448), 16);
-  const severityOff = Number.parseInt(clean.slice(448, 512), 16);
-  const confidenceVal = Number.parseInt(clean.slice(512, 576), 16);
-  const verdictVal = Number.parseInt(clean.slice(576, 640), 16);
-  const impactScoreVal = Number.parseInt(clean.slice(640, 704), 16);
+  const repoOff = parseHexWord(clean, 32);
+  const prVal = parseHexWord(clean, 64);
+  const commitShaOff = parseHexWord(clean, 96);
+  const fileOff = parseHexWord(clean, 128);
+  const lineVal = parseHexWord(clean, 160);
+  const categoryOff = parseHexWord(clean, 192);
+  const severityOff = parseHexWord(clean, 224);
+  const confidenceVal = parseHexWord(clean, 256);
+  const verdictVal = parseHexWord(clean, 288);
+  const impactScoreVal = parseHexWord(clean, 320);
   const claimHash = `0x${clean.slice(704, 768)}`;
 
   if (prVal > 4294967295 || lineVal > 4294967295) throw new Error("uint32 overflow");
-  if (confidenceVal > 255 || verdictVal > 255 || impactScoreVal > 255)
+  if (confidenceVal > 255 || verdictVal > 255 || impactScoreVal > 255) {
     throw new Error("uint8 overflow");
+  }
 
   function readAbiString(offBytes: number): string {
-    if (offBytes > totalBytes || offBytes + 32 > totalBytes)
+    if (offBytes > totalBytes || offBytes + 32 > totalBytes) {
       throw new Error("offset out of bounds");
-    const offHex = offBytes * 2;
-    const len = Number.parseInt(clean.slice(offHex, offHex + 64), 16);
-    if (len > totalBytes || offBytes + 32 + len > totalBytes) throw new Error("string truncated");
-    const strHex = clean.slice(offHex + 64, offHex + 64 + len * 2);
+    }
+    const len = parseHexWord(clean, offBytes);
+    if (len > totalBytes || offBytes + 32 + len > totalBytes) {
+      throw new Error("string truncated");
+    }
+    const strHex = clean.slice(offBytes * 2 + 64, offBytes * 2 + 64 + len * 2);
     return Buffer.from(strHex, "hex").toString("utf8");
   }
 
