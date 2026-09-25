@@ -60,3 +60,8 @@ over a frozen target must hand back the target's own object for a
 non-configurable property, which a recording wrapper cannot. Freeze what a
 check derives; leave what a check is measured against unfrozen and say so in
 the comment.
+
+## 2026-10-15 - Process Startup Baseline Dominates Short-Lived CLI Execution
+**Measured:** Benchmarked short-lived CLI commands across 5 interleaved runs: `check-references` (median 179.39 ms, range 166.86–257.42 ms), `check-continuity` (median 149.72 ms, range 123.34–230.37 ms), `check-headers` (median 118.91 ms, range 114.49–124.69 ms), and `conform -- --run 1` (median 160.15 ms, range 152.34–164.17 ms).
+**Learning:** Bun process spawn overhead and module importing dominate short CLI invocation times (~110–120ms baseline). Pure JS execution in store checks is ~10–15ms total. Any micro-optimization saving <10ms yields <6% end-to-end gain, falling below the >=10% or >=20ms threshold.
+**Action:** Do not open a PR for micro-optimizations in short CLI commands unless end-to-end savings exceed 20ms or 10% on real command runs.
