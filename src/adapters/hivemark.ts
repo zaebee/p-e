@@ -14,10 +14,38 @@ interface StoredEnvelope {
   };
 }
 
+/**
+ * Parsed corpus files, keyed by the buffer they were read from.
+ *
+ * Every check that reads the same file now gets the same object graph rather
+ * than its own parse, which is where this run's time went. The value is
+ * `unknown` and each check casts it to a mutable array, so nothing in the types
+ * holds the invariant: a check that normalises `raw` in place — sorting it by
+ * time is the obvious thing to write — would silently change what every later
+ * check in `CHECKS` sees, while the per-check tests, each running alone, stay
+ * green.
+ *
+ * `Object.freeze` here would make that throw instead, and it was tried: the
+ * reader-conformance harness wraps a parse in a recording `Proxy` to measure
+ * which fields a check actually opened, and a proxy over a frozen target must
+ * return the target's own object for a non-configurable property. The
+ * recording wrapper cannot, so four I-1/I-3 apex cases die with `'get' on
+ * proxy: property '0' is a read-only and non-configurable data property`.
+ * Measuring what a check read and freezing what it reads are exclusive, and
+ * this corpus measures. So the invariant is stated and not enforced: read from
+ * the value, copy before changing anything.
+ */
+const parseCache = new WeakMap<Uint8Array, unknown>();
+
 export function parseHivemark(files: Map<string, Uint8Array>, name: string): unknown {
   const bytes = files.get(name);
   if (!bytes) throw new Error(`not in corpus: ${name}`);
-  return JSON.parse(decoder.decode(bytes));
+  let cached = parseCache.get(bytes);
+  if (cached === undefined) {
+    cached = JSON.parse(decoder.decode(bytes));
+    parseCache.set(bytes, cached);
+  }
+  return cached;
 }
 
 /**

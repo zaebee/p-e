@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -461,6 +461,36 @@ function parse(id: string, raw: string): RelayRecord {
     provenance,
     depositedBy,
   };
+}
+
+/**
+ * One record by id, read without scanning the whole store.
+ *
+ * An id outside the store's format is not held, and is never joined onto the
+ * root: `../x` would otherwise read a file beside the store as if it were one.
+ *
+ * A missing record and a missing store are different answers. `loadStore`
+ * refuses a root it cannot open, and so does this — otherwise a mistyped
+ * `PE_STORE_ROOT` would answer "relay-0808 is not held by this store" for
+ * every id, which reads as a fact about the record rather than the root.
+ */
+export async function loadRecord(id: string, root = storeRoot()): Promise<RelayRecord | null> {
+  if (!ID.test(id)) return null;
+  try {
+    const raw = await readFile(join(root, `${id}.txt`), "utf8");
+    return parse(id, raw);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    // `stat` rather than `readdir`: a miss should not list the whole store to
+    // learn that the store is there. A root that is a file or unreadable never
+    // reaches this line — the open above fails with ENOTDIR or EACCES instead.
+    await stat(root).catch((statError: unknown) => {
+      throw new Error(
+        `relay store not readable at ${root}: ${statError instanceof Error ? statError.message : String(statError)}`,
+      );
+    });
+    return null;
+  }
 }
 
 export async function loadStore(root = storeRoot()): Promise<Map<string, RelayRecord>> {
