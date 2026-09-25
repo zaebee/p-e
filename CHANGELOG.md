@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/zaebee/p-e/compare/p-e-v0.3.1...p-e-v0.3.2) (2026-09-25)
+
+
+### Performance
+
+* **relay:** fast-path single record loading in relay-digest ([#267](https://github.com/zaebee/p-e/issues/267)) ([542d59e](https://github.com/zaebee/p-e/commit/542d59ef97ce67299712d563a2a1ecc209b39534))
+
 ## [0.3.1](https://github.com/zaebee/p-e/compare/p-e-v0.3.0...p-e-v0.3.1) (2026-09-18)
 
 
