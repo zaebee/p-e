@@ -69,4 +69,4 @@ the comment.
 ## 2026-10-16 - Fast-Path Exact String Equality in `assertNumberTokenExact`
 **Measured:** Short-circuiting `if (token === s)` in `assertNumberTokenExact` in `src/relay-lite/canonical.ts` reduced 500,000 number token validation iterations from 120ms to 15ms (~8x function win). However, end-to-end CLI execution time for `bun run conform:relay-lite` dropped from 50.8ms to 50.5ms (median across 10 runs, <1% win), which falls well below the required >=10% or >=20ms end-to-end threshold.
 **Learning:** Number token validation during I-JSON parsing (`parseIJson`) is a micro-fraction of overall command execution (<0.5ms per conformance run), dominated by Bun process startup and module load baselines (~50ms).
-**Action:** Do not open a PR for I-JSON number parsing optimizations alone unless the volume of parsed acts in a single command run is large enough for the savings to exceed 20ms end to end.
+**Action:** Do not open a PR for I-JSON number parsing optimizations alone unless the volume of parsed acts in a single command run is large enough for the savings to exceed 20ms.
