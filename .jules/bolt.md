@@ -70,3 +70,8 @@ the comment.
 **Measured:** Short-circuiting `if (token === s)` in `assertNumberTokenExact` in `src/relay-lite/canonical.ts` reduced 500,000 number token validation iterations from 120ms to 15ms (~8x function win). However, end-to-end CLI execution time for `bun run conform:relay-lite` dropped from 50.8ms to 50.5ms (median across 10 runs, <1% win), which falls well below the required >=10% or >=20ms end-to-end threshold.
 **Learning:** Number token validation during I-JSON parsing (`parseIJson`) is a micro-fraction of overall command execution (<0.5ms per conformance run), dominated by Bun process startup and module load baselines (~50ms).
 **Action:** Do not open a PR for I-JSON number parsing optimizations alone unless the volume of parsed acts in a single command run is large enough for the savings to exceed 20ms.
+
+## 2026-10-17 - Reference and Continuity Check In-Process vs CLI Startup Breakdown
+**Measured:** Benchmarked JS execution time versus CLI end-to-end runtime across 1,128 store records: `check-references` JS time is 70.9 ms (out of 197.1 ms end-to-end), and `check-continuity` JS time is 6.5 ms (out of 134.2 ms end-to-end). Micro-optimizing pure JS reference/continuity graph scanning saves <5 ms (<2.5% end-to-end), which falls below the required >=10% or >=20ms threshold.
+**Learning:** Store loading and reference graph creation account for ~70ms of execution, but process startup and Bun runtime baselines (~125ms) dominate short CLI scripts.
+**Action:** Do not open a PR for pure JS reference scanning optimizations unless store record count grows sufficiently for the savings to exceed 20ms or 10% of total command execution time.
