@@ -1,5 +1,3 @@
-import { decodeAbiParameters } from "viem";
-
 /**
  * The claim schema's field types, in the order the published data encodes them.
  *
@@ -80,10 +78,59 @@ export const VERDICT_NAMES: Record<number, string> = {
  */
 const claimDataCache = new Map<string, readonly unknown[]>();
 
+function decodeStringAt(hex: string, offsetInBytes: number): string {
+  const start = 2 + offsetInBytes * 2;
+  const len = Number.parseInt(hex.slice(start, start + 64), 16);
+  return Buffer.from(hex.slice(start + 64, start + 64 + len * 2), "hex").toString("utf8");
+}
+
+function fastDecodeClaimData(data: `0x${string}`): readonly unknown[] {
+  if (typeof data !== "string" || !data.startsWith("0x") || data.length < 770) {
+    throw new Error("data does not match claim ABI schema");
+  }
+  try {
+    const identityId = `0x${data.slice(2, 66)}`;
+    const repoOffset = Number.parseInt(data.slice(66, 130), 16);
+    const pr = Number.parseInt(data.slice(130, 194), 16);
+    const commitShaOffset = Number.parseInt(data.slice(194, 258), 16);
+    const fileOffset = Number.parseInt(data.slice(258, 322), 16);
+    const line = Number.parseInt(data.slice(322, 386), 16);
+    const categoryOffset = Number.parseInt(data.slice(386, 450), 16);
+    const severityOffset = Number.parseInt(data.slice(450, 514), 16);
+    const confidence = Number.parseInt(data.slice(514, 578), 16);
+    const verdict = Number.parseInt(data.slice(578, 642), 16);
+    const impactScore = Number.parseInt(data.slice(642, 706), 16);
+    const claimHash = `0x${data.slice(706, 770)}`;
+
+    const repo = decodeStringAt(data, repoOffset);
+    const commitSha = decodeStringAt(data, commitShaOffset);
+    const file = decodeStringAt(data, fileOffset);
+    const category = decodeStringAt(data, categoryOffset);
+    const severity = decodeStringAt(data, severityOffset);
+
+    return [
+      identityId,
+      repo,
+      pr,
+      commitSha,
+      file,
+      line,
+      category,
+      severity,
+      confidence,
+      verdict,
+      impactScore,
+      claimHash,
+    ];
+  } catch {
+    throw new Error("fast ABI decode failed");
+  }
+}
+
 export function decodeClaimData(data: `0x${string}`): readonly unknown[] {
   let decoded = claimDataCache.get(data);
   if (decoded === undefined) {
-    decoded = Object.freeze(decodeAbiParameters(CLAIM_TYPES, data));
+    decoded = Object.freeze(fastDecodeClaimData(data));
     claimDataCache.set(data, decoded);
   }
   return decoded;
