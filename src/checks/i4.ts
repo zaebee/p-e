@@ -1,7 +1,7 @@
 import { apexHealth } from "../adapters/apex.js";
 import { parseHivemark } from "../adapters/hivemark.js";
 import type { Finding } from "../verdict.js";
-import { FIELD, decodeClaimData } from "./claim-schema.js";
+import { DecoderUnavailableError, FIELD, decodeClaimData } from "./claim-schema.js";
 
 interface Stored {
   attestation: { uid: string; message: { data: `0x${string}`; time: string } };
@@ -17,7 +17,8 @@ export function recomputeSuperseded(files: Map<string, Uint8Array>) {
     let decoded: readonly unknown[];
     try {
       decoded = decodeClaimData(e.attestation.message.data);
-    } catch {
+    } catch (error) {
+      if (error instanceof DecoderUnavailableError) throw error;
       undecodable++;
       continue;
     }
