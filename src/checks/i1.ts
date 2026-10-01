@@ -2,7 +2,7 @@ import { apexHealth, apexHistory } from "../adapters/apex.js";
 import { parseHivemark } from "../adapters/hivemark.js";
 import { ascending, byCodeUnit } from "../order.js";
 import type { Finding } from "../verdict.js";
-import { FIELD, VERDICT_NAMES, decodeClaimData } from "./claim-schema.js";
+import { DecoderUnavailableError, FIELD, VERDICT_NAMES, decodeClaimData } from "./claim-schema.js";
 
 interface Stored {
   attestation: { message: { data: `0x${string}` } };
@@ -21,7 +21,8 @@ export function checkI1(files: Map<string, Uint8Array>): Finding[] {
     try {
       const decoded = decodeClaimData(e.attestation.message.data);
       codes.add(Number(decoded[FIELD.verdict]));
-    } catch {
+    } catch (error) {
+      if (error instanceof DecoderUnavailableError) throw error;
       undecodable++;
     }
   }
