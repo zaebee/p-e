@@ -71,7 +71,66 @@ the comment.
 **Learning:** Number token validation during I-JSON parsing (`parseIJson`) is a micro-fraction of overall command execution (<0.5ms per conformance run), dominated by Bun process startup and module load baselines (~50ms).
 **Action:** Do not open a PR for I-JSON number parsing optimizations alone unless the volume of parsed acts in a single command run is large enough for the savings to exceed 20ms.
 
-## 2026-10-17 - Fast-Path ABI String Decoding and Elimination of Top-Level `viem` Import
+## 2026-09-30 - Fast-Path ABI String Decoding and Elimination of Top-Level `viem` Import
 **Measured:** Replacing generic `decodeAbiParameters(CLAIM_TYPES, data)` from `viem` in `src/checks/claim-schema.ts` with a direct hex string ABI decoder for the static 12-field `CLAIM_TYPES` schema and eliminating the static top-level `import { decodeAbiParameters } from "viem"` reduced `runAllWithCoverage` cold execution time from 125.95 ms to 44.48 ms (64.7% / 81.47 ms win). End-to-end CLI execution time for `bun run conform -- --run 99` dropped from 151.0 ms to 49.3 ms (67.3% / 101.7 ms win).
 **Learning:** Static top-level imports of heavy libraries like `viem` cost ~129ms in Bun module graph resolution at process startup. Generic ABI decoders spend significant time in dynamic AST and type validation. Direct fixed-layout string/hex slicing avoids both module load overhead and decoding execution overhead.
 **Action:** Use direct hex string decoding for fixed ABI schemas and avoid static top-level imports of heavy third-party crypto/ABI libraries on critical CLI code paths.
+**Measured on merge (bee.claude, 2026-10-01):** the win holds, the decoder as
+written did not, and the end-to-end row measures something else. 31 interleaved
+runs of `bun run src/cli.ts -- --run 99`, the report removed before each, exit
+code checked: **288.7 ms → 103.2 ms, 64%**, with the author's decoder at
+102.1 ms in the same runs; the report is byte-identical to `main`'s. The row above is 151.0 → 49.3 ms, and 49.3 ms end to end does not fit
+around a function the same row puts at 44.48 ms. The benchmark never removes
+the report and discards the exit code, and `cli.ts` refuses a run whose report
+exists before it does any work — so every iteration after the first was
+probably a refusal. Refused runs here: 140.0 → 36.6 ms, which is the shape of
+the author's figures and is the cost of importing `viem`, not of decoding. The
+figures in the Measured line are the author's and are left as written; the date
+was 2026-10-17, which had not happened, and is now the day of the commit.
+
+The decoder agreed with `viem` on all 932 published claims and on nothing
+damaged. Of fourteen hand-made inputs it returned a value for seven that `viem`
+refuses: a claim cut short came back with empty strings, a verdict word that
+was not hex as `NaN`, a string longer than the data as the rest of the record.
+`i1` and `i4` learn that a record is undecodable from a throw and from nothing
+else, so each would have been counted as a judged claim. It also kept the case
+of a `bytes32` that `viem` lowers, and `identityId` is in `i4`'s grouping key.
+"1,352 inputs, 0 differences" was true of inputs that were all well-formed.
+
+What merged is a fast path that only accepts — lower-case whole bytes, numbers
+below 2^48, strings inside the data — and returns nothing for the rest, which
+goes to `viem` through a late `require`. The unhappy path is then `viem` by
+construction rather than by imitation. Read the Action as: a fast path for a
+fixed layout may accept; refusing stays with the decoder it replaces. And test
+it against that decoder on damaged input — `tests/claim-schema.test.ts` does,
+byte-exact at each bound and over 10,000 seeded mutations, and was itself
+checked by breaking the decoder twenty-six ways. It also pins that every corpus
+claim takes the fast path: declining is always correct, so nothing else would
+say when the win had gone.
+
+That repair was then attacked by a reader who had not written it (rule 14),
+with about a million differential inputs under Bun and Node. The decoder held.
+Three things around it did not, and all three came from the repair, not from
+the original:
+
+- **The fast path is pinned to a `viem` it did not name.** `viem` before 2.55.4
+  strips leading NUL bytes from a decoded string; the fast path does not.
+  `package.json` allowed `^2.21.0`, and only the lockfile kept one claim from
+  decoding two ways in one process — lower case here, upper case there. The
+  floor is now `^2.55.4`. Imitating a library means imitating a version of it.
+- **Loading late moved a failure to where it is caught.** A static import that
+  cannot resolve kills the process. A `require` inside the decode throws inside
+  the `try` that `i1` and `i4` use to count undecodable records: with `viem`
+  missing, the run exited 0 and reported "1 undecodable" about a claim that
+  decodes. The loader now throws `DecoderUnavailableError` and both callers
+  rethrow it. When an import is made lazy, look at who catches around the first
+  use.
+- **The mutation fuzzer could not write text.** It edits hex a nibble at a
+  time, so a decoder that normalised to NFC, trimmed trailing whitespace or
+  dropped every byte-order mark passed. A second fuzzer now builds strings out
+  of exactly those.
+
+Smaller: a String object is declined, and so is anything over 65,536
+characters — the regex under Bun stops matching past two million bytes on its
+own, and a decline that depends on the runtime should be written down. A type
+added to `CLAIM_TYPES` is declined rather than read as a number.

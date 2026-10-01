@@ -5,7 +5,7 @@
     "": {
       "name": "p-e",
       "dependencies": {
-        "viem": "^2.21.0",
+        "viem": "^2.55.4",
       },
       "devDependencies": {
         "@biomejs/biome": "^1.9.4",

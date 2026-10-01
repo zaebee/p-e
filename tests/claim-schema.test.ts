@@ -120,7 +120,7 @@ describe("the fast path against viem", () => {
       `${good.slice(0, 2 + 12 * 64)}${word(10_000n)}${good.slice(2 + 13 * 64)}`, // a string longer than the data
       `${good.slice(0, 2 + 13 * 64)}zzzz${good.slice(2 + 13 * 64 + 4)}`, // not hex, in a string
       good.slice(0, -1), // a nibble short
-      setWord(good, FIELD.pr, word(2n ** 53n)), // a number no double holds
+      setWord(good, FIELD.pr, word(2n ** 53n)), // one past the last safe integer
       setWord(good, FIELD.repo, word(BigInt((good.length - 2) / 2 - 32))), // the last word, read as a length
       setWord(good, FIELD.repo, word(BigInt((good.length - 2) / 2 - 31))), // a length word one byte over the end
       "0x",
@@ -147,6 +147,7 @@ describe("the fast path against viem", () => {
       setWord(good, FIELD.repo, word(32n)), // an offset back into the head
       setWord(`${good}${word(0n)}`, FIELD.repo, word(BigInt((good.length - 2) / 2))), // an empty string in the last word
       `${good}${"ff".repeat(32)}`,
+      claimWith({ repo: "x".repeat(40_000) }), // longer than the fast path looks at
     ];
     for (const data of accepted) {
       expect(() => decodeAbiParameters(CLAIM_TYPES, data as `0x${string}`), data).not.toThrow();
@@ -182,6 +183,63 @@ describe("the fast path against viem", () => {
       );
       expect(() => decodeAbiParameters(CLAIM_TYPES, refused as `0x${string}`), refused).toThrow();
       expect(() => decodeClaimData(refused as `0x${string}`), refused).toThrow();
+    }
+  });
+
+  it("declines what it was not built to read, and leaves it to viem", () => {
+    const good = claimWith({});
+    expect(fastDecodeClaimData(good)).toBeDefined();
+    expect(fastDecodeClaimData(claimWith({ repo: "x".repeat(40_000) }))).toBeUndefined();
+    // A String object passes every string operation the fast path performs;
+    // viem refuses it. Not reachable from JSON.parse, and not left to luck.
+    const boxed = new String(good) as unknown as `0x${string}`;
+    expect(fastDecodeClaimData(boxed)).toBeUndefined();
+    expect(() => decodeAbiParameters(CLAIM_TYPES, boxed)).toThrow();
+    expect(() => decodeClaimData(boxed)).toThrow();
+  });
+
+  it("reads text as viem reads it", () => {
+    // The damaged-claim fuzzer below edits hex one nibble at a time, so it
+    // never writes a second byte-order mark, a decomposed letter or trailing
+    // whitespace. A decoder that normalised, trimmed or stripped any of those
+    // passed everything else in this file. Only one published claim in 932
+    // has a byte outside ASCII, so the corpus does not cover it either.
+    let seed = 0x1234abcd;
+    const rand = (n: number) => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
+      return (seed >>> 8) % n;
+    };
+    const pieces = [
+      "\uFEFF",
+      "e\u0301",
+      "\u00e9",
+      "A\u030a",
+      "\u212b",
+      " ",
+      "\t",
+      "\n",
+      "\r\n",
+      "\u0000",
+      "\u00a0",
+      "\u2028",
+      "\u{1d11e}",
+      "\u{1f600}",
+      "\ufffd",
+      "\u200d",
+      "я",
+      "中",
+      "a",
+      "/",
+      "0",
+    ];
+    const text = () => {
+      let out = "";
+      for (let n = rand(12); n > 0; n--) out += pieces[rand(pieces.length)];
+      return out;
+    };
+    for (let i = 0; i < 2000; i++) {
+      const data = claimWith({ repo: text(), file: text(), severity: text() });
+      expect(fastDecodeClaimData(data), data).toEqual(decodeAbiParameters(CLAIM_TYPES, data));
     }
   });
 

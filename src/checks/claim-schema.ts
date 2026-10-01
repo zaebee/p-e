@@ -89,6 +89,15 @@ const HEAD_BYTES = CLAIM_TYPES.length * 32;
 /** Whole bytes in lower case, and at least one. Anything else is viem's to judge. */
 const CANONICAL_HEX = /^0x(?:[0-9a-f]{2})+$/;
 
+/**
+ * Longer than this and the fast path does not look. Published claims run to
+ * about 3,500 characters. The bound is written down because the regex has one
+ * of its own that is not: under Bun it stops matching a little past two
+ * million bytes and takes 180 ms to say so at one, where Node matches at any
+ * length. A decline that depends on the runtime should be one this file makes.
+ */
+const MAX_FAST_CHARS = 1 << 16;
+
 /** The top 52 of a word's 64 characters: zero when the value is below 2^48. */
 const HIGH_ZEROS = "0".repeat(WORD - 12);
 
@@ -131,8 +140,17 @@ function stringAt(data: string, bytes: number, offset: number): string | undefin
  * therefore cannot disagree about a damaged record, because only one of them
  * is ever asked.
  *
- * Driven by `CLAIM_TYPES` rather than by twelve written-out offsets, so the
- * layout is stated once.
+ * What it does accept it reads as viem 2.55.4 and later read it. Before that,
+ * viem stripped leading NUL bytes from a decoded string and this does not, so
+ * under an older viem the same claim would decode one way in lower case and
+ * another in upper. `package.json` holds the floor there; the BOM and NUL
+ * cases in the test are what fail if it is lowered.
+ *
+ * The positions come from `CLAIM_TYPES`, so the order is stated once. The
+ * reading of each type is not derived from anything: three types are read
+ * here, and a fourth added to the schema is declined like any other thing
+ * this does not know, rather than read as a number because it was not a
+ * string.
  *
  * Exported for the test that every published claim is taken here. Declining
  * is always correct, which is exactly why it has to be watched: a producer
@@ -140,6 +158,8 @@ function stringAt(data: string, bytes: number, offset: number): string | undefin
  * fallback, the speed would be gone, and no verdict would change to say so.
  */
 export function fastDecodeClaimData(data: string): readonly unknown[] | undefined {
+  // `typeof` first: a String object satisfies everything below and viem refuses it.
+  if (typeof data !== "string" || data.length > MAX_FAST_CHARS) return undefined;
   if (!CANONICAL_HEX.test(data)) return undefined;
   const bytes = (data.length - 2) / 2;
   if (bytes < HEAD_BYTES) return undefined;
@@ -151,6 +171,7 @@ export function fastDecodeClaimData(data: string): readonly unknown[] | undefine
       decoded.push(`0x${data.slice(at, at + WORD)}`);
       continue;
     }
+    if (type !== "string" && type !== "uint8" && type !== "uint32") return undefined;
     const value = smallWordAt(data, at);
     if (value === undefined) return undefined;
     if (type === "string") {
@@ -165,6 +186,27 @@ export function fastDecodeClaimData(data: string): readonly unknown[] | undefine
 }
 
 /**
+ * The decoder could not be loaded. Not a fact about any record.
+ *
+ * `i1` and `i4` count a record as undecodable when its decode throws, and the
+ * verdict turns on that count. A missing or broken `viem` throws from the same
+ * call, and caught the same way it would be published as a finding about the
+ * producer's data: a run with no `viem` installed reported "1 undecodable" and
+ * UNDECIDABLE for a claim that decodes. Both callers rethrow this.
+ *
+ * While the import was static this could not happen — the process died before
+ * the first check. Loading late is what made it possible.
+ */
+export class DecoderUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super("viem could not be loaded, so nothing can be said about a claim the fast path declined", {
+      cause,
+    });
+    this.name = "DecoderUnavailableError";
+  }
+}
+
+/**
  * viem, loaded on the first claim the fast path declines and not before.
  *
  * A static import costs its module graph on every run, including the run that
@@ -174,8 +216,13 @@ export function fastDecodeClaimData(data: string): readonly unknown[] | undefine
 const requireLate = createRequire(import.meta.url);
 
 function decodeWithViem(data: `0x${string}`): readonly unknown[] {
-  const { decodeAbiParameters } = requireLate("viem") as typeof import("viem");
-  return decodeAbiParameters(CLAIM_TYPES, data);
+  let viem: typeof import("viem");
+  try {
+    viem = requireLate("viem");
+  } catch (cause) {
+    throw new DecoderUnavailableError(cause);
+  }
+  return viem.decodeAbiParameters(CLAIM_TYPES, data);
 }
 
 export function decodeClaimData(data: `0x${string}`): readonly unknown[] {
