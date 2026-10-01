@@ -61,15 +61,41 @@ non-configurable property, which a recording wrapper cannot. Freeze what a
 check derives; leave what a check is measured against unfrozen and say so in
 the comment.
 
-## 2026-10-15 - Process Startup Baseline Dominates Short-Lived CLI Execution
+## 2026-09-24 - Process Startup Baseline Dominates Short-Lived CLI Execution
 **Measured:** Benchmarked short-lived CLI commands across 5 interleaved runs: `check-references` (median 179.39 ms, range 166.86–257.42 ms), `check-continuity` (median 149.72 ms, range 123.34–230.37 ms), `check-headers` (median 118.91 ms, range 114.49–124.69 ms), and `conform -- --run 1` (median 160.15 ms, range 152.34–164.17 ms).
 **Learning:** Bun process spawn overhead and module importing dominate short CLI invocation times (~110–120ms baseline). Pure JS execution in store checks is ~10–15ms total. Any micro-optimization saving <10ms yields <6% end-to-end gain, falling below the >=10% or >=20ms threshold.
 **Action:** Do not open a PR for micro-optimizations in short CLI commands unless end-to-end savings exceed 20ms or 10% on real command runs.
 
-## 2026-10-16 - Fast-Path Exact String Equality in `assertNumberTokenExact`
+## 2026-09-26 - Fast-Path Exact String Equality in `assertNumberTokenExact`
 **Measured:** Short-circuiting `if (token === s)` in `assertNumberTokenExact` in `src/relay-lite/canonical.ts` reduced 500,000 number token validation iterations from 120ms to 15ms (~8x function win). However, end-to-end CLI execution time for `bun run conform:relay-lite` dropped from 50.8ms to 50.5ms (median across 10 runs, <1% win), which falls well below the required >=10% or >=20ms end-to-end threshold.
 **Learning:** Number token validation during I-JSON parsing (`parseIJson`) is a micro-fraction of overall command execution (<0.5ms per conformance run), dominated by Bun process startup and module load baselines (~50ms).
 **Action:** Do not open a PR for I-JSON number parsing optimizations alone unless the volume of parsed acts in a single command run is large enough for the savings to exceed 20ms.
+
+## 2026-09-28 - Reference and Continuity Check In-Process vs CLI Startup Breakdown
+**Measured:** Benchmarked JS execution time versus CLI end-to-end runtime across 1,128 store records: `check-references` JS time is 70.9 ms (out of 197.1 ms end-to-end), and `check-continuity` JS time is 6.5 ms (out of 134.2 ms end-to-end). Micro-optimizing pure JS reference/continuity graph scanning saves <5 ms (<2.5% end-to-end), which falls below the required >=10% or >=20ms threshold.
+**Learning:** Store loading and reference graph creation account for ~70ms of execution, but process startup and Bun runtime baselines (~125ms) dominate short CLI scripts.
+**Action:** Do not open a PR for pure JS reference scanning optimizations unless store record count grows sufficiently for the savings to exceed 20ms or 10% of total command execution time.
+**Measured on merge (bee.claude, 2026-10-01):** the Action holds, the Learning's
+attribution does not. An empty script under `bun run` takes **8.8 ms** on this
+machine, so the runtime is not a ~125 ms baseline. `check-references` runs
+70.7 ms and `check-continuity` 66.1 ms end to end (median of 21, the same 1,128
+records); inside either, importing the relay modules is ~17 ms and `loadStore`
+~36 ms. Most of a checker's run is this repository's own code, which is the
+part a PR can move, and #275 is the example: about 100 ms that an entry like
+this one would have called baseline was a single static `viem` import. Read the
+Learning as: scanning the reference graph is a small share of the run and not
+worth a PR by itself. It is not evidence that nothing above the scan is, and
+the 2026-09-24 entry reads the same way. The 6.5 ms and 70.9 ms figures are the
+author's, from another machine, and are left as written.
+
+Before attributing time to the runtime, time an empty script on the same
+machine. It is one command and it was not in any of these entries.
+
+Three entries here were dated 2026-10-15, -16 and -17, days that had not
+happened; they now carry the day each PR was opened. #273 measured `Bun.file`
+in `loadStore` a second time and was closed as a repeat of the 2026-09-18 entry.
+Its one figure recorded nowhere else, the author's and not re-measured:
+concurrent `Bun.file` reads in `loadCorpus`, ~21.9 ms → ~20.4 ms.
 
 ## 2026-09-30 - Fast-Path ABI String Decoding and Elimination of Top-Level `viem` Import
 **Measured:** Replacing generic `decodeAbiParameters(CLAIM_TYPES, data)` from `viem` in `src/checks/claim-schema.ts` with a direct hex string ABI decoder for the static 12-field `CLAIM_TYPES` schema and eliminating the static top-level `import { decodeAbiParameters } from "viem"` reduced `runAllWithCoverage` cold execution time from 125.95 ms to 44.48 ms (64.7% / 81.47 ms win). End-to-end CLI execution time for `bun run conform -- --run 99` dropped from 151.0 ms to 49.3 ms (67.3% / 101.7 ms win).
