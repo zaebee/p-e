@@ -87,7 +87,7 @@ const WORD = 64;
 const HEAD_BYTES = CLAIM_TYPES.length * 32;
 
 /** Whole bytes in lower case, and at least one. Anything else is viem's to judge. */
-const CANONICAL_HEX = /^0x(?:[0-9a-f]{2})+$/;
+const CANONICAL_HEX = /^0x[0-9a-f]+$/;
 
 /**
  * Longer than this and the fast path does not look. Published claims run to
@@ -160,7 +160,7 @@ function stringAt(data: string, bytes: number, offset: number): string | undefin
 export function fastDecodeClaimData(data: string): readonly unknown[] | undefined {
   // `typeof` first: a String object satisfies everything below and viem refuses it.
   if (typeof data !== "string" || data.length > MAX_FAST_CHARS) return undefined;
-  if (!CANONICAL_HEX.test(data)) return undefined;
+  if ((data.length & 1) !== 0 || !CANONICAL_HEX.test(data)) return undefined;
   const bytes = (data.length - 2) / 2;
   if (bytes < HEAD_BYTES) return undefined;
 
