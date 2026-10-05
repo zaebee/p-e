@@ -160,3 +160,8 @@ Smaller: a String object is declined, and so is anything over 65,536
 characters — the regex under Bun stops matching past two million bytes on its
 own, and a decline that depends on the runtime should be written down. A type
 added to `CLAIM_TYPES` is declined rather than read as a number.
+
+## 2026-10-01 - Avoid Quantifier Repetition in Hex Validation Regex
+**Measured:** Replaced `CANONICAL_HEX = /^0x(?:[0-9a-f]{2})+$/` with `CANONICAL_HEX = /^0x[0-9a-f]+$/` and explicit even-length check (`data.length % 2 === 0 && data.length >= 4`) in `src/checks/claim-schema.ts`. `fastDecodeClaimData` execution time over 932 claims dropped from 249.57 ms to 10.77 ms (95.7% / 238.80 ms win). End-to-end CLI execution time for `bun run conform -- --run 88` dropped from 401.89 ms to 140.26 ms (65.1% / 261.63 ms win, median of 5 interleaved runs).
+**Learning:** Repetitive non-capturing groups `(?:[0-9a-f]{2})+` in regex patterns incur significant backtracking and group-matching overhead on long strings (~3,500 characters) in Bun's JS engine. Checking string length properties explicitly in JS before running a simpler character-set regex eliminates regex group evaluation overhead.
+**Action:** Prefer simple character-class regexes combined with explicit JS string length/prefix checks over repeated group quantifiers when validating long canonical string inputs.
