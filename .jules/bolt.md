@@ -160,3 +160,8 @@ Smaller: a String object is declined, and so is anything over 65,536
 characters — the regex under Bun stops matching past two million bytes on its
 own, and a decline that depends on the runtime should be written down. A type
 added to `CLAIM_TYPES` is declined rather than read as a number.
+
+## 2026-10-01 - Fast-Path Parity Check and Non-Backtracking Hex Regex
+**Measured:** Replacing `CANONICAL_HEX = /^0x(?:[0-9a-f]{2})+$/` with a string length parity check `data.length % 2 === 0` and non-backtracking regex `/^0x[0-9a-f]+$/` in `fastDecodeClaimData` reduced `fastDecodeClaimData` execution time across 932 claims from 223.07 ms to 10.10 ms (95.5% / 212.97 ms win). `runAllWithCoverage` cold call execution time dropped from 280 ms to 29 ms (89.6% win). End-to-end CLI execution time for `bun run conform -- --run XX` dropped from 387.90 ms to 144.23 ms (62.8% / 243.67 ms win).
+**Learning:** In JavaScript engines (specifically Bun / JSC), quantifying repeated non-capturing groups `(?:[0-9a-f]{2})+` against long strings (~3,500 chars) incurs significant regex engine backtracking overhead. Separating character count parity validation into a cheap arithmetic length check (`data.length % 2 === 0`) allows using a simple linear non-backtracking regex `/^0x[0-9a-f]+$/`.
+**Action:** Prefer primitive arithmetic length/parity checks before invoking regular expressions, and avoid non-capturing repeated quantifier groups `(?:...)+` when matching long hex or token strings.
