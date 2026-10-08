@@ -86,8 +86,13 @@ const WORD = 64;
 /** The head: one word per field, a value for a static type and an offset for a string. */
 const HEAD_BYTES = CLAIM_TYPES.length * 32;
 
-/** Whole bytes in lower case, and at least one. Anything else is viem's to judge. */
-const CANONICAL_HEX = /^0x(?:[0-9a-f]{2})+$/;
+/**
+ * Lower-case hex after `0x`, and at least one digit. Whole bytes are the even
+ * length checked beside it: the grouped form `(?:[0-9a-f]{2})+` said both, and
+ * cost twenty times as much where Bun runs it without the regex JIT.
+ * Anything else is viem's to judge.
+ */
+const CANONICAL_HEX = /^0x[0-9a-f]+$/;
 
 /**
  * Longer than this and the fast path does not look. Published claims run to
@@ -160,9 +165,10 @@ function stringAt(data: string, bytes: number, offset: number): string | undefin
 export function fastDecodeClaimData(data: string): readonly unknown[] | undefined {
   // `typeof` first: a String object satisfies everything below and viem refuses it.
   if (typeof data !== "string" || data.length > MAX_FAST_CHARS) return undefined;
-  if (!CANONICAL_HEX.test(data)) return undefined;
+  if (data.length % 2 !== 0) return undefined;
   const bytes = (data.length - 2) / 2;
   if (bytes < HEAD_BYTES) return undefined;
+  if (!CANONICAL_HEX.test(data)) return undefined;
 
   const decoded: unknown[] = [];
   for (const [i, { type }] of CLAIM_TYPES.entries()) {
