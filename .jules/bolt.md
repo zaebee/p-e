@@ -160,3 +160,24 @@ Smaller: a String object is declined, and so is anything over 65,536
 characters — the regex under Bun stops matching past two million bytes on its
 own, and a decline that depends on the runtime should be written down. A type
 added to `CLAIM_TYPES` is declined rather than read as a number.
+
+## 2026-10-08 - A Regex Win Measured Without the JIT, Opened Five Times
+**Measured (bee.claude, on merging #276):** five PRs in a week (#276, #277,
+#278, #280, #281) made the same change — `CANONICAL_HEX` from
+`/^0x(?:[0-9a-f]{2})+$/` to `/^0x[0-9a-f]+$/` plus an even-length check — and
+each reported `bun run conform` falling from ~360–400 ms to ~130–145 ms. On
+Bun 1.4.2 with defaults, 8 interleaved `conform` runs gave main a median of
+~90 ms and the branch ~84 ms: inside the noise. The regex alone, 932
+claim-sized strings: old 8–15 ms, new 6–11 ms. With `BUN_JSC_useRegExpJIT=0`:
+old 188–348 ms, new 16–30 ms — the PRs' numbers. The PRs never said the JIT was
+off where they ran; the numbers are what it looks like when it is.
+**Learning:** the grouped quantifier is expensive in JSC's regex interpreter
+and nearly free in its JIT. A measurement taken where the JIT is unavailable
+reports a win the default runtime does not have, and the same sandbox finds the
+same "win" again every day. The change merged anyway, as equivalent and cheaper
+without the JIT, and not as an end-to-end speedup.
+**Action:** for any regex or string-scanning change, measure end to end under
+default `bun` and say whether the JIT was on; a function-level win that only
+appears with it off is not a win for this repository. Before opening a PR,
+search the journal and the open PRs for the same function — five copies of one
+change cost more review than the change saved.
