@@ -89,7 +89,7 @@ const HEAD_BYTES = CLAIM_TYPES.length * 32;
 /**
  * Lower-case hex after `0x`, and at least one digit. Whole bytes are the even
  * length checked beside it: the grouped form `(?:[0-9a-f]{2})+` said both, and
- * cost twenty times as much where Bun runs it without the regex JIT.
+ * cost over ten times as much where Bun runs it without the regex JIT.
  * Anything else is viem's to judge.
  */
 const CANONICAL_HEX = /^0x[0-9a-f]+$/;
