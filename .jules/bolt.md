@@ -181,3 +181,8 @@ default `bun` and say whether the JIT was on; a function-level win that only
 appears with it off is not a win for this repository. Before opening a PR,
 search the journal and the open PRs for the same function — five copies of one
 change cost more review than the change saved.
+
+## 2026-10-08 - Cold Conformance Execution Profile and `I-1` Claim Decoding Share
+**Measured:** Benchmarked `bun run conform -- --run 99` cold execution (median 140 ms end-to-end). Total JS execution time inside `runAllWithCoverage` is 51.21 ms on cold runs across all 9 checks. `I-1` accounts for 37.71 ms (73.7% of total check execution time), split between `parseHivemark` JSON parsing (13.39 ms) and `fastDecodeClaimData` (24.75 ms across 932 claims). Micro-optimizing string decoding or hex slicing in `fastDecodeClaimData` yields at most ~5 ms function savings, which translates to a ~3.5% end-to-end gain on `bun run conform` — falling well below the >= 10% or >= 20 ms threshold.
+**Learning:** `runAllWithCoverage` cold execution is dominated by `I-1`'s initial pass through `fastDecodeClaimData` (which populates `claimDataCache` for subsequent checks like `I-4`). Once cached, subsequent check passes complete in < 5 ms total.
+**Action:** Do not open a PR for micro-optimizations in `fastDecodeClaimData` or `checkI1` unless the claim volume increases enough for savings to exceed 20 ms or 10% end-to-end on real command runs.
