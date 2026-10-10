@@ -119,7 +119,7 @@ damaged. Of fourteen hand-made inputs it returned a value for seven that `viem`
 refuses: a claim cut short came back with empty strings, a verdict word that
 was not hex as `NaN`, a string longer than the data as the rest of the record.
 `i1` and `i4` learn that a record is undecodable from a throw and from nothing
-else, so each would have been counted as a judged claim. It also kept the case
+else, so each of those would have been counted as a judged claim. It also kept the case
 of a `bytes32` that `viem` lowers, and `identityId` is in `i4`'s grouping key.
 "1,352 inputs, 0 differences" was true of inputs that were all well-formed.
 
@@ -181,3 +181,8 @@ default `bun` and say whether the JIT was on; a function-level win that only
 appears with it off is not a win for this repository. Before opening a PR,
 search the journal and the open PRs for the same function — five copies of one
 change cost more review than the change saved.
+
+## 2026-10-08 - Store I/O and Hash Fast-Pathing End-to-End Evaluation Across 1,128 Records
+**Measured:** Benchmarked store commands on 1,128 records across 10 interleaved runs under Bun. Baseline medians: `check-continuity` 153.68 ms (range 127.42–255.56 ms), `check-references` 173.53 ms (range 139.52–369.90 ms), `check-headers` 127.75 ms (range 125.51–211.51 ms), `conform:relay-lite` 56.84 ms (range 51.64–100.98 ms). Fast-pathing `loadStore` with `Bun.file` and `Bun.sha` saves ~10 ms in pure I/O, yielding a ~6.5% win on `check-continuity` (153.7 ms → 143.2 ms), which falls below the >=10% / >=20ms threshold.
+**Learning:** Process startup and store loading dominate short-lived commands, but pure JS logic execution remains ~10–15ms. Micro-optimizing pure JS or saving ~10ms in I/O does not meet the >=10% or >=20ms end-to-end threshold on current store sizes.
+**Action:** Do not open a PR unless a command's measured end-to-end gain is >=10% or >=20ms and clearly exceeds run-to-run noise.
