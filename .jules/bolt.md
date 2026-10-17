@@ -183,6 +183,11 @@ search the journal and the open PRs for the same function — five copies of one
 change cost more review than the change saved.
 
 ## 2026-10-08 - Store I/O and Hash Fast-Pathing End-to-End Evaluation Across 1,128 Records
-**Measured:** Benchmarked store commands on 1,128 records across 10 interleaved runs under Bun. Baseline medians: `check-continuity` 153.68 ms (range 127.42–255.56 ms), `check-references` 173.53 ms (range 139.52–369.90 ms), `check-headers` 127.75 ms (range 125.51–211.51 ms), `conform:relay-lite` 56.84 ms (range 51.64–100.98 ms). Fast-pathing `loadStore` with `Bun.file` and `Bun.sha` saves ~10 ms in pure I/O, yielding a ~6.5% win on `check-continuity` (153.7 ms → 143.2 ms), which falls below the >=10% / >=20ms threshold.
+**Measured:** Benchmarked store commands on 1,128 records across 10 interleaved runs under Bun. Baseline medians: `check-continuity` 153.68 ms (range 127.42–255.56 ms), `check-references` 173.53 ms (range 139.52–369.90 ms), `check-headers` 127.75 ms (range 125.51–211.51 ms), `conform:relay-lite` 56.84 ms (range 51.64–100.98 ms). Fast-pathing `loadStore` with `Bun.file` and `Bun.sha` saves ~10 ms in pure I/O, yielding a ~6.5% win on `check-continuity` (153.7 ms → 143.2 ms), which falls below the >=10% or >=20ms threshold.
 **Learning:** Process startup and store loading dominate short-lived commands, but pure JS logic execution remains ~10–15ms. Micro-optimizing pure JS or saving ~10ms in I/O does not meet the >=10% or >=20ms end-to-end threshold on current store sizes.
 **Action:** Do not open a PR unless a command's measured end-to-end gain is >=10% or >=20ms and clearly exceeds run-to-run noise.
+
+## 2026-10-09 - Parallelizing `loadCorpus` Execution in Conformance Runs
+**Measured:** Parallelized `loadCorpus` in `src/manifest.ts` using `Promise.all` across 11 manifest entries. In-process function execution time dropped from 30.53 ms to 19.51 ms (~36% function win, 11.02 ms saved across 5 interleaved rounds of 20 iterations). However, end-to-end execution for `bun run conform -- --run 99` dropped from ~176 ms to ~165 ms (~6.2% / ~11 ms speedup), which falls below the required >=10% or >=20ms end-to-end threshold.
+**Learning:** Loading and verifying corpus entries accounts for ~30 ms of `bun run conform` runtime, but invariant check execution and report rendering dominate overall script duration.
+**Action:** Do not open a PR for corpus loader parallelization alone unless corpus entry count or file sizes grow enough for the savings to exceed 20ms or 10% end-to-end.
