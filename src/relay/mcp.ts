@@ -17,6 +17,7 @@ import {
   getRelay,
   listRelays,
   listReplies,
+  loadRecord,
   loadStore,
   storeRoot,
   writeProblem,
@@ -358,7 +359,7 @@ async function callTool(
 
   switch (name) {
     case "get_relay": {
-      const record = getRelay(await held(), id);
+      const record = (await loadRecord(id)) ?? getRelay(await held(), id);
       if (!record) return text(`${id}: ${exists(await held(), id)} — not reconstructed`);
       // Provenance travels with the bytes. A reader that does not know how they
       // arrived cannot weigh them, and this store never claims fidelity.
@@ -367,6 +368,10 @@ async function callTool(
       );
     }
     case "exists": {
+      if (id) {
+        const r = await loadRecord(id);
+        if (r) return structured(`${id}: PRESENT`, { id, state: "PRESENT" });
+      }
       const state = exists(await held(), id);
       return structured(`${id}: ${state}`, { id, state });
     }
