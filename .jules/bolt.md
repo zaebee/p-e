@@ -186,3 +186,31 @@ change cost more review than the change saved.
 **Measured:** Benchmarked store commands on 1,128 records across 10 interleaved runs under Bun. Baseline medians: `check-continuity` 153.68 ms (range 127.42–255.56 ms), `check-references` 173.53 ms (range 139.52–369.90 ms), `check-headers` 127.75 ms (range 125.51–211.51 ms), `conform:relay-lite` 56.84 ms (range 51.64–100.98 ms). Fast-pathing `loadStore` with `Bun.file` and `Bun.sha` saves ~10 ms in pure I/O, yielding a ~6.5% win on `check-continuity` (153.7 ms → 143.2 ms), which falls below the >=10% / >=20ms threshold.
 **Learning:** Process startup and store loading dominate short-lived commands, but pure JS logic execution remains ~10–15ms. Micro-optimizing pure JS or saving ~10ms in I/O does not meet the >=10% or >=20ms end-to-end threshold on current store sizes.
 **Action:** Do not open a PR unless a command's measured end-to-end gain is >=10% or >=20ms and clearly exceeds run-to-run noise.
+
+## 2026-10-20 - Relay CLI point lookups, and seven no-win PRs consolidated
+**Measured:** `relay get relay-0808` under default `bun`, 5 interleaved rounds
+of 20: ~100 ms → ~52 ms end to end, by reading the one record with
+`loadRecord(id)` instead of `loadStore()` (merged as #288; #286 was the same
+change without tests). The first Bolt change here to clear the >=10% / >=20 ms
+bar by a wide margin, because it removes the store load rather than shaving it.
+
+Between 2026-10-10 and 2026-10-19 seven more PRs (#285, #287, #289, #290,
+#291, #292, #293) each added a no-win entry. They were closed and are
+summarised here instead:
+- `loadCorpus` parallelised: measured four times, saving 2.8, 4.4, 11 and
+  4.7 ms of a 50–175 ms `conform` run. Below the bar every time.
+- Unbounded reads in `loadStore`: ~11 ms in-process, ~4% end to end. The
+  fan-out of 32 is held for portability, not speed — node 22 raises EMFILE
+  on an unbounded read at small `ulimit -n` (see the comment in
+  `src/relay/store.ts`). Store growth is not a reason to remove it.
+- Command baselines: the same `check-continuity` was reported at 107, 110,
+  125, 145 and 153 ms in different sessions. Absolute figures from different
+  sandboxes do not compare; only interleaved A/B within one session does.
+
+**Learning:** the wins left are structural (not loading what a command does
+not read), not micro. Bun startup plus module loading is ~40–60 ms and
+`loadStore` ~20–60 ms; checker logic is 2–13 ms.
+**Action:** a measurement that finds no win is not a PR. Append it to the
+journal only if it measures something no entry already covers, and search
+the journal and the open PRs first — seven copies of "nothing to do" cost
+more review than any of them saved. Never edit an earlier entry.
