@@ -196,8 +196,8 @@ bar by a wide margin, because it removes the store load rather than shaving it.
 
 Between 2026-10-10 and 2026-10-19 seven more PRs (#285, #287, #289, #290,
 #291, #292, #293) each added a no-win entry. They were closed and are
-summarised here instead:
-- `loadCorpus` parallelised: measured four times, saving 2.8, 4.4, 11 and
+summarized here instead:
+- `loadCorpus` parallelized: measured four times, saving 2.8, 4.4, 11 and
   4.7 ms of a 50–175 ms `conform` run. Below the bar every time.
 - Unbounded reads in `loadStore`: ~11 ms in-process, ~4% end to end. The
   fan-out of 32 is held for portability, not speed — node 22 raises EMFILE
