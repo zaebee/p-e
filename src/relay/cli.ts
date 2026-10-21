@@ -20,8 +20,21 @@ switch (op) {
     break;
   }
   case "exists": {
+    if (!arg) {
+      console.log(`${arg}: no id given`);
+      break;
+    }
+    try {
+      const r = await loadRecord(arg);
+      if (r) {
+        console.log(`${arg}: PRESENT`);
+        break;
+      }
+    } catch {
+      // Fall through to loadStore on error
+    }
     const store = await loadStore();
-    console.log(`${arg}: ${arg ? exists(store, arg) : "no id given"}`);
+    console.log(`${arg}: ${exists(store, arg)}`);
     break;
   }
   case "replies": {
