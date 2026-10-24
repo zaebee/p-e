@@ -69,9 +69,13 @@ describe("relay CLI (src/relay/cli.ts)", () => {
     expect(res2.status).toBe(0);
     expect(res2.stdout.trim()).toBe("relay-9999: UNKNOWN");
 
-    const res3 = runRelay(["exists"]);
+    const res3 = runRelay(["exists", "relay-0026"]);
     expect(res3.status).toBe(0);
-    expect(res3.stdout.trim()).toBe("undefined: no id given");
+    expect(res3.stdout.trim()).toBe("relay-0026: KNOWN_MISSING");
+
+    const res4 = runRelay(["exists"]);
+    expect(res4.status).toBe(0);
+    expect(res4.stdout.trim()).toBe("undefined: no id given");
   });
 
   it("lists replies with relay replies <id>", () => {
