@@ -559,6 +559,35 @@ export function exists(store: Map<string, RelayRecord>, id: string): Presence {
   return "UNKNOWN";
 }
 
+/** Point presence lookup without loading the whole store into memory. */
+export async function existsRecord(id: string, root = storeRoot()): Promise<Presence> {
+  if (!ID.test(id)) return "UNKNOWN";
+  if (await loadRecord(id, root)) return "PRESENT";
+  let names: string[];
+  try {
+    names = await readdir(root);
+  } catch {
+    return "UNKNOWN";
+  }
+  const txts = names.filter((n) => n.endsWith(".txt"));
+  for (let i = 0; i < txts.length; i += 32) {
+    const found = await Promise.all(
+      txts.slice(i, i + 32).map(async (n) => {
+        try {
+          const raw = await readFile(join(root, n), "utf8");
+          const sep = raw.indexOf(DEPOSIT_SEPARATOR);
+          const head = headerBlock(sep === -1 ? raw : raw.slice(sep + DEPOSIT_SEPARATOR.length));
+          return header(head, "parent") === id || header(head, "ref") === id;
+        } catch {
+          return false;
+        }
+      }),
+    );
+    if (found.some(Boolean)) return "KNOWN_MISSING";
+  }
+  return "UNKNOWN";
+}
+
 /** Records whose parent or ref is `id`. The reply graph is not a line. */
 export function listReplies(store: Map<string, RelayRecord>, id: string): RelayRecord[] {
   return [...store.values()].filter((r) => r.parent === id || r.ref === id).sort(byRecordId);

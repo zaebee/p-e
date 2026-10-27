@@ -161,6 +161,13 @@ describe("relay store", () => {
     expect(exists(store, "relay-9999")).toBe("UNKNOWN");
   });
 
+  it("existsRecord produces identical presence results without full store load", async () => {
+    const { existsRecord } = await import("../src/relay/store.js");
+    expect(await existsRecord("relay-0033")).toBe("PRESENT");
+    expect(await existsRecord("relay-0026")).toBe("KNOWN_MISSING");
+    expect(await existsRecord("relay-9999")).toBe("UNKNOWN");
+  });
+
   it("reports the gap rather than closing it", () => {
     const { present, missing } = listRelays(store);
     expect(present).toContain("relay-0036");

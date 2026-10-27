@@ -1,4 +1,4 @@
-import { exists, listRelays, listReplies, loadRecord, loadStore } from "./store.js";
+import { exists, existsRecord, listRelays, listReplies, loadRecord, loadStore } from "./store.js";
 
 const [op, arg] = process.argv.slice(2);
 
@@ -20,8 +20,7 @@ switch (op) {
     break;
   }
   case "exists": {
-    const store = await loadStore();
-    console.log(`${arg}: ${arg ? exists(store, arg) : "no id given"}`);
+    console.log(`${arg}: ${arg ? await existsRecord(arg) : "no id given"}`);
     break;
   }
   case "replies": {
