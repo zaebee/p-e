@@ -214,3 +214,8 @@ not read), not micro. Bun startup plus module loading is ~40–60 ms and
 journal only if it measures something no entry already covers, and search
 the journal and the open PRs first — seven copies of "nothing to do" cost
 more review than any of them saved. Never edit an earlier entry.
+
+## 2026-10-28 - `relay list` and `markerAgreement` In-Process vs CLI Overhead
+**Measured:** Benchmarked `listRelays(store)` and `markerAgreement(store, root)` over 1,128 records under Bun. `markerAgreement` execution time is ~1.97 ms per call, and `listRelays` execution time is ~0.20 ms per call. End-to-end CLI execution time for `bun run relay list` is ~130.4 ms (median across 10 interleaved runs), dominated by `loadStore` I/O (~78 ms) and process startup / module import baselines (~50 ms).
+**Learning:** `listRelays` and `markerAgreement` logic are a micro-fraction (<1.5%) of command execution time. Micro-optimizing array iterations or set filtering in either helper saves <1 ms (<0.8% end-to-end), falling well below the >=10% or >=20ms threshold.
+**Action:** Do not open a PR for `listRelays` or `markerAgreement` optimizations alone unless store size or command volume increases sufficiently for savings to exceed 20ms or 10% end-to-end.
