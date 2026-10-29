@@ -16,3 +16,8 @@ This file contains critical security learnings specific to the `p-e` repository.
 **Path:** `scripts/put-relay.ts` → `checkParentDigest` → `ID.test(parent)` & `src/relay-lite/publish.ts` → `publish` → `target !== join(inDir, basename(target))`.
 **Learning:** `scripts/put-relay.ts` validates `parent` headers against `ID.test(parent)` (`^relay-\d{4}$`) prior to `join(relayRoot, "${parent}.txt")` `readFile` lookups, preventing path traversal attacks via untrusted parent header declarations. Similarly, `src/relay-lite/publish.ts` validates that the constructed target path matches `join(inDir, basename(target))`, preventing CNS delivery targets from escaping the `in/` directory.
 **Prevention:** Ensure all file system paths constructed from untrusted headers or identifiers validate string shapes or compare normalized path basenames prior to file system operations.
+
+## 2026-11-01 - Store Synchronization & Symlink Allocation Audit
+**Path:** `scripts/relay-sync.ts` → `planSync` / `applySync` → `roleProblem` & `lstatSync(history)`.
+**Learning:** `roleProblem` validates that the source store lives outside any git working tree while the mirror target lives inside one, preventing out-of-order syncs or writing into review copies. It also inspects `history/` with `lstatSync` rather than `existsSync` to detect symlinks (including dangling symlinks) before `applySync` writes markers, preventing marker allocation writes from escaping the target store via symlink traversal.
+**Prevention:** Always use `lstat` rather than `existsSync` when validating paths prior to recursive directory or file operations to ensure symlinks cannot redirect filesystem mutations.
