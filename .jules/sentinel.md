@@ -21,3 +21,8 @@ This file contains critical security learnings specific to the `p-e` repository.
 **Path:** `scripts/relay-sync.ts` → `planSync` / `applySync` → `roleProblem` & `lstatSync(history)`.
 **Learning:** `roleProblem` validates that the source store lives outside any git working tree while the mirror target lives inside one, preventing out-of-order syncs or writing into review copies. It also inspects `history/` with `lstatSync` rather than `existsSync` to detect symlinks (including dangling symlinks) before `applySync` writes markers, preventing marker allocation writes from escaping the target store via symlink traversal.
 **Prevention:** Always use `lstat` rather than `existsSync` when validating paths prior to recursive directory or file operations to ensure symlinks cannot redirect filesystem mutations.
+
+## 2026-11-05 - Relay CLI Point Lookup & Identifier Traversal Audit
+**Path:** `src/relay/cli.ts` → `loadRecord(arg)` → `ID.test(id)` in `src/relay/store.ts`.
+**Learning:** `loadRecord` guards against arbitrary file reads and path traversal by validating the requested ID against `ID.test` (`/^relay-\d{4}$/`) before joining with the store root. Invalid IDs or traversal payloads (e.g. `../../package.json`) return `null` rather than attempting a filesystem read outside the store root, falling back safely to checking presence against the loaded store where non-matching IDs evaluate to `UNKNOWN`.
+**Prevention:** Always validate input identifier shapes with exact regex anchors before constructing filesystem paths for single-record lookups.
